@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>4-DOF Robotic Arm Digital Twin — Hand Tracking & CAD Assembly</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- Three.js & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"
+    crossorigin="anonymous"></script>
+  <!-- MediaPipe Hands -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js"
+    crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/hands.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+  <!-- 3D Viewport -->
+  <div id="canvas-container"></div>
+
+  <!-- Top Navigation & Status Bar -->
+  <header class="top-bar">
+    <div class="brand-group">
+      <span class="brand-badge">DIGITAL TWIN 4-DOF</span>
+      <div>
+        <span class="brand-title">Robotic_Arm_4DOF_Assembly.sc</span>
+        <span class="brand-subtitle">39 CAD Bodies • 4-Bar Parallel Linkage • Real-Time Hand Tracking</span>
+      </div>
+    </div>
+    <div class="status-pills">
+      <div class="pill">
+        <span class="dot active" id="cad-dot"></span>
+        <span id="cad-status-text">CAD Mesh: 39/39 Loaded</span>
+      </div>
+      <div class="pill">
+        <span class="dot" id="cam-dot"></span>
+        <span id="cam-status-text">Camera: Standby</span>
+      </div>
+      <div class="pill">
+        <span class="dot" id="serial-dot"></span>
+        <span id="serial-status-text">IoT Serial: Disconnected</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Left Panel: Webcam Hand Tracking & CAD Parts Inspector -->
+  <aside class="left-panel">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🖐️ Hand Tracking (MediaPipe AI)</div>
+        <span id="fps-badge" style="font-family: var(--font-mono); font-size: 11px; color: #94a3b8;">60 FPS</span>
+      </div>
+
+      <div class="camera-box">
+        <video id="webcam-video" playsinline></video>
+        <canvas id="tracking-canvas" width="640" height="480"></canvas>
+        <div class="camera-hud-badges">
+          <span class="hud-tag" id="hand-mode-tag">MODE: IK 3D</span>
+          <span class="hud-tag" id="hand-detect-tag">NO HAND</span>
+        </div>
+        <div class="camera-overlay-msg" id="camera-overlay">
+          <div style="font-size: 26px;">📷</div>
+          <div>กดปุ่ม <b>เปิดกล้อง Hand Tracking</b> ด้านล่าง<br />เพื่อใช้มือควบคุมแขนกล 4-DOF แบบ Real-Time</div>
+          <button class="btn primary" id="btn-start-cam-overlay" style="flex:0; padding: 8px 16px;">เปิดกล้องโน้ตบุ๊ก
+            (Start Webcam)</button>
+        </div>
+      </div>
+
+      <div class="pinch-bar-wrap">
+        <div class="control-label">
+          <span class="control-name">ระยะจีบนิ้วโป้ง-นิ้วชี้ (Pinch → Gripper)</span>
+          <span class="control-val" id="pinch-val-text">50%</span>
+        </div>
+        <div class="pinch-bar-track">
+          <div class="pinch-bar-fill" id="pinch-bar"></div>
+        </div>
+      </div>
+
+      <div style="margin-top: 10px;">
+        <label class="control-name" style="font-size: 11px; display:block; margin-bottom:4px;">รูปแบบการแปลงท่าทางมือ
+          (Hand Mapping Mode):</label>
+        <select id="select-hand-mode" class="select-input">
+          <option value="ik">3D Inverse Kinematics (ขยับฝ่ามือ X-Y-Z + จีบนิ้วหนีบ)</option>
+          <option value="direct">Direct Joint Mapping (แกนมือคุม Servo 1-4 โดยตรง)</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span class="control-name">ความนุ่มนวล (Smoothing Filter)</span>
+          <span class="control-val" id="val-smoothing">0.22</span>
+        </div>
+        <input type="range" id="slider-smoothing" min="0.05" max="0.80" step="0.01" value="0.22" />
+      </div>
+
+      <div class="btn-row" style="margin-top: 8px;">
+        <button class="btn primary" id="btn-toggle-cam">📷 เปิดกล้อง Hand Tracking</button>
+        <button class="btn active" id="btn-mirror-cam" title="กลับด้านซ้าย-ขวากล้อง">🪞 Mirror: ON</button>
+      </div>
+    </div>
+
+    <!-- End-Effector (TCP) Telemetry & CAD Inspector -->
+    <div class="card" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+      <div class="card-header">
+        <div class="card-title">📐 พิกัดปลายแขนกล (TCP) & ชิ้นส่วน CAD</div>
+        <span id="selected-part-badge" style="font-size: 10.5px; color: #38bdf8;">All 39 Parts</span>
+      </div>
+
+      <div class="telemetry-grid">
+        <div class="stat-cell">
+          <div class="stat-label">TCP X (mm)</div>
+          <div class="stat-num" id="tcp-x">148.0</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-label">TCP Y (mm)</div>
+          <div class="stat-num" id="tcp-y">0.0</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-label">TCP Z (mm)</div>
+          <div class="stat-num" id="tcp-z">128.1</div>
+        </div>
+      </div>
+
+      <div class="control-group" style="margin-top: 8px;">
+        <div class="control-label">
+          <span class="control-name">แยกชิ้นส่วน (Exploded View)</span>
+          <span class="control-val" id="val-explode">0%</span>
+        </div>
+        <input type="range" id="slider-explode" min="0" max="100" step="1" value="0" />
+      </div>
+
+      <div class="btn-row" style="margin-top: 6px;">
+        <button class="btn active" id="btn-toggle-edges">เส้นขอบ CAD</button>
+        <button class="btn active" id="btn-toggle-pivots">แกนหมุน Joint</button>
+        <button class="btn" id="btn-toggle-xray">X-Ray</button>
+      </div>
+
+      <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">คลิกชื่อชิ้นส่วนหรือคลิกที่โมเดล 3D
+        เพื่อตรวจสอบ:</div>
+      <div class="parts-list" id="parts-list"></div>
+    </div>
+  </aside>
+
+  <!-- Right Panel: 4-DOF Joint Controls, Inverse Kinematics, Demo & Export -->
+  <aside class="right-panel">
+    <!-- 4-DOF Joint Angles Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">⚙️ การควบคุมข้อต่อ (4-DOF Servo Angles)</div>
+        <button class="btn" id="btn-reset-home" style="flex:0; padding: 3px 9px; font-size:11px;">Home Pose</button>
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span class="control-name">DOF 1: Base Yaw (Servo 1 หมุนฐาน)</span>
+          <span class="control-val" id="val-j1">0.0° (PWM 90°)</span>
+        </div>
+        <input type="range" id="slider-j1" min="-90" max="90" step="0.5" value="0" />
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span class="control-name">DOF 2: Shoulder Pitch (Servo 2 ไหล่)</span>
+          <span class="control-val" id="val-j2">0.0° (PWM 90°)</span>
+        </div>
+        <input type="range" id="slider-j2" min="-45" max="65" step="0.5" value="0" />
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span class="control-name">DOF 3: Elbow Pitch (Servo 3 ศอก 4-Bar)</span>
+          <span class="control-val" id="val-j3">0.0° (PWM 90°)</span>
+        </div>
+        <input type="range" id="slider-j3" min="-55" max="55" step="0.5" value="0" />
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span class="control-name">DOF 4: Gripper Claws (Servo 4 มือจับเฟืองคู่)</span>
+          <span class="control-val" id="val-j4">35% Open</span>
+        </div>
+        <input type="range" id="slider-j4" min="0" max="100" step="1" value="35" />
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span class="control-name">Wrist Trim (ชดเชยมุมก้ม-เงยหัวคีบ)</span>
+          <span class="control-val" id="val-wrist">0.0° (4-Bar Level)</span>
+        </div>
+        <input type="range" id="slider-wrist" min="-45" max="45" step="0.5" value="0" />
+      </div>
+    </div>
+
+    <!-- Automation & Pick-and-Place Simulation -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🤖 โหมดจำลองอัตโนมัติ & ทดสอบหยิบวัตถุ</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="btn-demo-pick">📦 จำลอง Pick & Place</button>
+        <button class="btn" id="btn-demo-circle">🔄 วาดวงกลม IK</button>
+        <button class="btn" id="btn-reset-cube">รีเซ็ตกล่องเป้าหมาย</button>
+      </div>
+      <div style="margin-top: 8px;" class="btn-row">
+        <button class="btn" id="btn-record-pose">⏺️ บันทึกท่าทาง (Record)</button>
+        <button class="btn" id="btn-play-pose">▶️ เล่นซ้ำ (Play)</button>
+        <button class="btn" id="btn-export-traj">💾 ส่งออก JSON</button>
+      </div>
+    </div>
+
+    <!-- IoT Hardware Bridge (WebSerial) & Deliverable Exports -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🔌 เชื่อมต่อบอร์ด IoT & ส่งออกไฟล์ 3D</div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
+        ส่งค่าองศา Servo ทั้ง 4 แกน (<code>S1,S2,S3,S4\n</code>) ออกทาง USB Serial (115200 baud) ไปยัง Arduino / ESP32
+        แบบ Real-Time:
+      </div>
+      <div class="btn-row" style="margin-bottom: 10px;">
+        <button class="btn primary" id="btn-connect-serial">🔌 เชื่อมต่อ Arduino / ESP32 (WebSerial)</button>
+      </div>
+
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">
+        ดาวน์โหลดไฟล์โมเดล 3D ที่สกัดจากไฟล์ <code>.sc</code> พร้อมใช้งาน:
+      </div>
+      <div class="btn-row">
+        <a class="btn" href="models/Robotic_Arm_4DOF_Assembly.glb" download="Robotic_Arm_4DOF_Assembly.glb">📦 .GLB
+          (glTF 3D)</a>
+        <a class="btn" href="models/stl/Robotic_Arm_4DOF_Assembly_Full.stl"
+          download="Robotic_Arm_4DOF_Assembly_Full.stl">🧊 .STL (CAD Mesh)</a>
+        <a class="btn" href="models/Robotic_Arm_4DOF.urdf" download="Robotic_Arm_4DOF.urdf">🤖 .URDF (ROS/Sim)</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Bottom Floating Help -->
+  <div class="bottom-hud">
+    <span><span class="key-hint">คลิกซ้ายลาก:</span> หมุนมุมกล้อง 3D</span>
+    <span>•</span>
+    <span><span class="key-hint">คลิกขวาลาก:</span> เลื่อนฉาก</span>
+    <span>•</span>
+    <span><span class="key-hint">ลูกกลิ้งเมาส์:</span> ซูมเข้า-ออก</span>
+    <span>•</span>
+    <span><span class="key-hint">คลิกที่ชิ้นส่วนแขนกล:</span> ดูข้อมูล CAD Part</span>
+  </div>
+
+  <!-- Extracted CAD Geometry Bundle & Main App -->
+  <script src="js/arm_cad_data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+
+</html>
