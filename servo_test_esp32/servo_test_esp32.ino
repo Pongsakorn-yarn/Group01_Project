@@ -7,7 +7,7 @@
  * -----------------------------------------------------------------------------
  * @pinout (ตรงกับ arduino_servo_bridge.ino)
  *   - Servo 1 (MG90S #1 — Base Yaw / ฐาน)        : ESP32 GPIO 13
- *   - Servo 2 (MG90S #2 — Shoulder / ไหล่)       : ESP32 GPIO 12 (หากบูตมีปัญหา เปลี่ยนเป็น GPIO 26)
+ *   - Servo 2 (MG90S #2 — Shoulder / ไหล่)       : ESP32 GPIO 26 (เลี่ยง GPIO 12 Strapping Pin)
  *   - Servo 3 (SG90  #1 — Elbow / ศอก)           : ESP32 GPIO 14
  *   - Servo 4 (SG90  #2 — Gripper / หัวคีบ)      : ESP32 GPIO 27
  * @wiring_note
@@ -32,7 +32,7 @@
 // SECTION 01: กำหนดขา Pin และพารามิเตอร์ของ Servo
 // -----------------------------------------------------------------------------
 const int PIN_MG90S_1 = 13; // Servo 1: MG90S #1 (Base)
-const int PIN_MG90S_2 = 12; // Servo 2: MG90S #2 (Shoulder) - หมายเหตุ: GPIO 12 เป็น Strapping Pin (ทางเลือก: 26)
+const int PIN_MG90S_2 = 26; // Servo 2: MG90S #2 (Shoulder) — ใช้ GPIO 26 เพื่อเลี่ยง GPIO 12 Strapping Pin
 const int PIN_SG90_1  = 14; // Servo 3: SG90  #1 (Elbow)
 const int PIN_SG90_2  = 27; // Servo 4: SG90  #2 (Gripper)
 
@@ -46,7 +46,7 @@ Servo servos[4];
 const int servoPins[4] = { PIN_MG90S_1, PIN_MG90S_2, PIN_SG90_1, PIN_SG90_2 };
 const char* servoNames[4] = {
   "Servo 1 (MG90S #1 - Base     | GPIO 13)",
-  "Servo 2 (MG90S #2 - Shoulder | GPIO 12)",
+  "Servo 2 (MG90S #2 - Shoulder | GPIO 26)",
   "Servo 3 (SG90  #1 - Elbow    | GPIO 14)",
   "Servo 4 (SG90  #2 - Gripper  | GPIO 27)"
 };
@@ -156,7 +156,7 @@ bool waitWithSerial(unsigned long durationMs) {
 /**
  * @brief หมุน Servo ตัวเดียวอย่างนุ่มนวลจากมุมเดิมไปยังมุมเป้าหมาย
  */
-bool moveSmooth(int index, int toDeg, int stepDelayMs = 10) {
+bool moveSmooth(int index, int toDeg, int stepDelayMs) {
   toDeg = constrain(toDeg, 0, 180);
   int fromDeg = currentAngle[index];
   int step = (fromDeg < toDeg) ? 1 : -1;
@@ -177,7 +177,7 @@ bool testSingleServo(int index) {
   Serial.println(servoNames[index]);
 
   Serial.println("   - ไปที่ 90 องศา (กึ่งกลาง)");
-  setServoAngle(index, 90);
+  if (!moveSmooth(index, 90, 10)) return false;
   if (!waitWithSerial(500)) return false;
 
   Serial.println("   - หมุนไป 0 องศา");

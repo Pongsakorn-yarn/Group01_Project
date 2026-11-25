@@ -7,11 +7,13 @@
   ==============================================================================
   @units       ไฟล์ STL ต้นฉบับมีหน่วยเป็นมิลลิเมตร (mm) จึงกำหนด scale="0.001 0.001 0.001"
                เพื่อแปลงเป็นหน่วยเมตร (m) ตามมาตรฐาน ROS
-  @kinematics  base_link -> joint_1_base_yaw (Z) -> turntable_link
-               -> joint_2_shoulder_pitch (Y) -> upper_arm_link
-               -> joint_3_elbow_pitch (Y) -> forearm_link
-               -> joint_wrist_parallel (Y) -> gripper_base_link
+  @kinematics  base_link -> joint_1_base_yaw (Z: -90..+90 deg) -> turntable_link
+               -> joint_2_shoulder_pitch (Y: -45..+65 deg) -> upper_arm_link
+               -> joint_3_elbow_pitch (Y: -55..+55 deg) -> forearm_link
+               -> joint_wrist_parallel (Y: -45..+45 deg) -> gripper_base_link
                -> joint_4_gripper_left / right (Z / -Z, mimic)
+  @note        URDF แทนโครงสร้างกลไกปิด 4-Bar Parallel Linkage ด้วยลูกโซ่อนุกรม (Serial Chain)
+               พร้อมกำหนด <inertial> เบื้องต้นในแต่ละ Link เพื่อให้โหลดจำลองใน Gazebo / PyBullet ได้
   ==============================================================================
 -->
 <robot name="Robotic_Arm_4DOF_Assembly">
@@ -24,6 +26,11 @@
   </material>
 
   <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 0.015" rpy="0 0 0"/>
+      <mass value="0.25"/>
+      <inertia ixx="0.0004" ixy="0" ixz="0" iyy="0.0004" iyz="0" izz="0.0006"/>
+    </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
@@ -41,6 +48,11 @@
   </link>
 
   <link name="turntable_link">
+    <inertial>
+      <origin xyz="0 0 0.025" rpy="0 0 0"/>
+      <mass value="0.12"/>
+      <inertia ixx="0.00012" ixy="0" ixz="0" iyy="0.00012" iyz="0" izz="0.00015"/>
+    </inertial>
     <visual>
       <origin xyz="0.028 0 -0.029" rpy="0 0 0"/>
       <geometry>
@@ -73,6 +85,11 @@
   </joint>
 
   <link name="upper_arm_link">
+    <inertial>
+      <origin xyz="0.017 0 0.036" rpy="0 0 0"/>
+      <mass value="0.08"/>
+      <inertia ixx="0.00006" ixy="0" ixz="0" iyy="0.00006" iyz="0" izz="0.00003"/>
+    </inertial>
     <visual>
       <origin xyz="0.028 0 -0.064" rpy="0 0 0"/>
       <geometry>
@@ -94,10 +111,15 @@
     <child link="upper_arm_link"/>
     <origin xyz="0 0 0.035" rpy="0 0 0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-1.0472" upper="1.0472" effort="2.0" velocity="3.14"/>
+    <limit lower="-0.7854" upper="1.1345" effort="2.0" velocity="3.14"/>
   </joint>
 
   <link name="forearm_link">
+    <inertial>
+      <origin xyz="0.040 0 -0.004" rpy="0 0 0"/>
+      <mass value="0.06"/>
+      <inertia ixx="0.00003" ixy="0" ixz="0" iyy="0.00005" iyz="0" izz="0.00005"/>
+    </inertial>
     <visual>
       <origin xyz="-0.005809 0 -0.136505" rpy="0 0 0"/>
       <geometry>
@@ -119,10 +141,15 @@
     <child link="forearm_link"/>
     <origin xyz="0.033809 0 0.072505" rpy="0 0 0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-1.0472" upper="1.0472" effort="2.0" velocity="3.14"/>
+    <limit lower="-0.9599" upper="0.9599" effort="2.0" velocity="3.14"/>
   </joint>
 
   <link name="gripper_base_link">
+    <inertial>
+      <origin xyz="0.025 0 0" rpy="0 0 0"/>
+      <mass value="0.05"/>
+      <inertia ixx="0.00002" ixy="0" ixz="0" iyy="0.00002" iyz="0" izz="0.00002"/>
+    </inertial>
     <visual>
       <origin xyz="-0.085371 0 -0.128142" rpy="0 0 0"/>
       <geometry>
@@ -144,10 +171,15 @@
     <child link="gripper_base_link"/>
     <origin xyz="0.079562 0 -0.008363" rpy="0 0 0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-1.0472" upper="1.0472" effort="1.0" velocity="3.14"/>
+    <limit lower="-0.7854" upper="0.7854" effort="1.0" velocity="3.14"/>
   </joint>
 
   <link name="gripper_claw_left_link">
+    <inertial>
+      <origin xyz="0.020 0.006 0" rpy="0 0 0"/>
+      <mass value="0.015"/>
+      <inertia ixx="0.000005" ixy="0" ixz="0" iyy="0.000005" iyz="0" izz="0.000005"/>
+    </inertial>
     <visual>
       <origin xyz="-0.113371 -0.012 -0.127642" rpy="0 0 0"/>
       <geometry>
@@ -162,10 +194,15 @@
     <child link="gripper_claw_left_link"/>
     <origin xyz="0.028 0.012 -0.0005" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-0.08" upper="0.65" effort="1.0" velocity="3.14"/>
+    <limit lower="-0.05" upper="0.57" effort="1.0" velocity="3.14"/>
   </joint>
 
   <link name="gripper_claw_right_link">
+    <inertial>
+      <origin xyz="0.020 -0.006 0" rpy="0 0 0"/>
+      <mass value="0.015"/>
+      <inertia ixx="0.000005" ixy="0" ixz="0" iyy="0.000005" iyz="0" izz="0.000005"/>
+    </inertial>
     <visual>
       <origin xyz="-0.113371 0.012 -0.127642" rpy="0 0 0"/>
       <geometry>
@@ -180,7 +217,7 @@
     <child link="gripper_claw_right_link"/>
     <origin xyz="0.028 -0.012 -0.0005" rpy="0 0 0"/>
     <axis xyz="0 0 -1"/>
-    <limit lower="-0.08" upper="0.65" effort="1.0" velocity="3.14"/>
+    <limit lower="-0.05" upper="0.57" effort="1.0" velocity="3.14"/>
     <mimic joint="joint_4_gripper_left" multiplier="1.0" offset="0.0"/>
   </joint>
 </robot>

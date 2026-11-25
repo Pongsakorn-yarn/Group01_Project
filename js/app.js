@@ -52,10 +52,25 @@
 
   /** @type {Object} ข้อมูลโมเดล CAD 39 ชิ้นและพิกัดจุดหมุนที่สกัดไว้ล่วงหน้า */
   const cadData = window.ARM_CAD_DATA;
-  if (!cadData) {
+  const cadDotEl = document.getElementById('cad-dot');
+  const cadStatusEl = document.getElementById('cad-status-text');
+
+  if (typeof THREE === 'undefined') {
+    if (cadDotEl) cadDotEl.className = 'dot warn';
+    if (cadStatusEl) cadStatusEl.textContent = '3D Engine: CDN Offline';
+    alert('ไม่สามารถโหลดไลบรารี Three.js จาก CDN ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วรีเฟรชหน้าเว็บ');
+    return;
+  }
+
+  if (!cadData || !Array.isArray(cadData.bodies)) {
+    if (cadDotEl) cadDotEl.className = 'dot warn';
+    if (cadStatusEl) cadStatusEl.textContent = 'CAD Mesh: Missing';
     alert('ไม่พบข้อมูลโมเดล CAD (js/arm_cad_data.js)');
     return;
   }
+
+  if (cadDotEl) cadDotEl.className = 'dot active';
+  if (cadStatusEl) cadStatusEl.textContent = `CAD Mesh: ${cadData.bodies.length}/${cadData.bodies.length} Loaded`;
 
   /**
    * ถอดรหัสข้อความ Base64 เป็นอาเรย์เลขทศนิยม 32-bit (Float32Array)
@@ -99,6 +114,8 @@
     serialDot: document.getElementById('serial-dot'),
     serialStatusText: document.getElementById('serial-status-text'),
     btnSerial: document.getElementById('btn-connect-serial'),
+    btnDemoPick: document.getElementById('btn-demo-pick'),
+    btnDemoCircle: document.getElementById('btn-demo-circle'),
     btnRecord: document.getElementById('btn-record-pose'),
     btnPlay: document.getElementById('btn-play-pose')
   };
@@ -122,6 +139,7 @@
     handMode: 'ik', // 'ik' | 'direct'
     mirrorCam: true,
     camRunning: false,
+    camInitializing: false,
     demoMode: null, // 'pick' | 'circle' | null
     demoTime: 0,
     selectedBodyId: null,
@@ -129,12 +147,26 @@
     recording: false,
     playing: false,
     recordedFrames: [],
+    recordStartTime: 0,
     playIndex: 0,
+    playElapsed: 0,
     // สถานะการเชื่อมต่อพอร์ต USB WebSerial
     serialPort: null,
     serialWriter: null,
+    serialSending: false,
     lastSerialSend: 0
   };
+
+  /**
+   * หยุดโหมดอัตโนมัติ (Demo) และการเล่นซ้ำ (Play) พร้อมรีเซ็ตปุ่มสถานะบน UI
+   */
+  function stopAutomation() {
+    state.demoMode = null;
+    state.playing = false;
+    ui.btnDemoPick.classList.remove('active');
+    ui.btnDemoCircle.classList.remove('active');
+    ui.btnPlay.classList.remove('active');
+  }
 
   /* =========================================================================
    * SECTION 02: ตั้งค่าฉาก 3 มิติ Three.js (Camera, Renderer, Lighting, พื้นโต๊ะ)
@@ -793,13 +825,13 @@
     [sliderWrist, 'wrist']
   ].forEach(([el, key]) => {
     el.addEventListener('input', () => {
-      state.demoMode = null;
+      stopAutomation();
       state.target[key] = parseFloat(el.value);
     });
   });
 
   document.getElementById('btn-reset-home').addEventListener('click', () => {
-    state.demoMode = null;
+    stopAutomation();
     state.target = { ...HOME_POSE };
     syncSlidersFromState();
   });
@@ -866,14 +898,20 @@
    * SECTION 09: โหมดจำลองอัตโนมัติ (Demo), บันทึกท่าทาง (Recorder) & ส่งออก JSON
    * ========================================================================= */
 
-  document.getElementById('btn-demo-pick').addEventListener('click', () => {
-    state.demoMode = state.demoMode === 'pick' ? null : 'pick';
+  ui.btnDemoPick.addEventListener('click', () => {
+    const nextMode = state.demoMode === 'pick' ? null : 'pick';
+    stopAutomation();
+    state.demoMode = nextMode;
     state.demoTime = 0;
+    ui.btnDemoPick.classList.toggle('active', state.demoMode === 'pick');
   });
 
-  document.getElementById('btn-demo-circle').addEventListener('click', () => {
-    state.demoMode = state.demoMode === 'circle' ? null : 'circle';
+  ui.btnDemoCircle.addEventListener('click', () => {
+    const nextMode = state.demoMode === 'circle' ? null : 'circle';
+    stopAutomation();
+    state.demoMode = nextMode;
     state.demoTime = 0;
+    ui.btnDemoCircle.classList.toggle('active', state.demoMode === 'circle');
   });
 
   document.getElementById('btn-reset-cube').addEventListener('click', () => {
@@ -885,7 +923,12 @@
   ui.btnRecord.addEventListener('click', () => {
     state.recording = !state.recording;
     if (state.recording) {
+      if (state.playing) {
+        state.playing = false;
+        ui.btnPlay.classList.remove('active');
+      }
       state.recordedFrames = [];
+      state.recordStartTime = performance.now();
       ui.btnRecord.classList.add('danger');
       ui.btnRecord.textContent = '⏹️ หยุดบันทึก (Stop)';
     } else {
@@ -899,8 +942,16 @@
       alert('ยังไม่มีข้อมูลท่าทางที่บันทึกไว้ กดปุ่ม Record แล้วขยับแขนกลก่อนครับ');
       return;
     }
-    state.playing = !state.playing;
+    const nextPlay = !state.playing;
+    stopAutomation();
+    if (nextPlay && state.recording) {
+      state.recording = false;
+      ui.btnRecord.classList.remove('danger');
+      ui.btnRecord.textContent = `⏺️ บันทึก (${state.recordedFrames.length}f)`;
+    }
+    state.playing = nextPlay;
     state.playIndex = 0;
+    state.playElapsed = 0;
     ui.btnPlay.classList.toggle('active', state.playing);
   });
 
@@ -938,9 +989,19 @@
     } catch (_) { /* ข้ามข้อผิดพลาดหากพอร์ตถูกถอดสายไปแล้ว */ }
     state.serialWriter = null;
     state.serialPort = null;
+    state.serialSending = false;
     ui.serialDot.className = 'dot';
     ui.serialStatusText.textContent = 'IoT Serial: Disconnected';
     ui.btnSerial.textContent = '🔌 เชื่อมต่อ Arduino / ESP32 (WebSerial)';
+  }
+
+  if ('serial' in navigator) {
+    navigator.serial.addEventListener('disconnect', (event) => {
+      if (state.serialPort && event.target === state.serialPort) {
+        console.warn('USB Serial device physically disconnected');
+        disconnectSerial();
+      }
+    });
   }
 
   ui.btnSerial.addEventListener('click', async () => {
@@ -975,8 +1036,9 @@
    * @returns {Promise<void>}
    */
   async function sendSerialTelemetry(now) {
-    if (!state.serialWriter || now - state.lastSerialSend < 40) return;
+    if (!state.serialWriter || state.serialSending || now - state.lastSerialSend < 40) return;
     state.lastSerialSend = now;
+    state.serialSending = true;
     const s1 = Math.round(THREE.MathUtils.clamp(90 + state.current.j1, 0, 180));
     const s2 = Math.round(THREE.MathUtils.clamp(90 + state.current.j2, 0, 180));
     const s3 = Math.round(THREE.MathUtils.clamp(90 + state.current.j3, 0, 180));
@@ -987,6 +1049,8 @@
     } catch (e) {
       console.warn('Serial write error, disconnecting:', e);
       await disconnectSerial();
+    } finally {
+      state.serialSending = false;
     }
   }
 
@@ -1073,7 +1137,7 @@
         gripperOpenPct < 28 ? `GRAB (${Math.round(gripperOpenPct)}%)` : `${Math.round(gripperOpenPct)}%`;
 
       // แปลงค่าจากมือเป็นองศาเป้าหมาย 4-DOF
-      state.demoMode = null;
+      stopAutomation();
       if (state.handMode === 'ik') {
         const targetY = ((0.5 - palmX) / 0.38) * 115.0;
         const targetZ = THREE.MathUtils.clamp(20.0 + (0.85 - palmY) * 230.0, 14.0, 200.0);
@@ -1088,8 +1152,9 @@
         // โหมดควบคุมข้อต่อโดยตรง (Direct Joint Mapping)
         state.target.j1 = THREE.MathUtils.clamp((0.5 - palmX) * 190, -90, 90);
         state.target.j2 = THREE.MathUtils.clamp((palmY - 0.45) * 140, -45, 65);
-        const handAngle = Math.atan2(lm[17].y - lm[5].y, lm[17].x - lm[5].x);
-        state.target.j3 = THREE.MathUtils.clamp(handAngle * 65, -55, 55);
+        // คำนวณมุมเอียงสันมือเทียบแนวราบด้วย |dx| เพื่อไม่ให้มุมกระโดด ±180° ไม่ว่าจะใช้มือซ้ายหรือขวา
+        const tiltRad = Math.atan2(lm[17].y - lm[5].y, Math.abs(lm[17].x - lm[5].x) + 1e-5);
+        state.target.j3 = THREE.MathUtils.clamp(((tiltRad * 180) / Math.PI) * 1.15, -55, 55);
         state.target.j4 = gripperOpenPct;
       }
       syncSlidersFromState();
@@ -1103,26 +1168,51 @@
   }
 
   /**
+   * ปิดสตรีมกล้องเว็บแคมและคืนสถานะปุ่ม/ไฟแสดงผลทั้งหมดอย่างปลอดภัย
+   */
+  function stopWebcam(statusText = 'Camera: Standby', dotClass = 'dot') {
+    state.camRunning = false;
+    animCamActive = false;
+    if (mediaStream) {
+      mediaStream.getTracks().forEach((t) => t.stop());
+      mediaStream = null;
+    }
+    videoEl.srcObject = null;
+    camOverlay.style.display = 'flex';
+    ui.camDot.className = dotClass;
+    ui.camStatusText.textContent = statusText;
+    btnToggleCam.textContent = '📷 เปิดกล้อง Hand Tracking';
+    btnToggleCam.classList.remove('danger');
+  }
+
+  /**
    * เปิดหรือปิดสตรีมกล้องเว็บแคม (`getUserMedia`) และเริ่มลูปประมวลผล MediaPipe Hands
    * โดยทำงานในเบราว์เซอร์ 100% ไม่มีการส่งภาพวิดีโอออกไปยังเซิร์ฟเวอร์ภายนอก
    * @returns {Promise<void>}
    */
   async function toggleWebcam() {
+    if (state.camInitializing) return;
+
     if (state.camRunning) {
-      state.camRunning = false;
-      animCamActive = false;
-      if (mediaStream) {
-        mediaStream.getTracks().forEach((t) => t.stop());
-        mediaStream = null;
-      }
-      camOverlay.style.display = 'flex';
-      ui.camDot.className = 'dot';
-      ui.camStatusText.textContent = 'Camera: Standby';
-      btnToggleCam.textContent = '📷 เปิดกล้อง Hand Tracking';
-      btnToggleCam.classList.remove('danger');
+      stopWebcam();
       return;
     }
 
+    if (typeof window.Hands === 'undefined') {
+      ui.camDot.className = 'dot warn';
+      ui.camStatusText.textContent = 'Camera: MediaPipe CDN Offline';
+      alert('ไม่สามารถโหลด MediaPipe Hands จาก CDN ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+      return;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      ui.camDot.className = 'dot warn';
+      ui.camStatusText.textContent = 'Camera: Unsupported Context';
+      alert('เบราว์เซอร์ไม่อนุญาตให้เข้าถึงกล้อง กรุณาเปิดผ่าน http://localhost:8080 หรือ HTTPS');
+      return;
+    }
+
+    state.camInitializing = true;
     try {
       ui.camDot.className = 'dot warn';
       ui.camStatusText.textContent = 'Camera: Initializing AI...';
@@ -1163,9 +1253,7 @@
           }
         } catch (err) {
           console.error('Hand tracking frame error:', err);
-          ui.camDot.className = 'dot warn';
-          ui.camStatusText.textContent = 'Camera: Tracking Error';
-          animCamActive = false;
+          stopWebcam('Camera: Tracking Error', 'dot warn');
           return;
         }
         if (animCamActive) {
@@ -1175,13 +1263,14 @@
       requestAnimationFrame(processVideoFrame);
     } catch (err) {
       console.error('Webcam error:', err);
-      ui.camDot.className = 'dot warn';
-      ui.camStatusText.textContent = 'Camera: Permission/Error';
+      stopWebcam('Camera: Permission/Error', 'dot warn');
       alert(
         'ไม่สามารถเปิดกล้องเว็บแคมได้: ' +
         (err.message || err) +
         '\nตรวจสอบว่าอนุญาตสิทธิ์การใช้กล้องในเบราว์เซอร์แล้ว'
       );
+    } finally {
+      state.camInitializing = false;
     }
   }
 
@@ -1264,20 +1353,34 @@
       state.target.j4 = 35 + 25 * Math.sin(state.demoTime * 3);
       syncSlidersFromState();
     } else if (state.playing && state.recordedFrames.length > 0) {
+      const lastFrame = state.recordedFrames[state.recordedFrames.length - 1];
+      if (typeof lastFrame.t === 'number' && lastFrame.t > 0) {
+        state.playElapsed = (state.playElapsed + dt * 1000) % (lastFrame.t + 16.67);
+        while (
+          state.playIndex + 1 < state.recordedFrames.length &&
+          state.recordedFrames[state.playIndex + 1].t <= state.playElapsed
+        ) {
+          state.playIndex++;
+        }
+        if (state.recordedFrames[state.playIndex].t > state.playElapsed) {
+          state.playIndex = 0;
+        }
+      } else {
+        state.playIndex = (state.playIndex + 1) % state.recordedFrames.length;
+      }
       const f = state.recordedFrames[state.playIndex];
-      state.target = { ...f };
-      state.playIndex = (state.playIndex + 1) % state.recordedFrames.length;
+      state.target = { j1: f.j1, j2: f.j2, j3: f.j3, j4: f.j4, wrist: f.wrist };
       syncSlidersFromState();
     }
 
-    // 3. บันทึกเฟรมปัจจุบันหากกำลังเปิดโหมด Record
+    // 3. บันทึกเฟรมปัจจุบันพร้อมเวลา (ms) หากกำลังเปิดโหมด Record
     if (state.recording) {
-      state.recordedFrames.push({ ...state.current });
+      state.recordedFrames.push({ ...state.current, t: Math.round(now - state.recordStartTime) });
       ui.btnRecord.textContent = `⏹️ หยุด (${state.recordedFrames.length}f)`;
     }
 
-    // 4. กรองความนุ่มนวลด้วย Exponential Moving Average (EMA)
-    const alpha = state.smoothing;
+    // 4. กรองความนุ่มนวลด้วย Exponential Moving Average (EMA) แบบอิสระจากอัตราเฟรมจอ (60Hz/120Hz/144Hz)
+    const alpha = 1 - Math.pow(1 - state.smoothing, dt * 60);
     ['j1', 'j2', 'j3', 'j4', 'wrist'].forEach((k) => {
       state.current[k] += (state.target[k] - state.current[k]) * alpha;
     });

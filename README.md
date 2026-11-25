@@ -30,8 +30,9 @@ flowchart LR
 | **2** | **เข้าใจสถาปัตยกรรม, สมการ 4-Bar IK/FK และ Data Flow ระดับฟังก์ชัน** | อ่าน [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md) |
 | **3** | **แก้ไขหน้าตา UI / ปุ่มควบคุม / ธีมสี** | ดู `index.html` คู่กับ `css/style.css` (แบ่งหมวดหมู่ `01`–`05` ตรงกัน) |
 | **4** | **แก้ไขลอจิก 3D, Hand Tracking, Kinematics หรือ WebSerial** | ดู `js/app.js` (มีสารบัญ `SECTION 01`–`12` อยู่ด้านบนสุดของไฟล์) |
-| **5** | **แก้ไขขา Pin หรือโปรโตคอลฝั่งไมโครคอนโทรลเลอร์** | ดู `arduino_servo_bridge/arduino_servo_bridge.ino` |
-| **6** | **นำโมเดลไปพิมพ์ 3 มิติ หรือจำลองใน ROS / PyBullet** | ใช้ไฟล์ในโฟลเดอร์ `models/` (`.stl`, `.glb`, `.urdf`, `.sc`) |
+| **5** | **ต่อสายวงจรและทดสอบ Servo 4 ตัวบน ESP32 ก่อนประกอบ** | อ่าน [`docs/WIRING_GUIDE.md`](./docs/WIRING_GUIDE.md) และรัน `servo_test_esp32/servo_test_esp32.ino` |
+| **6** | **แก้ไขขา Pin, ค่าปรับเทียบ หรือโปรโตคอลฝั่งไมโครคอนโทรลเลอร์** | ดู `arduino_servo_bridge/arduino_servo_bridge.ino` |
+| **7** | **นำโมเดลไปพิมพ์ 3 มิติ หรือจำลองใน ROS / PyBullet** | ใช้ไฟล์ในโฟลเดอร์ `models/` (`.stl`, `.glb`, `.urdf`, `.sc`) |
 
 ---
 
@@ -54,9 +55,11 @@ flowchart LR
 | ช่อง Servo | หน้าที่ข้อต่อ (DOF) | ขา Arduino (Uno/Nano) | ขา ESP32 | ท่าเริ่มต้น (Home) |
 | :---: | :--- | :---: | :---: | :---: |
 | **Servo 1** | Base Yaw (หมุนฐานซ้าย-ขวา) | `D3` | `GPIO 13` | `90°` |
-| **Servo 2** | Shoulder Pitch (ยก-ก้มแขนท่อนบน) | `D5` | `GPIO 12` | `90°` |
+| **Servo 2** | Shoulder Pitch (ยก-ก้มแขนท่อนบน) | `D5` | `GPIO 26` | `90°` |
 | **Servo 3** | Elbow Pitch (ศอกกลไก 4-Bar) | `D6` | `GPIO 14` | `90°` |
-| **Servo 4** | Gripper Claws (หัวคีบเฟืองคู่) | `D9` | `GPIO 27` | `60°` |
+| **Servo 4** | Gripper Claws (หัวคีบเฟืองคู่) | `D9` | `GPIO 27` | `63°` (แมปช่วงปลอดภัย `20°–120°`) |
+
+> ดูรายละเอียดการต่อสายไฟ 5V แยก, Common GND และตัวเก็บประจุได้ที่ [`docs/WIRING_GUIDE.md`](./docs/WIRING_GUIDE.md) และใช้ [`servo_test_esp32/servo_test_esp32.ino`](./servo_test_esp32/servo_test_esp32.ino) ทดสอบ Servo ก่อนประกอบแขนกลจริง
 
 > **ข้อควรระวังด้านไฟฟ้า:** ห้ามดึงไฟ 5V จากขาบอร์ด Arduino/ESP32 มาเลี้ยง Servo พร้อมกันทั้ง 4 ตัว เพราะจะทำให้บอร์ดรีเซ็ตหรือพอร์ต USB ตัดการเชื่อมต่อ ให้ใช้แหล่งจ่าย 5V แยกและเชื่อมสาย `GND` เข้าด้วยกัน
 

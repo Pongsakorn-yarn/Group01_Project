@@ -19,7 +19,12 @@ Group01_Project/
 │   ├── arm_cad_data.js                        # ข้อมูลเรขาคณิต CAD 39 ชิ้น (Base64 Float32Array) [Auto-generated]
 │   └── app.js                                 # สมองหลักของระบบ แบ่งเป็น SECTION 01–12 (JSDoc ภาษาไทย)
 ├── arduino_servo_bridge/
-│   └── arduino_servo_bridge.ino               # เฟิร์มแวร์รับค่า CSV ผ่าน USB Serial แล้วขับ Servo 4 ตัว
+│   └── arduino_servo_bridge.ino               # เฟิร์มแวร์รับค่า CSV ผ่าน USB Serial แล้วขับ Servo 4 ตัว (Non-blocking + Safety Limits)
+├── servo_test_esp32/
+│   └── servo_test_esp32.ino                   # เฟิร์มแวร์ทดสอบ Servo 4 ตัวบน ESP32 (2x MG90S + 2x SG90) ก่อนประกอบจริง
+├── docs/
+│   ├── WIRING_GUIDE.md                        # คู่มือการต่อสายวงจร, ขา Pin ESP32, แหล่งจ่ายไฟ 5V และ Common GND
+│   └── images/                                # แผนภาพสถาปัตยกรรม, OSI/TCP-IP และ Data Flow สำหรับนำเสนอ (.png / .svg)
 ├── models/
 │   ├── Robotic_Arm_4DOF_Assembly.sc           # ไฟล์ต้นฉบับ Parametric CAD (SolidCraft)
 │   ├── Robotic_Arm_4DOF_Assembly.glb          # โมเดล 3D มาตรฐาน glTF 2.0 Binary
@@ -35,8 +40,10 @@ Group01_Project/
 | 3 | `css/style.css` | Styling | ตกแต่ง UI และคลาสสถานะ Real-Time (`.active`, `.warn`, `.danger`, `.selected`) | แก้ได้ |
 | 4 | `js/arm_cad_data.js` | CAD Data | เก็บ `window.ARM_CAD_DATA` (39 ชิ้น, 18,080 สามเหลี่ยม) สกัดจาก `.sc` | ❌ ห้ามแก้ด้วยมือ |
 | 5 | `js/app.js` | Core Engine | ควบคุม Three.js, FK/IK, Hand Tracking, Pick & Place, Recorder, WebSerial | แก้ได้ |
-| 6 | `arduino_servo_bridge/arduino_servo_bridge.ino` | IoT Firmware | รับ `"S1,S2,S3,S4\n"` ที่ `115200 baud` และสั่งขับ Servo 4 แกน | แก้ได้ |
-| 7 | `models/` | CAD Assets | ไฟล์ต้นฉบับ `.sc` และไฟล์ส่งออก `.glb`, `.urdf`, `stl/*.stl` (40 ไฟล์) | แก้ได้เฉพาะ `.urdf` |
+| 6 | `arduino_servo_bridge/arduino_servo_bridge.ino` | IoT Firmware | รับ `"S1,S2,S3,S4\n"` ที่ `115200 baud` แบบ Non-blocking พร้อมขอบเขตความปลอดภัยและสั่งขับ Servo 4 แกน | แก้ได้ |
+| 7 | `servo_test_esp32/servo_test_esp32.ino` | Test Firmware | เฟิร์มแวร์ทดสอบหมุน Servo ทีละตัว/พร้อมกัน และรับคำสั่งผ่าน Serial Monitor | แก้ได้ |
+| 8 | `docs/WIRING_GUIDE.md` & `docs/images/` | Docs & Diagrams | คู่มือต่อวงจรฮาร์ดแวร์และแผนภาพสถาปัตยกรรม/OSI/Data Flow (16 ไฟล์) | แก้ได้ |
+| 9 | `models/` | CAD Assets | ไฟล์ต้นฉบับ `.sc` และไฟล์ส่งออก `.glb`, `.urdf`, `stl/*.stl` (40 ไฟล์) | แก้ได้เฉพาะ `.urdf` |
 
 ---
 
@@ -116,7 +123,7 @@ sequenceDiagram
   * `S1 = clamp(round(90 + j1), 0, 180)` *(ช่วงใช้งาน `j1`: `-90°` ถึง `+90°`)*
   * `S2 = clamp(round(90 + j2), 0, 180)` *(ช่วงใช้งาน `j2`: `-45°` ถึง `+65°`)*
   * `S3 = clamp(round(90 + j3), 0, 180)` *(ช่วงใช้งาน `j3`: `-55°` ถึง `+55°`)*
-  * `S4 = clamp(round((j4 / 100) * 180), 0, 180)` *(ช่วงใช้งาน `j4`: `0%` ปิดสนิท ถึง `100%` อ้าสุด)*
+  * `S4 = clamp(round((j4 / 100) * 180), 0, 180)` *(ช่วงใช้งาน `j4`: `0%` ปิดสนิท ถึง `100%` อ้าสุด; ฝั่งเฟิร์มแวร์จะ map เข้าสู่ช่วงปลอดภัย `20°–120°` เพื่อกันเฟือง SG90 ชนโครง)*
 
 ---
 

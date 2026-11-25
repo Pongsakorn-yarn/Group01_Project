@@ -26,6 +26,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>4-DOF Robotic Arm Digital Twin — Hand Tracking & CAD Assembly</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230ea5e9'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='34' fill='white'>🤖</text></svg>" />
   <link rel="stylesheet" href="css/style.css" />
   <!-- Three.js & OrbitControls -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
@@ -52,8 +53,8 @@
     </div>
     <div class="status-pills">
       <div class="pill">
-        <span class="dot active" id="cad-dot"></span>
-        <span id="cad-status-text">CAD Mesh: 39/39 Loaded</span>
+        <span class="dot warn" id="cad-dot"></span>
+        <span id="cad-status-text">CAD Mesh: Loading...</span>
       </div>
       <div class="pill">
         <span class="dot" id="cam-dot"></span>
@@ -132,7 +133,7 @@
       <div class="telemetry-grid">
         <div class="stat-cell">
           <div class="stat-label">TCP X (mm)</div>
-          <div class="stat-num" id="tcp-x">148.0</div>
+          <div class="stat-num" id="tcp-x">162.0</div>
         </div>
         <div class="stat-cell">
           <div class="stat-label">TCP Y (mm)</div>
@@ -140,7 +141,7 @@
         </div>
         <div class="stat-cell">
           <div class="stat-label">TCP Z (mm)</div>
-          <div class="stat-num" id="tcp-z">128.1</div>
+          <div class="stat-num" id="tcp-z">129.0</div>
         </div>
       </div>
 
