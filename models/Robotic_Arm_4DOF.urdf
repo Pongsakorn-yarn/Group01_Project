@@ -1,7 +1,20 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ==============================================================================
+  @file        models/Robotic_Arm_4DOF.urdf
+  @project     ISY49303 IoT — Group01_Project (4-DOF Robotic Arm Digital Twin)
+  @description ไฟล์โครงสร้างหุ่นยนต์มาตรฐาน URDF (XML) สำหรับจำลองใน ROS / PyBullet / Gazebo
+  ==============================================================================
+  @units       ไฟล์ STL ต้นฉบับมีหน่วยเป็นมิลลิเมตร (mm) จึงกำหนด scale="0.001 0.001 0.001"
+               เพื่อแปลงเป็นหน่วยเมตร (m) ตามมาตรฐาน ROS
+  @kinematics  base_link -> joint_1_base_yaw (Z) -> turntable_link
+               -> joint_2_shoulder_pitch (Y) -> upper_arm_link
+               -> joint_3_elbow_pitch (Y) -> forearm_link
+               -> joint_wrist_parallel (Y) -> gripper_base_link
+               -> joint_4_gripper_left / right (Z / -Z, mimic)
+  ==============================================================================
+-->
 <robot name="Robotic_Arm_4DOF_Assembly">
-  <!-- Extracted from Robotic_Arm_4DOF_Assembly.sc (solidcraft-container/1) -->
-  <!-- Units: millimeters (scaled 0.001 to meters for ROS/PyBullet compatibility) -->
 
   <material name="slate_dark">
     <color rgba="0.118 0.161 0.231 1.0"/>

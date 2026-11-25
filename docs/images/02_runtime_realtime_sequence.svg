@@ -1,0 +1,181 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 980" width="1600" height="980">
+  <defs>
+    <style>
+      .font-sans { font-family: 'Leelawadee UI', 'Segoe UI', 'Noto Sans Thai', Tahoma, sans-serif; }
+      .font-mono { font-family: 'Consolas', 'JetBrains Mono', 'Courier New', monospace; }
+      .title { font-size: 26px; font-weight: 700; fill: #0f172a; }
+      .subtitle { font-size: 14px; font-weight: 500; fill: #475569; }
+      .badge { font-size: 12px; font-weight: 700; fill: #ffffff; }
+      .actor-title { font-size: 13.5px; font-weight: 700; fill: #ffffff; }
+      .actor-sub { font-size: 11px; fill: #e0f2fe; }
+      .msg-main { font-size: 12.5px; font-weight: 700; fill: #0f172a; }
+      .msg-sub { font-size: 11.5px; fill: #475569; }
+      .step-num { font-size: 11px; font-weight: 700; fill: #ffffff; }
+      .box-title { font-size: 13px; font-weight: 700; fill: #0f172a; }
+      .formula { font-size: 12px; fill: #334155; }
+    </style>
+    <filter id="shadow" x="-5%" y="-5%" width="112%" height="114%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#0284c7"/>
+    </marker>
+    <marker id="arr-emerald" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#059669"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#d97706"/>
+    </marker>
+    <marker id="arr-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#7c3aed"/>
+    </marker>
+  </defs>
+
+  <!-- พื้นหลัง -->
+  <rect width="1600" height="980" fill="#f8fafc"/>
+  <rect x="20" y="20" width="1560" height="940" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- ส่วนหัว -->
+  <rect x="44" y="42" width="165" height="28" rx="6" fill="#059669"/>
+  <text x="126.5" y="61" text-anchor="middle" class="font-sans badge">ISY49303 IoT • GROUP 01</text>
+  <text x="224" y="63" class="font-sans title">แผนภาพที่ 2: ลำดับการทำงานและส่งข้อมูลแบบ Real-Time (Runtime Sequence)</text>
+  <text x="44" y="92" class="font-sans subtitle">แสดงลำดับเวลาของฟังก์ชันตั้งแต่รับอินพุต (กล้อง/UI) → ลูปจำลอง 60 FPS → การส่งข้อมูล WebSerial 25 Hz → ขับมอเตอร์ Servo จริง 4 แกน</text>
+  <line x1="44" y1="108" x2="1556" y2="108" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- ===================================================================== -->
+  <!-- เส้นชีวิต (Lifelines) ทั้ง 6 คอลัมน์: X = 155, 415, 675, 935, 1195, 1445 -->
+  <!-- ===================================================================== -->
+  <!-- Lifelines dashed vertical -->
+  <line x1="155"  y1="194" x2="155"  y2="825" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6,6"/>
+  <line x1="415"  y1="194" x2="415"  y2="825" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6,6"/>
+  <line x1="675"  y1="194" x2="675"  y2="825" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6,6"/>
+  <line x1="935"  y1="194" x2="935"  y2="825" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6,6"/>
+  <line x1="1195" y1="194" x2="1195" y2="825" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6,6"/>
+  <line x1="1445" y1="194" x2="1445" y2="825" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6,6"/>
+
+  <!-- กล่องหัวคอลัมน์ (Participants) -->
+  <!-- 1 -->
+  <rect x="55" y="130" width="200" height="64" rx="10" fill="#334155" filter="url(#shadow)"/>
+  <text x="155" y="157" text-anchor="middle" class="font-sans actor-title">1. ผู้ใช้ / กล้องเว็บแคม</text>
+  <text x="155" y="177" text-anchor="middle" class="font-sans actor-sub">Webcam 640×480 / Mouse</text>
+
+  <!-- 2 -->
+  <rect x="315" y="130" width="200" height="64" rx="10" fill="#0369a1" filter="url(#shadow)"/>
+  <text x="415" y="157" text-anchor="middle" class="font-sans actor-title">2. หน้าเว็บ HUD</text>
+  <text x="415" y="177" text-anchor="middle" class="font-mono actor-sub">index.html (DOM/Events)</text>
+
+  <!-- 3 -->
+  <rect x="575" y="130" width="200" height="64" rx="10" fill="#7c3aed" filter="url(#shadow)"/>
+  <text x="675" y="157" text-anchor="middle" class="font-sans actor-title">3. AI ตรวจจับมือ &amp; IK</text>
+  <text x="675" y="177" text-anchor="middle" class="font-mono actor-sub">app.js (SEC 07 &amp; 11)</text>
+
+  <!-- 4 -->
+  <rect x="835" y="130" width="200" height="64" rx="10" fill="#059669" filter="url(#shadow)"/>
+  <text x="935" y="157" text-anchor="middle" class="font-sans actor-title">4. ลูปหลัก 60 FPS</text>
+  <text x="935" y="177" text-anchor="middle" class="font-mono actor-sub">app.js (animate / FK)</text>
+
+  <!-- 5 -->
+  <rect x="1095" y="130" width="200" height="64" rx="10" fill="#0284c7" filter="url(#shadow)"/>
+  <text x="1195" y="157" text-anchor="middle" class="font-sans actor-title">5. จอ 3D &amp; ตัวเลข HUD</text>
+  <text x="1195" y="177" text-anchor="middle" class="font-sans actor-sub">Three.js WebGLRenderer</text>
+
+  <!-- 6 -->
+  <rect x="1345" y="130" width="200" height="64" rx="10" fill="#d97706" filter="url(#shadow)"/>
+  <text x="1445" y="157" text-anchor="middle" class="font-sans actor-title">6. บอร์ด IoT → 4 Servos</text>
+  <text x="1445" y="177" text-anchor="middle" class="font-mono actor-sub">arduino_servo_bridge.ino</text>
+
+  <!-- ===================================================================== -->
+  <!-- ช่วงที่ A: การรับข้อมูลขาเข้า (INPUT PHASE)                             -->
+  <!-- ===================================================================== -->
+  <!-- Step 1 -->
+  <circle cx="172" cy="231" r="11" fill="#0284c7"/>
+  <text x="172" y="235" text-anchor="middle" class="font-sans step-num">1</text>
+  <line x1="155" y1="248" x2="405" y2="248" stroke="#0284c7" stroke-width="2.2" marker-end="url(#arr-blue)"/>
+  <text x="190" y="235" text-anchor="start" class="font-sans msg-main">ขยับมือหน้ากล้อง / เลื่อน Slider / กดโหมด Demo</text>
+  <text x="285" y="264" text-anchor="middle" class="font-sans msg-sub">ภาพวิดีโอ 640×480 (Local 100%) หรือค่ามุมจาก UI</text>
+
+  <!-- Step 2 -->
+  <circle cx="432" cy="291" r="11" fill="#7c3aed"/>
+  <text x="432" y="295" text-anchor="middle" class="font-sans step-num">2</text>
+  <line x1="415" y1="308" x2="665" y2="308" stroke="#7c3aed" stroke-width="2.2" marker-end="url(#arr-purple)"/>
+  <text x="450" y="295" text-anchor="start" class="font-sans msg-main">ส่งเฟรมภาพเข้า MediaPipe Hands</text>
+  <text x="545" y="324" text-anchor="middle" class="font-mono msg-sub">toggleWebcam() → onHandResults(results)</text>
+
+  <!-- Step 3 (Self-call on AI & IK) -->
+  <rect x="668" y="334" width="14" height="58" rx="3" fill="#ddd6fe" stroke="#7c3aed"/>
+  <path d="M 682 344 L 748 344 L 748 380 L 686 380" fill="none" stroke="#7c3aed" stroke-width="2" marker-end="url(#arr-purple)"/>
+  <circle cx="700" cy="336" r="11" fill="#7c3aed"/>
+  <text x="700" y="340" text-anchor="middle" class="font-sans step-num">3</text>
+  <text x="758" y="357" class="font-sans msg-main">สกัดจุดมือ 21 Landmarks → หาจุดฝ่ามือ &amp; ระยะจีบนิ้ว (Pinch)</text>
+  <text x="758" y="375" class="font-mono msg-sub">solveIK(tx, ty, tz) → คำนวณมุม {j1, j2, j3, j4} แบบ Elbow-up</text>
+
+  <!-- Step 4 -->
+  <circle cx="692" cy="407" r="11" fill="#059669"/>
+  <text x="692" y="411" text-anchor="middle" class="font-sans step-num">4</text>
+  <line x1="675" y1="424" x2="925" y2="424" stroke="#059669" stroke-width="2.2" marker-end="url(#arr-emerald)"/>
+  <text x="710" y="411" text-anchor="start" class="font-sans msg-main">อัปเดตค่าองศาเป้าหมาย (Target Pose)</text>
+  <text x="805" y="440" text-anchor="middle" class="font-mono msg-sub">state.target = { j1, j2, j3, j4, wrist }</text>
+
+  <!-- ===================================================================== -->
+  <!-- กรอบ LOOP 60 FPS                                                       -->
+  <!-- ===================================================================== -->
+  <rect x="330" y="460" width="1205" height="348" rx="12" fill="#f0fdf4" fill-opacity="0.55" stroke="#10b981" stroke-width="2"/>
+  <rect x="330" y="460" width="350" height="26" rx="6" fill="#059669"/>
+  <text x="505" y="478" text-anchor="middle" class="font-sans badge">LOOP ทุกเฟรม: requestAnimationFrame (~16.6 ms / 60 FPS)</text>
+
+  <!-- Step 5 (EMA Filter self-call on animate) -->
+  <rect x="928" y="498" width="14" height="292" rx="3" fill="#a7f3d0" stroke="#059669"/>
+  <path d="M 942 510 L 1012 510 L 1012 544 L 946 544" fill="none" stroke="#059669" stroke-width="2" marker-end="url(#arr-emerald)"/>
+  <circle cx="960" cy="502" r="11" fill="#059669"/>
+  <text x="960" y="506" text-anchor="middle" class="font-sans step-num">5</text>
+  <text x="1022" y="522" class="font-sans msg-main">กรองความนุ่มนวล (EMA Smoothing Filter)</text>
+  <text x="1022" y="540" class="font-mono msg-sub">state.current += (state.target - state.current) * smoothing</text>
+
+  <!-- Step 6 (FK -> 3D Render) -->
+  <circle cx="960" cy="569" r="11" fill="#0284c7"/>
+  <text x="960" y="573" text-anchor="middle" class="font-sans step-num">6</text>
+  <line x1="942" y1="586" x2="1185" y2="586" stroke="#0284c7" stroke-width="2.2" marker-end="url(#arr-blue)"/>
+  <text x="978" y="573" text-anchor="start" class="font-sans msg-main">updateArmKinematics() + เรนเดอร์ฉาก 3 มิติ</text>
+  <text x="954" y="602" text-anchor="start" class="font-sans msg-sub">ขยับกลไก 4-Bar 12 กลุ่ม (39 ชิ้น), พิกัด TCP &amp; ฟิสิกส์หยิบกล่อง</text>
+
+  <!-- Step 7 (HUD Update back to index.html) -->
+  <circle cx="910" cy="618" r="11" fill="#0369a1"/>
+  <text x="910" y="622" text-anchor="middle" class="font-sans step-num">7</text>
+  <line x1="928" y1="630" x2="425" y2="630" stroke="#0369a1" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arr-blue)"/>
+  <text x="675" y="618" text-anchor="middle" class="font-sans msg-main" style="fill:#0369a1;">updateJointLabels() อัปเดตตัวเลของศา / PWM / TCP / FPS บนหน้าเว็บ</text>
+
+  <!-- ===================================================================== -->
+  <!-- กรอบย่อย OPT: WebSerial 25 Hz                                          -->
+  <!-- ===================================================================== -->
+  <rect x="855" y="652" width="660" height="142" rx="10" fill="#fffbeb" fill-opacity="0.92" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6,3"/>
+  <rect x="855" y="652" width="385" height="24" rx="5" fill="#d97706"/>
+  <text x="1047.5" y="668" text-anchor="middle" class="font-sans badge">OPT: เมื่อเชื่อมต่อ WebSerial และครบช่วงเวลา ~40 ms (~25 Hz)</text>
+
+  <!-- Step 8 (WebSerial send) -->
+  <circle cx="960" cy="698" r="11" fill="#d97706"/>
+  <text x="960" y="702" text-anchor="middle" class="font-sans step-num">8</text>
+  <line x1="942" y1="710" x2="1435" y2="710" stroke="#d97706" stroke-width="2.8" marker-end="url(#arr-amber)"/>
+  <text x="1192" y="694" text-anchor="middle" class="font-sans msg-main" style="fill:#92400e;">sendSerialTelemetry(): ส่งแพ็กเก็ต ASCII CSV "S1,S2,S3,S4\n"</text>
+  <text x="1192" y="726" text-anchor="middle" class="font-mono msg-sub" style="fill:#b45309;">USB UART 115200 baud, 8N1 (แปลงค่า 0..180°)</text>
+
+  <!-- Step 9 (Arduino loop) -->
+  <rect x="1438" y="710" width="14" height="72" rx="3" fill="#fde68a" stroke="#d97706"/>
+  <circle cx="1418" cy="754" r="11" fill="#d97706"/>
+  <text x="1418" y="758" text-anchor="middle" class="font-sans step-num">9</text>
+  <rect x="1078" y="738" width="322" height="44" rx="6" fill="#ffffff" stroke="#f59e0b"/>
+  <text x="1090" y="756" class="font-mono box-title" style="fill:#92400e;font-size:12px;">loop(): sscanf() → constrain(0,180)</text>
+  <text x="1090" y="774" class="font-sans msg-sub" style="fill:#92400e;">→ Servo.write() ขับมอเตอร์ Servo จริงทั้ง 4 ตัว</text>
+
+  <!-- ===================================================================== -->
+  <!-- ส่วนสรุปสูตรและจังหวะเวลา (Footer Summary Box)                          -->
+  <!-- ===================================================================== -->
+  <rect x="44" y="838" width="1512" height="102" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="64" y="864" class="font-sans box-title" style="fill:#0f172a;">สรุปสูตรแปลงค่า Digital Twin → มอเตอร์ Servo จริง (0..180°) และจังหวะเวลาสำคัญ:</text>
+
+  <text x="64" y="892" class="font-mono formula"><tspan style="font-weight:700;fill:#0369a1;">S1 (Base Yaw)</tspan>  = clamp(round(90 + j1), 0, 180)   |  <tspan style="font-weight:700;fill:#0369a1;">S2 (Shoulder)</tspan> = clamp(round(90 + j2), 0, 180)</text>
+  <text x="64" y="918" class="font-mono formula"><tspan style="font-weight:700;fill:#0369a1;">S3 (Elbow)</tspan>     = clamp(round(90 + j3), 0, 180)   |  <tspan style="font-weight:700;fill:#0369a1;">S4 (Gripper)</tspan>  = clamp(round(j4 / 100 * 180), 0, 180)</text>
+
+  <line x1="955" y1="852" x2="955" y2="928" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="975" y="886" class="font-sans formula"><tspan style="font-weight:700;fill:#059669;">• อัตราเรนเดอร์ 3D / FK:</tspan> 60 FPS (~16.6 ms/เฟรม)</text>
+  <text x="975" y="912" class="font-sans formula"><tspan style="font-weight:700;fill:#d97706;">• อัตราส่งคำสั่ง WebSerial:</tspan> ~25 Hz (เว้นระยะ 40 ms ป้องกันบัฟเฟอร์เต็ม)</text>
+</svg>

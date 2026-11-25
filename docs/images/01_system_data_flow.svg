@@ -1,0 +1,224 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 920" width="1600" height="920">
+  <defs>
+    <style>
+      .font-sans { font-family: 'Leelawadee UI', 'Segoe UI', 'Noto Sans Thai', Tahoma, sans-serif; }
+      .font-mono { font-family: 'Consolas', 'JetBrains Mono', 'Courier New', monospace; }
+      .title { font-size: 26px; font-weight: 700; fill: #0f172a; }
+      .subtitle { font-size: 14px; font-weight: 500; fill: #475569; }
+      .stage-badge { font-size: 12px; font-weight: 700; fill: #ffffff; }
+      .box-title { font-size: 15px; font-weight: 700; fill: #0f172a; }
+      .box-file { font-size: 12.5px; font-weight: 700; fill: #0369a1; }
+      .box-desc { font-size: 12.5px; fill: #334155; }
+      .box-small { font-size: 11.5px; fill: #475569; }
+      .arrow-label { font-size: 11.5px; font-weight: 700; fill: #0f172a; }
+      .arrow-sub { font-size: 11px; fill: #475569; }
+      .legend-text { font-size: 12px; fill: #334155; }
+    </style>
+    <filter id="shadow" x="-5%" y="-5%" width="112%" height="114%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#0284c7"/>
+    </marker>
+    <marker id="arrow-emerald" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#059669"/>
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#d97706"/>
+    </marker>
+    <marker id="arrow-slate" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#7c3aed"/>
+    </marker>
+  </defs>
+
+  <!-- พื้นหลังสีขาวสะอาดสำหรับรายงานและสไลด์ -->
+  <rect width="1600" height="920" fill="#f8fafc"/>
+  <rect x="20" y="20" width="1560" height="880" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- ส่วนหัว (Header) -->
+  <rect x="44" y="42" width="165" height="28" rx="6" fill="#0284c7"/>
+  <text x="126.5" y="61" text-anchor="middle" class="font-sans stage-badge">ISY49303 IoT • GROUP 01</text>
+  <text x="224" y="63" class="font-sans title">แผนภาพที่ 1: ภาพรวมสถาปัตยกรรมและเส้นทางข้อมูลระดับไฟล์ (System Data Flow)</text>
+  <text x="44" y="92" class="font-sans subtitle">4-DOF Robotic Arm Digital Twin — แสดงลำดับการเชื่อมโยงไฟล์ตั้งแต่ต้นฉบับ CAD, เว็บเบราว์เซอร์ (Three.js + MediaPipe) จนถึงบอร์ด Arduino / ESP32</text>
+  <line x1="44" y1="108" x2="1556" y2="108" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- ===================================================================== -->
+  <!-- แถวบน: ขั้นที่ 0 (CAD Asset Pipeline)                                   -->
+  <!-- ===================================================================== -->
+  <rect x="44" y="126" width="1512" height="162" rx="12" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1.5" stroke-dasharray="6,4"/>
+  <rect x="60" y="138" width="320" height="24" rx="5" fill="#7c3aed"/>
+  <text x="220" y="154" text-anchor="middle" class="font-sans stage-badge">ขั้นที่ 0: สายการผลิตโมเดล 3 มิติ (CAD Asset Pipeline)</text>
+
+  <!-- กล่อง .sc -->
+  <rect x="64" y="174" width="330" height="96" rx="10" fill="#ffffff" stroke="#a78bfa" stroke-width="2" filter="url(#shadow)"/>
+  <text x="80" y="198" class="font-sans box-title">ต้นฉบับ Parametric CAD (SolidCraft)</text>
+  <text x="80" y="218" class="font-mono box-file" style="fill:#6d28d9;">models/Robotic_Arm_4DOF_Assembly.sc</text>
+  <text x="80" y="239" class="font-sans box-desc">• โครงสร้างแขนกล 4-Bar Parallel Linkage (หน่วย mm)</text>
+  <text x="80" y="257" class="font-sans box-desc">• ชิ้นส่วนประกอบทั้งหมด 39 ชิ้น (18,080 สามเหลี่ยม)</text>
+
+  <!-- ลูกศรจาก .sc -> arm_cad_data.js -->
+  <line x1="394" y1="222" x2="492" y2="222" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#arrow-purple)"/>
+  <text x="443" y="212" text-anchor="middle" class="font-sans arrow-label" style="fill:#6d28d9;">สกัด Mesh</text>
+  <text x="443" y="238" text-anchor="middle" class="font-sans arrow-sub">Base64 Float32</text>
+
+  <!-- กล่อง arm_cad_data.js -->
+  <rect x="502" y="174" width="365" height="96" rx="10" fill="#ffffff" stroke="#0284c7" stroke-width="2" filter="url(#shadow)"/>
+  <text x="518" y="198" class="font-sans box-title">ชุดข้อมูลเรขาคณิตสำหรับเว็บ (CAD Bundle)</text>
+  <text x="518" y="218" class="font-mono box-file">js/arm_cad_data.js</text>
+  <text x="518" y="239" class="font-sans box-desc">• เก็บตัวแปร window.ARM_CAD_DATA (39 ชิ้น + พิกัดจุดหมุน)</text>
+  <text x="518" y="257" class="font-sans box-desc">• โหลดตรงในเบราว์เซอร์ได้ทันที (ห้ามแก้ไขไฟล์นี้ด้วยมือ)</text>
+
+  <!-- ลูกศรจาก .sc -> ไฟล์ 3D Export -->
+  <path d="M 394 195 L 430 195 L 430 156 L 945 156 L 945 198 L 966 198" fill="none" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrow-purple)"/>
+  <text x="688" y="150" text-anchor="middle" class="font-sans arrow-sub" style="fill:#6d28d9;font-weight:700;">ส่งออกไฟล์มาตรฐาน 3D / หุ่นยนต์ (Download &amp; 3D Print / ROS)</text>
+
+  <!-- กล่อง 3D Export Files -->
+  <rect x="976" y="174" width="558" height="96" rx="10" fill="#ffffff" stroke="#a78bfa" stroke-width="2" filter="url(#shadow)"/>
+  <text x="992" y="198" class="font-sans box-title">ชุดไฟล์โมเดล 3 มิติพร้อมใช้งาน (Deliverable Exports)</text>
+  <text x="992" y="219" class="font-mono box-file" style="fill:#6d28d9;">models/Robotic_Arm_4DOF_Assembly.glb</text>
+  <text x="1282" y="219" class="font-sans box-small">← โมเดล glTF 2.0 (3D Viewer)</text>
+  <text x="992" y="239" class="font-mono box-file" style="fill:#6d28d9;">models/stl/*.stl (40 ไฟล์)</text>
+  <text x="1282" y="239" class="font-sans box-small">← พิมพ์ 3D (39 ชิ้นแยก + 1 เต็ม)</text>
+  <text x="992" y="259" class="font-mono box-file" style="fill:#6d28d9;">models/Robotic_Arm_4DOF.urdf</text>
+  <text x="1282" y="259" class="font-sans box-small">← จำลอง ROS / PyBullet (เมตร)</text>
+
+  <!-- ===================================================================== -->
+  <!-- แถวกลาง: สายการทำงานหลัก (Runtime Pipeline ขั้นที่ 1 -> 4)             -->
+  <!-- ===================================================================== -->
+  <rect x="44" y="310" width="1512" height="445" rx="12" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1.5"/>
+  <rect x="60" y="322" width="375" height="24" rx="5" fill="#0284c7"/>
+  <text x="247.5" y="338" text-anchor="middle" class="font-sans stage-badge">สายการทำงานหลักแบบ Real-Time (Runtime Control Pipeline)</text>
+
+  <!-- ขั้นที่ 1: Launcher -->
+  <rect x="64" y="366" width="245" height="175" rx="10" fill="#ffffff" stroke="#0284c7" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="64" y="366" width="245" height="30" rx="10" fill="#0284c7"/>
+  <rect x="64" y="384" width="245" height="12" fill="#0284c7"/>
+  <text x="186.5" y="386" text-anchor="middle" class="font-sans stage-badge">ขั้นที่ 1: เปิดระบบ (Launcher)</text>
+  <text x="78" y="420" class="font-mono box-file">start_digital_twin.bat</text>
+  <text x="78" y="444" class="font-sans box-desc">• เปิด Python HTTP Server</text>
+  <text x="78" y="463" class="font-mono box-small" style="fill:#0f172a;">  127.0.0.1:8080</text>
+  <text x="78" y="484" class="font-sans box-desc">• หรือเปิดผ่าน GitHub Pages</text>
+  <text x="78" y="503" class="font-sans box-small">(ต้องเป็น localhost / HTTPS</text>
+  <text x="78" y="519" class="font-sans box-small">เพื่อปลดล็อกกล้อง &amp; WebSerial)</text>
+
+  <!-- ลูกศร 1 -> 2 -->
+  <line x1="309" y1="454" x2="364" y2="454" stroke="#0284c7" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+  <text x="336" y="443" text-anchor="middle" class="font-sans arrow-label">HTTP</text>
+
+  <!-- ขั้นที่ 2: Web UI & Styling -->
+  <rect x="374" y="366" width="275" height="175" rx="10" fill="#ffffff" stroke="#0284c7" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="374" y="366" width="275" height="30" rx="10" fill="#0369a1"/>
+  <rect x="374" y="384" width="275" height="12" fill="#0369a1"/>
+  <text x="511.5" y="386" text-anchor="middle" class="font-sans stage-badge">ขั้นที่ 2: หน้าเว็บ UI &amp; HUD</text>
+  <text x="388" y="420" class="font-mono box-file">index.html + css/style.css</text>
+  <text x="388" y="444" class="font-sans box-desc">• โหลด Three.js &amp; MediaPipe CDN</text>
+  <text x="388" y="464" class="font-sans box-desc">• จัดวาง HUD 5 ส่วน (z-index ชัดเจน)</text>
+  <text x="388" y="484" class="font-sans box-desc">• รับอินพุต: กล้องเว็บแคม, Slider,</text>
+  <text x="388" y="502" class="font-sans box-desc">  โหมด Demo, ปุ่ม Record/WebSerial</text>
+  <text x="388" y="523" class="font-sans box-small" style="fill:#0369a1;">• แสดงผล 3D Viewport + ตัวเลข TCP/PWM</text>
+
+  <!-- ลูกศร 2 <-> 3 (สองทาง: Event เข้า / Render & HUD ออก) -->
+  <line x1="649" y1="436" x2="714" y2="436" stroke="#0284c7" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+  <text x="681" y="426" text-anchor="middle" class="font-sans arrow-label">DOM/Cam</text>
+  <line x1="714" y1="472" x2="649" y2="472" stroke="#059669" stroke-width="2.5" marker-end="url(#arrow-emerald)"/>
+  <text x="681" y="492" text-anchor="middle" class="font-sans arrow-label" style="fill:#047857;">3D &amp; HUD</text>
+
+  <!-- ลูกศรจาก arm_cad_data.js ลงมาที่ js/app.js -->
+  <path d="M 685 270 L 685 335 L 885 335 L 885 358" fill="none" stroke="#0284c7" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+  <text x="795" y="328" text-anchor="middle" class="font-sans arrow-label" style="fill:#0369a1;">โหลด 39 Meshes (b64ToFloat32)</text>
+
+  <!-- ขั้นที่ 3: Core Engine (js/app.js) -->
+  <rect x="724" y="366" width="370" height="255" rx="10" fill="#ffffff" stroke="#059669" stroke-width="2.5" filter="url(#shadow)"/>
+  <rect x="724" y="366" width="370" height="30" rx="10" fill="#059669"/>
+  <rect x="724" y="384" width="370" height="12" fill="#059669"/>
+  <text x="909" y="386" text-anchor="middle" class="font-sans stage-badge">ขั้นที่ 3: สมองประมวลผลหลัก (Core Engine)</text>
+  <text x="740" y="418" class="font-mono box-file" style="fill:#047857;">js/app.js (แบ่งเป็น SECTION 01–12)</text>
+
+  <!-- กล่องย่อยภายใน js/app.js -->
+  <rect x="740" y="430" width="338" height="38" rx="6" fill="#ecfdf5" stroke="#a7f3d0"/>
+  <text x="752" y="447" class="font-sans box-desc" style="font-weight:700;fill:#065f46;">① Hand Tracking (MediaPipe) + 3D IK</text>
+  <text x="752" y="462" class="font-sans box-small">21 จุดมือ → solveIK(tx,ty,tz) → state.target</text>
+
+  <rect x="740" y="476" width="338" height="38" rx="6" fill="#ecfdf5" stroke="#a7f3d0"/>
+  <text x="752" y="493" class="font-sans box-desc" style="font-weight:700;fill:#065f46;">② EMA Smoothing Filter (ลูป 60 FPS)</text>
+  <text x="752" y="508" class="font-sans box-small">กรอง state.target → state.current ให้นุ่มนวล</text>
+
+  <rect x="740" y="522" width="338" height="38" rx="6" fill="#ecfdf5" stroke="#a7f3d0"/>
+  <text x="752" y="539" class="font-sans box-desc" style="font-weight:700;fill:#065f46;">③ 4-Bar Forward Kinematics &amp; ฟิสิกส์</text>
+  <text x="752" y="554" class="font-sans box-small">updateArmKinematics() 12 กลุ่ม, TCP, หยิบกล่อง</text>
+
+  <rect x="740" y="568" width="338" height="38" rx="6" fill="#fffbeb" stroke="#fde68a"/>
+  <text x="752" y="585" class="font-sans box-desc" style="font-weight:700;fill:#92400e;">④ WebSerial Bridge (25 Hz / ทุก ~40 ms)</text>
+  <text x="752" y="600" class="font-sans box-small">sendSerialTelemetry() แปลงเป็น PWM 0..180°</text>
+
+  <!-- ลูกศร 3 -> 4 (WebSerial) -->
+  <line x1="1094" y1="490" x2="1186" y2="490" stroke="#d97706" stroke-width="3" marker-end="url(#arrow-amber)"/>
+  <rect x="1100" y="446" width="84" height="36" rx="5" fill="#fffbeb" stroke="#fcd34d"/>
+  <text x="1142" y="461" text-anchor="middle" class="font-sans arrow-label" style="fill:#b45309;">USB Serial</text>
+  <text x="1142" y="476" text-anchor="middle" class="font-mono arrow-sub" style="fill:#b45309;">115200</text>
+  <text x="1142" y="508" text-anchor="middle" class="font-mono arrow-sub" style="fill:#92400e;font-weight:700;">"S1,S2,S3,S4\n"</text>
+
+  <!-- ขั้นที่ 4: Firmware & Hardware -->
+  <rect x="1196" y="366" width="338" height="170" rx="10" fill="#ffffff" stroke="#d97706" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="1196" y="366" width="338" height="30" rx="10" fill="#d97706"/>
+  <rect x="1196" y="384" width="338" height="12" fill="#d97706"/>
+  <text x="1365" y="386" text-anchor="middle" class="font-sans stage-badge">ขั้นที่ 4: เฟิร์มแวร์ IoT (Arduino / ESP32)</text>
+  <text x="1210" y="419" class="font-mono box-file" style="fill:#b45309;">arduino_servo_bridge.ino</text>
+  <text x="1210" y="443" class="font-sans box-desc">• loop(): Serial.readStringUntil('\n')</text>
+  <text x="1210" y="463" class="font-sans box-desc">• แยกค่า 4 แกนด้วย sscanf("%d,%d,%d,%d")</text>
+  <text x="1210" y="483" class="font-sans box-desc">• จำกัดช่วงปลอดภัย constrain(0, 180)</text>
+  <text x="1210" y="503" class="font-sans box-desc">• สร้างสัญญาณ PWM ด้วย Servo.write()</text>
+  <text x="1210" y="524" class="font-sans box-small" style="fill:#b45309;">* แนะนำใช้แหล่งจ่าย 5V แยก + Common GND</text>
+
+  <!-- ลูกศร 4 -> 5 (PWM -> Servos) -->
+  <line x1="1365" y1="536" x2="1365" y2="578" stroke="#d97706" stroke-width="2.5" marker-end="url(#arrow-amber)"/>
+  <text x="1380" y="563" text-anchor="start" class="font-sans arrow-label" style="fill:#b45309;">สัญญาณ PWM 4 ช่อง</text>
+
+  <!-- กล่องมอเตอร์ Servo จริง -->
+  <rect x="1196" y="586" width="338" height="145" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2" filter="url(#shadow)"/>
+  <text x="1212" y="610" class="font-sans box-title" style="fill:#92400e;">ขั้นที่ 5: ฮาร์ดแวร์แขนกลจริง (4-DOF Servos)</text>
+  <text x="1212" y="634" class="font-sans box-desc">• Servo 1 (Base Yaw)      : Arduino D3 | ESP32 G13</text>
+  <text x="1212" y="655" class="font-sans box-desc">• Servo 2 (Shoulder)      : Arduino D5 | ESP32 G12</text>
+  <text x="1212" y="676" class="font-sans box-desc">• Servo 3 (Elbow 4-Bar)  : Arduino D6 | ESP32 G14</text>
+  <text x="1212" y="697" class="font-sans box-desc">• Servo 4 (Gripper)       : Arduino D9 | ESP32 G27</text>
+  <text x="1212" y="719" class="font-sans box-small" style="fill:#92400e;">ท่าเริ่มต้น (Home Pose): 90°, 90°, 90°, 60°</text>
+
+  <!-- กล่องส่งออก Trajectory JSON ด้านล่าง js/app.js -->
+  <line x1="909" y1="621" x2="909" y2="658" stroke="#059669" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrow-emerald)"/>
+  <text x="980" y="644" text-anchor="middle" class="font-sans arrow-sub" style="fill:#047857;">เมื่อกดปุ่มส่งออก JSON</text>
+  <rect x="724" y="666" width="370" height="65" rx="8" fill="#ffffff" stroke="#10b981" stroke-width="1.8" filter="url(#shadow)"/>
+  <text x="740" y="690" class="font-sans box-title" style="fill:#047857;">ส่งออกเส้นทางท่าทาง (Trajectory Export)</text>
+  <text x="740" y="712" class="font-mono box-file" style="fill:#047857;">robotic_arm_4dof_trajectory.json</text>
+
+  <!-- กล่องสรุปเอกสารประกอบด้านล่างซ้าย -->
+  <rect x="64" y="576" width="585" height="155" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.8" filter="url(#shadow)"/>
+  <text x="82" y="602" class="font-sans box-title" style="fill:#334155;">เอกสารคู่มือประกอบระบบ (Documentation &amp; Handover)</text>
+  <line x1="82" y1="612" x2="630" y2="612" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="82" y="636" class="font-mono box-file">README.md</text>
+  <text x="302" y="636" class="font-sans box-desc">คู่มือเริ่มต้นใช้งานตั้งแต่ต้นจนจบ + Pinout + แก้ปัญหา</text>
+  <text x="82" y="662" class="font-mono box-file">PROJECT_DOCUMENTATION.md</text>
+  <text x="302" y="662" class="font-sans box-desc">สถาปัตยกรรม, สมการ 4-Bar IK/FK และโปรโตคอล Serial</text>
+  <text x="82" y="688" class="font-mono box-file">.gitignore</text>
+  <text x="302" y="688" class="font-sans box-desc">กรองไฟล์ขยะระบบก่อน Push ขึ้น GitHub / แพ็ก ZIP</text>
+  <text x="82" y="715" class="font-sans box-small" style="fill:#0369a1;font-weight:700;">มาตรฐานคอมเมนต์: JSDoc ภาษาไทย (app.js) • Doxygen (.ino) • SECTION 01–05 ตรงกัน (HTML/CSS)</text>
+
+  <!-- แถบคำอธิบายสัญลักษณ์ (Footer Legend) -->
+  <rect x="44" y="775" width="1512" height="104" rx="10" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+  <text x="64" y="803" class="font-sans box-title" style="font-size:13.5px;fill:#334155;">คำอธิบายเส้นทางการไหลของข้อมูล (Legend):</text>
+  <line x1="64" y1="828" x2="112" y2="828" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#arrow-purple)"/>
+  <text x="122" y="833" class="font-sans legend-text">การเตรียมและส่งออกไฟล์ CAD 3 มิติ (Offline Asset Pipeline)</text>
+
+  <line x1="510" y1="828" x2="558" y2="828" stroke="#0284c7" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+  <text x="568" y="833" class="font-sans legend-text">การโหลดหน้าเว็บ, เรขาคณิต 3D และข้อมูลขาเข้าจาก UI/กล้อง</text>
+
+  <line x1="990" y1="828" x2="1038" y2="828" stroke="#059669" stroke-width="2.5" marker-end="url(#arrow-emerald)"/>
+  <text x="1048" y="833" class="font-sans legend-text">การประมวลผล 3D / HUD (60 FPS) และส่งออกไฟล์ JSON</text>
+
+  <line x1="64" y1="858" x2="112" y2="858" stroke="#d97706" stroke-width="3" marker-end="url(#arrow-amber)"/>
+  <text x="122" y="863" class="font-sans legend-text">การสื่อสารฮาร์ดแวร์ IoT ผ่าน USB WebSerial (115200 baud, ~25 Hz) และสัญญาณ PWM ขับ Servo จริง</text>
+
+  <text x="1536" y="863" text-anchor="end" class="font-mono box-small" style="fill:#64748b;">Group01_Project • ISY49303 IoT</text>
+</svg>

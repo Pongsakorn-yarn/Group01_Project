@@ -1,13 +1,68 @@
+/**
+ * =============================================================================
+ * @file        js/app.js
+ * @project     ISY49303 IoT — Group01_Project (4-DOF Robotic Arm Digital Twin)
+ * @description สมองประมวลผลหลักของ Digital Twin ครอบคลุมการเรนเดอร์โมเดล CAD 3 มิติ,
+ *              การคำนวณ Forward Kinematics (FK) ของกลไก 4-Bar Parallel Linkage,
+ *              การคำนวณ Inverse Kinematics (IK) แบบวิเคราะห์ 3 มิติ, การตรวจจับมือ
+ *              ด้วย MediaPipe Hands, ฟิสิกส์หยิบ-วางวัตถุ, การบันทึก/ส่งออกท่าทาง
+ *              และการส่งคำสั่งผ่าน USB WebSerial ไปยังบอร์ด Arduino / ESP32
+ * -----------------------------------------------------------------------------
+ * @dependencies
+ *   - THREE & THREE.OrbitControls (โหลดผ่าน CDN ใน index.html)
+ *   - Hands, drawConnectors, drawLandmarks (MediaPipe Hands ผ่าน CDN)
+ *   - window.ARM_CAD_DATA (ชุดข้อมูล Mesh 39 ชิ้นจาก js/arm_cad_data.js)
+ *
+ * @data_flow
+ *   1. ข้อมูลขาเข้า (INPUTS)
+ *      - กล้องเว็บแคม -> MediaPipe Hands (21 จุดบนมือ) -> onHandResults() -> solveIK()
+ *      - ตัวเลื่อน UI Sliders / โหมดจำลองอัตโนมัติ (Pick & Place, Circle IK) / Play
+ *      -> เขียนองศาเป้าหมายลงใน `state.target {j1, j2, j3, j4, wrist}`
+ *   2. การกรองสัญญาณและจลนศาสตร์ (ลูป `animate()` 60 FPS)
+ *      - EMA Filter ค่อย ๆ ลู่ค่า `state.current` เข้าหา `state.target` ให้นุ่มนวล
+ *      - `updateArmKinematics()` คำนวณตำแหน่งและมุมหมุนกลไก 4-Bar ทั้ง 12 กลุ่ม
+ *        (39 ชิ้นส่วน), อัปเดตพิกัดปลายแขน (TCP) และตรวจจับการหยิบ-ปล่อยกล่อง
+ *   3. ข้อมูลขาออก (OUTPUTS)
+ *      - หน้าจอ 3D : Three.js WebGLRenderer + ตัวเลข Telemetry บน index.html
+ *      - ฮาร์ดแวร์  : `sendSerialTelemetry()` ส่งข้อความ "S1,S2,S3,S4\n" ทุก ~40 ms
+ *                   ผ่าน WebSerial (115200 baud) -> arduino_servo_bridge.ino
+ *      - ส่งออกไฟล์ : ดาวน์โหลดเส้นทางท่าทาง JSON (`robotic_arm_4dof_trajectory.json`)
+ *
+ * @sections (สารบัญโค้ด — กด Ctrl+F ค้นหาเลข SECTION ได้ทันที)
+ *   - SECTION 01 : ตรวจสอบข้อมูล CAD, ฟังก์ชันถอดรหัส Base64, ค่าคงที่ & State หลัก
+ *   - SECTION 02 : ตั้งค่าฉาก 3 มิติ Three.js (Camera, Renderer, Lighting, พื้นโต๊ะ)
+ *   - SECTION 03 : โครงสร้างต้นไม้จลนศาสตร์ (Kinematic Tree), จุดหมุน & กล่องเป้าหมาย
+ *   - SECTION 04 : สร้างชิ้นส่วน Mesh 39 ชิ้นจาก CAD Data และรายการ Parts Inspector
+ *   - SECTION 05 : การคลิกเลือกชิ้นส่วนบนฉาก 3 มิติ (Raycasting)
+ *   - SECTION 06 : จลนศาสตร์เดินหน้า 4-Bar Parallel Linkage (Forward Kinematics)
+ *   - SECTION 07 : จลนศาสตร์ย้อนกลับ 3 มิติ (Analytical 3D Inverse Kinematics)
+ *   - SECTION 08 : การผูกตัวควบคุม UI Sliders, ปุ่มแสดงผล และป้ายตัวเลข HUD
+ *   - SECTION 09 : โหมดจำลองอัตโนมัติ (Demo), บันทึกท่าทาง (Recorder) & ส่งออก JSON
+ *   - SECTION 10 : การสื่อสารฮาร์ดแวร์ IoT ผ่าน USB WebSerial API
+ *   - SECTION 11 : ระบบตรวจจับมือผ่านกล้องเว็บแคม (MediaPipe Hands)
+ *   - SECTION 12 : ลูปเรนเดอร์และจำลองหลัก 60 FPS (Main Loop)
+ * =============================================================================
+ */
 (function () {
   'use strict';
 
+  /* =========================================================================
+   * SECTION 01: ตรวจสอบข้อมูล CAD, ฟังก์ชันถอดรหัส Base64, ค่าคงที่ & State หลัก
+   * ========================================================================= */
+
+  /** @type {Object} ข้อมูลโมเดล CAD 39 ชิ้นและพิกัดจุดหมุนที่สกัดไว้ล่วงหน้า */
   const cadData = window.ARM_CAD_DATA;
   if (!cadData) {
     alert('ไม่พบข้อมูลโมเดล CAD (js/arm_cad_data.js)');
     return;
   }
 
-  // --- Helper: Decode Base64 to Float32Array ---
+  /**
+   * ถอดรหัสข้อความ Base64 เป็นอาเรย์เลขทศนิยม 32-bit (Float32Array)
+   * สำหรับข้อมูลจุดยอด (Vertex), เวกเตอร์ตั้งฉาก (Normal) และเส้นขอบจาก arm_cad_data.js
+   * @param {string} b64 - สตริง Base64 ของข้อมูลไบนารี float32
+   * @returns {Float32Array} อาเรย์พิกัดที่พร้อมส่งเข้า Three.js BufferAttribute
+   */
   function b64ToFloat32(b64) {
     const bin = atob(b64);
     const len = bin.length;
@@ -18,16 +73,47 @@
     return new Float32Array(bytes.buffer);
   }
 
-  // --- State ---
+  /** ท่าเริ่มต้นมาตรฐานของแขนกล (CAD Home Pose) ใช้ร่วมกันทั้งตอนเปิดเว็บและปุ่ม Reset */
+  const HOME_POSE = Object.freeze({ j1: 0, j2: 0, j3: 0, j4: 35, wrist: 0 });
+
+  /** แคชอ้างอิง DOM Elements ที่ถูกอัปเดตซ้ำบ่อย ๆ เพื่อลดการค้นหา DOM ในลูป 60 FPS */
+  const ui = {
+    canvasContainer: document.getElementById('canvas-container'),
+    partsList: document.getElementById('parts-list'),
+    selectedPartBadge: document.getElementById('selected-part-badge'),
+    tcpX: document.getElementById('tcp-x'),
+    tcpY: document.getElementById('tcp-y'),
+    tcpZ: document.getElementById('tcp-z'),
+    valJ1: document.getElementById('val-j1'),
+    valJ2: document.getElementById('val-j2'),
+    valJ3: document.getElementById('val-j3'),
+    valJ4: document.getElementById('val-j4'),
+    valWrist: document.getElementById('val-wrist'),
+    fpsBadge: document.getElementById('fps-badge'),
+    pinchBar: document.getElementById('pinch-bar'),
+    pinchValText: document.getElementById('pinch-val-text'),
+    handModeTag: document.getElementById('hand-mode-tag'),
+    handDetectTag: document.getElementById('hand-detect-tag'),
+    camDot: document.getElementById('cam-dot'),
+    camStatusText: document.getElementById('cam-status-text'),
+    serialDot: document.getElementById('serial-dot'),
+    serialStatusText: document.getElementById('serial-status-text'),
+    btnSerial: document.getElementById('btn-connect-serial'),
+    btnRecord: document.getElementById('btn-record-pose'),
+    btnPlay: document.getElementById('btn-play-pose')
+  };
+
+  /**
+   * สถานะกลางทั้งหมดของระบบ Digital Twin (Single Source of Truth)
+   * - j1: มุมหมุนฐาน Base Yaw (-90° ถึง +90°)
+   * - j2: มุมก้ม-เงยไหล่ Shoulder Pitch (-45° ถึง +65°, ค่าบวก = โน้มไปด้านหน้า/ลง)
+   * - j3: มุมศอก Elbow Pitch (-55° ถึง +55°, ค่าบวก = ปลายแขนก้มลง)
+   * - j4: เปอร์เซ็นต์การอ้าหัวคีบ Gripper (0% = ปิดสนิท, 100% = อ้าสุด, 35% = ท่าเริ่มต้น)
+   * - wrist: มุมชดเชยข้อมือ Wrist Trim (-45° ถึง +45°)
+   */
   const state = {
-    // Joint offsets from CAD Home Pose:
-    // j1: Base Yaw deg (-90..+90)
-    // j2: Shoulder Pitch deg (-45..+65) (+ = forward/down)
-    // j3: Elbow Pitch deg (-55..+55) (+ = forearm down)
-    // j4: Gripper Open % (0 = closed, 100 = wide open; 35% = CAD home)
-    // wristTrim: Wrist pitch trim deg (-45..+45)
-    target: { j1: 0, j2: 0, j3: 0, j4: 35, wrist: 0 },
-    current: { j1: 0, j2: 0, j3: 0, j4: 35, wrist: 0 },
+    target: { ...HOME_POSE },
+    current: { ...HOME_POSE },
     smoothing: 0.22,
     explodeFactor: 0,
     showEdges: true,
@@ -39,19 +125,21 @@
     demoMode: null, // 'pick' | 'circle' | null
     demoTime: 0,
     selectedBodyId: null,
-    // Recording
+    // สถานะการบันทึกและเล่นซ้ำท่าทาง
     recording: false,
     playing: false,
     recordedFrames: [],
     playIndex: 0,
-    // IoT WebSerial
+    // สถานะการเชื่อมต่อพอร์ต USB WebSerial
     serialPort: null,
     serialWriter: null,
     lastSerialSend: 0
   };
 
-  // --- Three.js Scene Setup ---
-  const container = document.getElementById('canvas-container');
+  /* =========================================================================
+   * SECTION 02: ตั้งค่าฉาก 3 มิติ Three.js (Camera, Renderer, Lighting, พื้นโต๊ะ)
+   * ========================================================================= */
+
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x070b14);
   scene.fog = new THREE.FogExp2(0x070b14, 0.0009);
@@ -72,7 +160,7 @@
   renderer.outputEncoding = THREE.sRGBEncoding;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.15;
-  container.appendChild(renderer.domElement);
+  ui.canvasContainer.appendChild(renderer.domElement);
 
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.target.set(25, 85, 0);
@@ -82,7 +170,7 @@
   controls.minDistance = 80;
   controls.maxDistance = 900;
 
-  // --- Lighting ---
+  // แสงสว่างในฉาก (Hemisphere + Directional หลักพร้อมเงา + Rim Light สีฟ้า)
   const hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x0f172a, 0.85);
   scene.add(hemiLight);
 
@@ -93,11 +181,11 @@
   dirLight.shadow.mapSize.height = 2048;
   dirLight.shadow.camera.near = 50;
   dirLight.shadow.camera.far = 800;
-  const d = 220;
-  dirLight.shadow.camera.left = -d;
-  dirLight.shadow.camera.right = d;
-  dirLight.shadow.camera.top = d;
-  dirLight.shadow.camera.bottom = -d;
+  const shadowBounds = 220;
+  dirLight.shadow.camera.left = -shadowBounds;
+  dirLight.shadow.camera.right = shadowBounds;
+  dirLight.shadow.camera.top = shadowBounds;
+  dirLight.shadow.camera.bottom = -shadowBounds;
   dirLight.shadow.bias = -0.0005;
   scene.add(dirLight);
 
@@ -105,32 +193,35 @@
   rimLight.position.set(-220, 140, -180);
   scene.add(rimLight);
 
-  // --- Worktable Grid & Ground ---
+  // เส้นตารางโต๊ะทำงานและพื้นรับเงา
   const gridHelper = new THREE.GridHelper(500, 25, 0x0ea5e9, 0x1e293b);
   gridHelper.position.y = -0.2;
   scene.add(gridHelper);
 
-  const groundGeo = new THREE.PlaneGeometry(1200, 1200);
-  const groundMat = new THREE.MeshStandardMaterial({
-    color: 0x090d18,
-    roughness: 0.85,
-    metalness: 0.1
-  });
-  const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+  const groundMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(1200, 1200),
+    new THREE.MeshStandardMaterial({ color: 0x090d18, roughness: 0.85, metalness: 0.1 })
+  );
   groundMesh.rotation.x = -Math.PI / 2;
   groundMesh.position.y = -0.5;
   groundMesh.receiveShadow = true;
   scene.add(groundMesh);
 
-  // --- CAD Root Coordinate Frame (CAD Z-up -> Three.js Y-up) ---
-  // In CAD: X = forward, Y = left, Z = up.
-  // Rotating cadRoot by -90 deg around X makes CAD +Z point along Three.js +Y,
-  // CAD +X point along Three.js +X, and CAD +Y point along Three.js -Z.
+  /* =========================================================================
+   * SECTION 03: โครงสร้างต้นไม้จลนศาสตร์ (Kinematic Tree), จุดหมุน & กล่องเป้าหมาย
+   * ========================================================================= */
+
+  // แปลงระบบพิกัดจาก CAD (แกน Z ชี้ขึ้น) -> Three.js (แกน Y ชี้ขึ้น) โดยหมุนรอบแกน X -90°
   const cadRoot = new THREE.Group();
   cadRoot.rotation.x = -Math.PI / 2;
   scene.add(cadRoot);
 
-  // --- Pivot Helper Factory: Creates a Group at P_cur that rotates around P_0 in CAD space ---
+  /**
+   * สร้างคู่กลุ่ม Three.js (pivot และ offset) เพื่อให้ชิ้นส่วน Mesh ที่ถูกสร้างในพิกัด
+   * ท่าเริ่มต้น (CAD Home Pose) สามารถหมุนรอบจุดหมุนใด ๆ `p0` ได้อย่างแม่นยำ
+   * @param {number[]} p0 - พิกัดจุดหมุน [x, y, z] ในระบบพิกัด CAD (หน่วย mm)
+   * @returns {{pivot: THREE.Group, offset: THREE.Group, p0: number[]}}
+   */
   function createPivotNode(p0) {
     const pivot = new THREE.Group();
     pivot.position.set(p0[0], p0[1], p0[2]);
@@ -140,7 +231,7 @@
     return { pivot, offset, p0: [...p0] };
   }
 
-  // Exact CAD Home Pose Pivot Coordinates (verified from Robotic_Arm_4DOF_Assembly.sc)
+  /** พิกัดจุดหมุนที่ท่าเริ่มต้น CAD Home Pose (mm) อ้างอิงจาก Robotic_Arm_4DOF_Assembly.sc */
   const PIVOTS = {
     yaw: [-28.0, 0.0, 29.0],
     shoulder: [-28.0, 0.0, 64.0],
@@ -155,13 +246,13 @@
     driveLinkRight: [111.371, -20.0, 134.642]
   };
 
-  // Build Kinematic Tree inside cadRoot
+  // สร้างลำดับชั้นกลุ่มกลไก 12 กลุ่มภายใน cadRoot
   const baseStaticGroup = new THREE.Group();
   cadRoot.add(baseStaticGroup);
 
   const turntableNode = createPivotNode(PIVOTS.yaw);
   cadRoot.add(turntableNode.pivot);
-  // turntableNode.offset is in CAD Home Pose coordinates, rotating with Base Yaw!
+  // turntableWorld อยู่ในระบบพิกัด CAD Home Pose และหมุนไปพร้อมกับแกนฐาน (Base Yaw)
   const turntableWorld = turntableNode.offset;
 
   const upperMainNode = createPivotNode(PIVOTS.shoulder);
@@ -185,7 +276,7 @@
   const gripperMountNode = createPivotNode(PIVOTS.wrist);
   turntableWorld.add(gripperMountNode.pivot);
 
-  // Claws & Drive Link are children of gripperMountNode.offset (which is in CAD Home coords)
+  // ก้ามหนีบซ้าย-ขวาและก้านขับเป็นลูกของ gripperMountNode.offset
   const clawLeftNode = createPivotNode(PIVOTS.clawLeft);
   gripperMountNode.offset.add(clawLeftNode.pivot);
 
@@ -195,6 +286,7 @@
   const driveLinkNode = createPivotNode(PIVOTS.driveLinkRight);
   gripperMountNode.offset.add(driveLinkNode.pivot);
 
+  /** ตารางจับคู่ชื่อกลุ่มจากไฟล์ arm_cad_data.js เข้ากับกลุ่ม Three.js จริง */
   const groupMap = {
     base_static: baseStaticGroup,
     turntable_yaw: turntableWorld,
@@ -210,20 +302,25 @@
     gripper_drive_link: driveLinkNode.offset
   };
 
-  // --- Visual Joint Pivot Markers & TCP Indicator ---
-  const pivotMarkersGroup = new THREE.Group();
-  cadRoot.add(pivotMarkersGroup);
-
+  /**
+   * สร้างสัญลักษณ์วงแหวนและแกนหมุนสำหรับแสดงตำแหน่งจุดหมุนข้อต่อ (Joint Pivot Marker)
+   * @param {number} [radius=3.2] - รัศมีวงแหวน (mm)
+   * @param {number} [color=0x10b981] - สีรูปแบบ Hex
+   * @returns {THREE.Group} กลุ่มวัตถุสัญลักษณ์จุดหมุน
+   */
   function makePivotIndicator(radius = 3.2, color = 0x10b981) {
     const g = new THREE.Group();
-    const ringGeo = new THREE.TorusGeometry(radius, 0.55, 12, 28);
-    const ringMat = new THREE.MeshBasicMaterial({ color });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(radius, 0.55, 12, 28),
+      new THREE.MeshBasicMaterial({ color })
+    );
     g.add(ring);
-    const axGeo = new THREE.CylinderGeometry(0.45, 0.45, radius * 4.5, 10);
-    const axMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7 });
-    const ax = new THREE.Mesh(axGeo, axMat);
-    g.add(ax);
+
+    const axisCyl = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.45, 0.45, radius * 4.5, 10),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7 })
+    );
+    g.add(axisCyl);
     return g;
   }
 
@@ -247,7 +344,7 @@
 
   const pivotMarkers = [markerYaw, markerShoulder, markerElbow, markerWrist];
 
-  // Tool Center Point (TCP) glowing sphere between gripper jaws
+  // จุดปลายแขนกล (TCP: Tool Center Point) อยู่กึ่งกลางระหว่างปากคีบ
   const tcpLocalPos = new THREE.Vector3(162.0, 0.0, 129.0);
   const tcpMarker = new THREE.Mesh(
     new THREE.SphereGeometry(2.8, 16, 16),
@@ -256,7 +353,7 @@
   tcpMarker.position.copy(tcpLocalPos);
   gripperMountNode.offset.add(tcpMarker);
 
-  // TCP Motion Trail in Scene Space
+  // เส้นรอยเคลื่อนที่ของปลายแขนกล (TCP Motion Trail)
   const MAX_TRAIL = 120;
   const trailPositions = new Float32Array(MAX_TRAIL * 3);
   const trailGeo = new THREE.BufferGeometry();
@@ -268,8 +365,7 @@
   scene.add(trailLine);
   let trailCount = 0;
 
-  // --- Interactive Pick-and-Place Target Cube (in CAD space) ---
-  const targetCubeGeo = new THREE.BoxGeometry(18, 18, 18);
+  // กล่องเป้าหมายสำหรับทดสอบฟิสิกส์หยิบ-วาง (Pick & Place Target Cube ขนาด 18 mm)
   const targetCubeMat = new THREE.MeshStandardMaterial({
     color: 0xf59e0b,
     roughness: 0.25,
@@ -277,7 +373,7 @@
     emissive: 0x78350f,
     emissiveIntensity: 0.35
   });
-  const targetCube = new THREE.Mesh(targetCubeGeo, targetCubeMat);
+  const targetCube = new THREE.Mesh(new THREE.BoxGeometry(18, 18, 18), targetCubeMat);
   targetCube.castShadow = true;
   targetCube.receiveShadow = true;
   const CUBE_HOME = new THREE.Vector3(135.0, 45.0, 9.0);
@@ -285,10 +381,12 @@
   cadRoot.add(targetCube);
   let cubeGrabbed = false;
 
-  // --- Build All 39 CAD Body Meshes ---
+  /* =========================================================================
+   * SECTION 04: สร้างชิ้นส่วน Mesh 39 ชิ้นจาก CAD Data และรายการ Parts Inspector
+   * ========================================================================= */
+
   const bodyMeshes = [];
   const edgeLines = [];
-  const partsListEl = document.getElementById('parts-list');
 
   cadData.bodies.forEach((b) => {
     const posArr = b64ToFloat32(b.pos_b64);
@@ -299,7 +397,7 @@
     geom.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
     geom.setAttribute('normal', new THREE.BufferAttribute(normArr, 3));
 
-    // Determine realistic material finish based on part name/color
+    // กำหนดผิววัสดุสมจริงตามประเภทชิ้นส่วน (โลหะสำหรับ Pin/Standoff, พลาสติกด้านสำหรับ Servo)
     let [r, g, bl] = b.color;
     let metalness = 0.2;
     let roughness = 0.32;
@@ -326,7 +424,7 @@
     mesh.castShadow = true;
     mesh.receiveShadow = true;
 
-    // Compute body centroid for Exploded View
+    // คำนวณจุดศูนย์กลางชิ้นส่วนสำหรับโหมดแยกชิ้นส่วน (Exploded View)
     const center = new THREE.Vector3(
       0.5 * (b.bbox_min[0] + b.bbox_max[0]),
       0.5 * (b.bbox_min[1] + b.bbox_max[1]),
@@ -341,15 +439,13 @@
       center
     };
 
-    // Feature outline edges
+    // เส้นขอบโครงสร้าง CAD (Feature Outline Edges)
     const edgeGeo = new THREE.BufferGeometry();
     edgeGeo.setAttribute('position', new THREE.BufferAttribute(edgeArr, 3));
-    const edgeMat = new THREE.LineBasicMaterial({
-      color: 0xbae6fd,
-      transparent: true,
-      opacity: 0.28
-    });
-    const lines = new THREE.LineSegments(edgeGeo, edgeMat);
+    const lines = new THREE.LineSegments(
+      edgeGeo,
+      new THREE.LineBasicMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.28 })
+    );
     mesh.add(lines);
     edgeLines.push(lines);
 
@@ -357,7 +453,7 @@
     parentGroup.add(mesh);
     bodyMeshes.push(mesh);
 
-    // Populate CAD Parts Inspector list (using safe DOM APIs)
+    // เพิ่มรายการชิ้นส่วนลงในแผง CAD Parts Inspector (ใช้ DOM API ที่ปลอดภัย)
     const item = document.createElement('div');
     item.className = 'part-item';
     item.dataset.bodyId = b.id;
@@ -382,12 +478,16 @@
     item.appendChild(leftWrap);
     item.appendChild(triSpan);
     item.addEventListener('click', () => selectPart(b.id));
-    partsListEl.appendChild(item);
+    ui.partsList.appendChild(item);
   });
 
+  /**
+   * ไฮไลต์ชิ้นส่วน CAD ที่ผู้ใช้เลือกทั้งในฉาก 3 มิติและรายการ Parts Inspector
+   * หากคลิกซ้ำที่ชิ้นส่วนเดิมจะเป็นการยกเลิกการเลือก
+   * @param {number} bodyId - รหัสชิ้นส่วน (0..38)
+   */
   function selectPart(bodyId) {
     state.selectedBodyId = state.selectedBodyId === bodyId ? null : bodyId;
-    const badge = document.getElementById('selected-part-badge');
     document.querySelectorAll('.part-item').forEach((el) => {
       el.classList.toggle('selected', Number(el.dataset.bodyId) === state.selectedBodyId);
     });
@@ -398,20 +498,26 @@
     });
     if (state.selectedBodyId !== null) {
       const b = cadData.bodies[state.selectedBodyId];
-      badge.textContent = `#${b.id} ${b.name} (${b.group})`;
+      ui.selectedPartBadge.textContent = `#${b.id} ${b.name} (${b.group})`;
     } else {
-      badge.textContent = 'All 39 Parts';
+      ui.selectedPartBadge.textContent = 'All 39 Parts';
     }
   }
 
-  // Raycasting on 3D Viewport click
+  /* =========================================================================
+   * SECTION 05: การคลิกเลือกชิ้นส่วนบนฉาก 3 มิติ (Raycasting)
+   * ========================================================================= */
+
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   let downPos = { x: 0, y: 0 };
+
   renderer.domElement.addEventListener('pointerdown', (e) => {
     downPos = { x: e.clientX, y: e.clientY };
   });
+
   renderer.domElement.addEventListener('pointerup', (e) => {
+    // ข้ามหากเป็นการลากเมาส์หมุนกล้อง (> 5 px)
     if (Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 5) return;
     pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
     pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -420,31 +526,47 @@
     if (hits.length > 0) {
       const hitId = hits[0].object.userData.bodyId;
       selectPart(hitId);
-      const itemEl = partsListEl.querySelector(`[data-body-id="${hitId}"]`);
+      const itemEl = ui.partsList.querySelector(`[data-body-id="${hitId}"]`);
       if (itemEl) itemEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } else if (state.selectedBodyId !== null) {
       selectPart(state.selectedBodyId);
     }
   });
 
-  // --- Exact 4-Bar Parallel Linkage Forward Kinematics Update ---
+  /* =========================================================================
+   * SECTION 06: จลนศาสตร์เดินหน้า 4-Bar Parallel Linkage (Forward Kinematics)
+   * ========================================================================= */
+
+  /** เวกเตอร์แขนท่อนบน (Shoulder -> Elbow) ที่ท่าเริ่มต้น (mm) */
   const V1_HOME = {
     x: PIVOTS.elbow[0] - PIVOTS.shoulder[0], // 33.809 mm
     z: PIVOTS.elbow[2] - PIVOTS.shoulder[2]  // 72.505 mm
   };
+
+  /** เวกเตอร์แขนท่อนล่าง (Elbow -> Wrist) ที่ท่าเริ่มต้น (mm) */
   const V2_HOME = {
     x: PIVOTS.wrist[0] - PIVOTS.elbow[0],    // 79.562 mm
     z: PIVOTS.wrist[2] - PIVOTS.elbow[2]     // -8.363 mm
   };
+
+  /** มุมเริ่มต้นของก้านผลักข้อศอก (Elbow Push Rod) */
   const PUSHROD_HOME_ANGLE = Math.atan2(
     PIVOTS.bellcrankBack[2] - PIVOTS.elbowServoHorn[2],
     PIVOTS.bellcrankBack[0] - PIVOTS.elbowServoHorn[0]
   );
 
+  // ตัวแปรชั่วคราวสำหรับคำนวณพิกัด TCP (จองหน่วยความจำครั้งเดียวเพื่อไม่ให้สร้างออบเจกต์ใหม่ทุกเฟรม)
+  const tmpTcpWorld = new THREE.Vector3();
+  const tmpInvCadMat = new THREE.Matrix4();
+
+  /**
+   * หมุนเวกเตอร์ 2 มิติในระนาบ XZ รอบแกน +Y (ระบบพิกัดมือขวา)
+   * @param {number} vx - องค์ประกอบเวกเตอร์แกน X
+   * @param {number} vz - องค์ประกอบเวกเตอร์แกน Z
+   * @param {number} angleRad - มุมหมุน (เรเดียน)
+   * @returns {{x: number, z: number}} เวกเตอร์ใหม่หลังหมุน
+   */
   function rotateY2D(vx, vz, angleRad) {
-    // In right-handed (X, Y, Z), rotation around +Y by angleRad:
-    // x' = x*cos(a) + z*sin(a)
-    // z' = -x*sin(a) + z*cos(a)
     const c = Math.cos(angleRad);
     const s = Math.sin(angleRad);
     return {
@@ -453,23 +575,29 @@
     };
   }
 
+  /**
+   * คำนวณ Forward Kinematics (FK) สำหรับแขนกล 4-Bar Parallel Linkage
+   * อ่านองศาที่ผ่านการกรองจาก `state.current` ไปอัปเดตกลุ่มชิ้นส่วนทั้ง 12 กลุ่ม
+   * (39 ชิ้นส่วน CAD), คำนวณพิกัดปลายแขนกล (TCP) แสดงบน HUD พร้อมเส้นทางเคลื่อนที่
+   * และตรวจสอบเงื่อนไขฟิสิกส์การหยิบ-ปล่อยกล่องเป้าหมาย
+   */
   function updateArmKinematics() {
     const deg2rad = Math.PI / 180;
     const th1 = state.current.j1 * deg2rad;
     const th2 = state.current.j2 * deg2rad;
     const th3 = state.current.j3 * deg2rad;
     const wristTrim = state.current.wrist * deg2rad;
-    // Map j4 (0..100%) to claw rotation rad (-0.06 rad closed .. +0.58 rad open; 35% -> ~0.16 rad)
+    // แปลงเปอร์เซ็นต์การอ้าหัวคีบ (0..100%) เป็นมุมหมุนก้ามหนีบ (-0.05..+0.57 rad)
     const clawAngle = -0.05 + (state.current.j4 / 100) * 0.62;
 
-    // 1. Base Yaw around Z at [-28, 0, 29]
+    // 1. หมุนฐาน (Base Yaw) รอบแกน Z ที่จุด [-28, 0, 29]
     turntableNode.pivot.rotation.z = th1;
 
-    // 2. Upper Main Arm & Upper Parallel Link around Y by th2
+    // 2. หมุนแขนท่อนบนหลักและก้านขนานรอบแกน Y ด้วยมุม th2
     upperMainNode.pivot.rotation.y = th2;
     upperParNode.pivot.rotation.y = th2;
 
-    // 3. New Elbow position in Turntable coordinates
+    // 3. คำนวณตำแหน่งข้อศอกใหม่ในระบบพิกัดของแท่นหมุน
     const v1 = rotateY2D(V1_HOME.x, V1_HOME.z, th2);
     const elbowCur = {
       x: PIVOTS.shoulder[0] + v1.x,
@@ -477,11 +605,11 @@
       z: PIVOTS.shoulder[2] + v1.z
     };
 
-    // 4. Bellcrank translates with Elbow and stays upright (0 pitch)
+    // 4. ชิ้นส่วนสามเหลี่ยม Bellcrank เลื่อนตามข้อศอกและคงแนวตั้งตรง (0 pitch)
     bellcrankNode.pivot.position.set(elbowCur.x, elbowCur.y, elbowCur.z);
     bellcrankNode.pivot.rotation.y = 0;
 
-    // 5. Push Rod top hole moves with Bellcrank back hole (elbowCur + [-22, -26.5, -10])
+    // 5. ก้านผลักศอก (Push Rod) เคลื่อนตามรูด้านหลัง Bellcrank และปรับมุมเข้าหาแตร Servo 3
     const bcBackCur = {
       x: elbowCur.x - 22.0,
       y: -26.5,
@@ -494,15 +622,15 @@
     );
     pushRodNode.pivot.rotation.y = PUSHROD_HOME_ANGLE - curPrAngle;
 
-    // 6. Forearm Main Link translates with Elbow and rotates around Y by th3
+    // 6. แขนท่อนล่างหลัก (Forearm Main) เลื่อนตามข้อศอกและหมุนรอบแกน Y ด้วยมุม th3
     forearmMainNode.pivot.position.set(elbowCur.x, elbowCur.y, elbowCur.z);
     forearmMainNode.pivot.rotation.y = th3;
 
-    // 7. Forearm Parallel Link translates with Bellcrank Top (elbowCur + [0, -20.5, 23]) and rotates by th3
+    // 7. ก้านขนานแขนท่อนล่าง (Forearm Parallel) เลื่อนตามจุดบน Bellcrank และหมุนด้วยมุม th3
     forearmParNode.pivot.position.set(elbowCur.x, -20.5, elbowCur.z + 23.0);
     forearmParNode.pivot.rotation.y = th3;
 
-    // 8. New Wrist position in Turntable coordinates
+    // 8. คำนวณตำแหน่งข้อมือใหม่ในระบบพิกัดของแท่นหมุน
     const v2 = rotateY2D(V2_HOME.x, V2_HOME.z, th3);
     const wristCur = {
       x: elbowCur.x + v2.x,
@@ -510,44 +638,41 @@
       z: elbowCur.z + v2.z
     };
 
-    // 9. Gripper Mount translates with Wrist and stays level (0 deg) + optional wristTrim
+    // 9. แท่นยึดหัวคีบ (Gripper Mount) คงระดับขนานพื้นด้วยกลไก 4-Bar + ชดเชยมุม wristTrim
     gripperMountNode.pivot.position.set(wristCur.x, wristCur.y, wristCur.z);
     gripperMountNode.pivot.rotation.y = wristTrim;
 
-    // 10. Geared Gripper Claws & Drive Link
+    // 10. ก้ามหนีบเฟืองคู่ซ้าย-ขวาและก้านขับหัวคีบ
     clawLeftNode.pivot.rotation.z = clawAngle;
     clawRightNode.pivot.rotation.z = -clawAngle;
     driveLinkNode.pivot.rotation.z = -clawAngle * 0.55;
 
-    // Update TCP world coordinates in CAD frame (mm)
+    // อัปเดตพิกัดปลายแขนกล (TCP) กลับเป็นระบบพิกัด CAD (mm)
     cadRoot.updateMatrixWorld(true);
-    const tcpWorldThree = new THREE.Vector3();
-    tcpMarker.getWorldPosition(tcpWorldThree);
-    // Convert Three.js world back to CAD (X, Y, Z)
-    const tcpCad = tcpWorldThree.clone().applyMatrix4(
-      new THREE.Matrix4().copy(cadRoot.matrixWorld).invert()
-    );
+    tcpMarker.getWorldPosition(tmpTcpWorld);
+    tmpInvCadMat.copy(cadRoot.matrixWorld).invert();
+    const tcpCad = tmpTcpWorld.clone().applyMatrix4(tmpInvCadMat);
 
-    document.getElementById('tcp-x').textContent = tcpCad.x.toFixed(1);
-    document.getElementById('tcp-y').textContent = tcpCad.y.toFixed(1);
-    document.getElementById('tcp-z').textContent = tcpCad.z.toFixed(1);
+    ui.tcpX.textContent = tcpCad.x.toFixed(1);
+    ui.tcpY.textContent = tcpCad.y.toFixed(1);
+    ui.tcpZ.textContent = tcpCad.z.toFixed(1);
 
-    // Update TCP motion trail
+    // อัปเดตเส้นรอยเคลื่อนที่ (TCP Trail)
     if (trailCount < MAX_TRAIL) {
-      trailPositions[trailCount * 3] = tcpWorldThree.x;
-      trailPositions[trailCount * 3 + 1] = tcpWorldThree.y;
-      trailPositions[trailCount * 3 + 2] = tcpWorldThree.z;
+      trailPositions[trailCount * 3] = tmpTcpWorld.x;
+      trailPositions[trailCount * 3 + 1] = tmpTcpWorld.y;
+      trailPositions[trailCount * 3 + 2] = tmpTcpWorld.z;
       trailCount++;
     } else {
       trailPositions.copyWithin(0, 3);
-      trailPositions[(MAX_TRAIL - 1) * 3] = tcpWorldThree.x;
-      trailPositions[(MAX_TRAIL - 1) * 3 + 1] = tcpWorldThree.y;
-      trailPositions[(MAX_TRAIL - 1) * 3 + 2] = tcpWorldThree.z;
+      trailPositions[(MAX_TRAIL - 1) * 3] = tmpTcpWorld.x;
+      trailPositions[(MAX_TRAIL - 1) * 3 + 1] = tmpTcpWorld.y;
+      trailPositions[(MAX_TRAIL - 1) * 3 + 2] = tmpTcpWorld.z;
     }
     trailGeo.setDrawRange(0, trailCount);
     trailGeo.attributes.position.needsUpdate = true;
 
-    // Interactive Target Cube Grab / Release Physics
+    // ฟิสิกส์การหยิบและปล่อยกล่องเป้าหมาย
     const distToCube = tcpCad.distanceTo(targetCube.position);
     if (!cubeGrabbed && distToCube < 26.0 && state.current.j4 < 28) {
       cubeGrabbed = true;
@@ -555,7 +680,7 @@
     } else if (cubeGrabbed && state.current.j4 > 34) {
       cubeGrabbed = false;
       targetCubeMat.emissive.setHex(0x78350f);
-      // Drop onto table surface (z = 9 mm for 18 mm cube)
+      // วางกล่องกลับลงบนพื้นโต๊ะ (z = 9 mm สำหรับกล่องสูง 18 mm)
       targetCube.position.z = 9.0;
       targetCube.rotation.set(0, 0, 0);
     }
@@ -566,49 +691,52 @@
     }
   }
 
-  // --- Analytical 3D Inverse Kinematics Solver (for Hand Tracking & IK Demos) ---
-  // Solves for (j1, j2, j3) given desired TCP target (tx, ty, tz) in CAD mm
-  const L1 = 80.0;
-  const L2 = 80.0;
-  const HOME_ALPHA1 = Math.atan2(V1_HOME.x, V1_HOME.z); // 25.0 deg from +Z
-  const HOME_ALPHA2 = Math.atan2(-V2_HOME.z, V2_HOME.x); // +6.0 deg downward from +X
+  /* =========================================================================
+   * SECTION 07: จลนศาสตร์ย้อนกลับ 3 มิติ (Analytical 3D Inverse Kinematics)
+   * ========================================================================= */
 
+  const L1 = 80.0; // ความยาวแขนท่อนบน (mm)
+  const L2 = 80.0; // ความยาวแขนท่อนล่าง (mm)
+  const HOME_ALPHA1 = Math.atan2(V1_HOME.x, V1_HOME.z);  // มุมเริ่มต้นแขนท่อนบน (+25.0° จากแกน +Z)
+  const HOME_ALPHA2 = Math.atan2(-V2_HOME.z, V2_HOME.x); // มุมเริ่มต้นแขนท่อนล่าง (+6.0° ลงจากแกน +X)
+
+  /**
+   * คำนวณ Analytical 3D Inverse Kinematics (IK) แบบศอกยกขึ้น (Elbow-up)
+   * แปลงพิกัดเป้าหมายของปลายแขนกล (TCP) หน่วย mm ในระบบพิกัด CAD ให้เป็นองศาข้อต่อ
+   * (j1: ฐาน, j2: ไหล่, j3: ศอก) โดยใช้กฎของโคไซน์กับความยาวแขน L1 = 80 mm, L2 = 80 mm
+   * @param {number} tx - พิกัดเป้าหมายแกน X ในระบบ CAD (mm)
+   * @param {number} ty - พิกัดเป้าหมายแกน Y ในระบบ CAD (mm)
+   * @param {number} tz - พิกัดเป้าหมายแกน Z ในระบบ CAD (mm)
+   * @returns {{j1: number, j2: number, j3: number}} ค่าองศาข้อต่อที่จำกัดช่วงปลอดภัยแล้ว (องศา)
+   */
   function solveIK(tx, ty, tz) {
-    // 1. Base Yaw around [-28, 0]
+    // 1. คำนวณมุมหมุนฐาน (Base Yaw) รอบแกน [-28, 0]
     const dxYaw = tx - PIVOTS.yaw[0];
     const dyYaw = ty - PIVOTS.yaw[1];
     const j1Rad = Math.atan2(dyYaw, dxYaw);
     const j1Deg = THREE.MathUtils.clamp((j1Rad * 180) / Math.PI, -90, 90);
 
-    // 2. Radial reach from yaw/shoulder axis (-28, 0)
+    // 2. คำนวณระยะเอื้อมในแนวรัศมี หักระยะหัวคีบจากข้อมือถึงปลายแขนกล (~76.6 mm)
     const radialTotal = Math.hypot(dxYaw, dyYaw);
-    // Subtract Gripper TCP offset from Wrist (~76.6 mm forward)
     const wristRadial = Math.max(25.0, radialTotal - 76.6);
     const wristZ = Math.max(15.0, tz);
 
     const dr = wristRadial;
-    const dz = wristZ - PIVOTS.shoulder[2]; // relative to shoulder_z = 64 mm
-    let dist = Math.hypot(dr, dz);
-    const maxReach = L1 + L2 - 2.0; // 158 mm
-    const minReach = 28.0;
-    if (dist > maxReach) dist = maxReach;
-    if (dist < minReach) dist = minReach;
+    const dz = wristZ - PIVOTS.shoulder[2]; // เทียบกับความสูงแกนไหล่ (64 mm)
+    const rawDist = Math.hypot(dr, dz);
+    const dist = THREE.MathUtils.clamp(rawDist, 28.0, L1 + L2 - 2.0); // ระยะเอื้อมปลอดภัย 28..158 mm
 
-    // Angle from +Z vertical to target vector (dr, dz)
+    // 3. ใช้กฎของโคไซน์ (Law of Cosines) หามุมแขนท่อนบนแบบศอกยกขึ้น (Elbow-up)
     const phi = Math.atan2(dr, dz);
-    // Law of cosines for elbow internal angle
     const cosA = THREE.MathUtils.clamp((L1 * L1 + dist * dist - L2 * L2) / (2 * L1 * dist), -1, 1);
-    const innerA = Math.acos(cosA);
+    const alpha1 = phi - Math.acos(cosA);
 
-    // Elbow-up configuration (matches parallel linkage geometry)
-    const alpha1 = phi - innerA; // angle of Upper Arm from +Z vertical
-
-    // Forearm vector from Elbow to Wrist
+    // 4. คำนวณเวกเตอร์แขนท่อนล่าง (Elbow -> Wrist) เพื่อหามุมก้มของศอก
     const elR = L1 * Math.sin(alpha1);
     const elZ = L1 * Math.cos(alpha1);
-    const fwR = (dr * (dist / Math.max(1e-5, Math.hypot(dr, dz)))) - elR;
-    const fwZ = (dz * (dist / Math.max(1e-5, Math.hypot(dr, dz)))) - elZ;
-    // Angle of Forearm downward from +X horizontal
+    const scale = dist / Math.max(1e-5, rawDist);
+    const fwR = dr * scale - elR;
+    const fwZ = dz * scale - elZ;
     const alpha2 = Math.atan2(-fwZ, fwR);
 
     const j2Deg = THREE.MathUtils.clamp(((alpha1 - HOME_ALPHA1) * 180) / Math.PI, -45, 65);
@@ -617,13 +745,19 @@
     return { j1: j1Deg, j2: j2Deg, j3: j3Deg };
   }
 
-  // --- UI Sliders & Controls Binding ---
+  /* =========================================================================
+   * SECTION 08: การผูกตัวควบคุม UI Sliders, ปุ่มแสดงผล และป้ายตัวเลข HUD
+   * ========================================================================= */
+
   const sliderJ1 = document.getElementById('slider-j1');
   const sliderJ2 = document.getElementById('slider-j2');
   const sliderJ3 = document.getElementById('slider-j3');
   const sliderJ4 = document.getElementById('slider-j4');
   const sliderWrist = document.getElementById('slider-wrist');
 
+  /**
+   * อัปเดตตำแหน่งแถบเลื่อน (Sliders) บนหน้าจอให้ตรงกับค่าเป้าหมาย `state.target`
+   */
   function syncSlidersFromState() {
     sliderJ1.value = state.target.j1;
     sliderJ2.value = state.target.j2;
@@ -633,20 +767,24 @@
     updateJointLabels();
   }
 
+  /**
+   * อัปเดตป้ายตัวเลของศาข้อต่อและค่า PWM (0..180°) บนแผงควบคุมด้านขวา
+   */
   function updateJointLabels() {
     const pwm1 = Math.round(90 + state.current.j1);
     const pwm2 = Math.round(90 + state.current.j2);
     const pwm3 = Math.round(90 + state.current.j3);
-    document.getElementById('val-j1').textContent = `${state.current.j1.toFixed(1)}° (PWM ${pwm1}°)`;
-    document.getElementById('val-j2').textContent = `${state.current.j2.toFixed(1)}° (PWM ${pwm2}°)`;
-    document.getElementById('val-j3').textContent = `${state.current.j3.toFixed(1)}° (PWM ${pwm3}°)`;
-    document.getElementById('val-j4').textContent = `${Math.round(state.current.j4)}% Open`;
-    document.getElementById('val-wrist').textContent =
+    ui.valJ1.textContent = `${state.current.j1.toFixed(1)}° (PWM ${pwm1}°)`;
+    ui.valJ2.textContent = `${state.current.j2.toFixed(1)}° (PWM ${pwm2}°)`;
+    ui.valJ3.textContent = `${state.current.j3.toFixed(1)}° (PWM ${pwm3}°)`;
+    ui.valJ4.textContent = `${Math.round(state.current.j4)}% Open`;
+    ui.valWrist.textContent =
       Math.abs(state.current.wrist) < 0.3
         ? '0.0° (4-Bar Level)'
         : `${state.current.wrist.toFixed(1)}°`;
   }
 
+  // ผูก Event ของตัวเลื่อนข้อต่อทั้ง 5 ช่องเข้ากับ state.target
   [
     [sliderJ1, 'j1'],
     [sliderJ2, 'j2'],
@@ -662,18 +800,18 @@
 
   document.getElementById('btn-reset-home').addEventListener('click', () => {
     state.demoMode = null;
-    state.target = { j1: 0, j2: 0, j3: 0, j4: 35, wrist: 0 };
+    state.target = { ...HOME_POSE };
     syncSlidersFromState();
   });
 
-  // Smoothing slider
+  // ตัวเลื่อนความนุ่มนวล (EMA Smoothing Filter)
   const sliderSmoothing = document.getElementById('slider-smoothing');
   sliderSmoothing.addEventListener('input', () => {
     state.smoothing = parseFloat(sliderSmoothing.value);
     document.getElementById('val-smoothing').textContent = state.smoothing.toFixed(2);
   });
 
-  // Exploded View slider
+  // ตัวเลื่อนแยกชิ้นส่วน (Exploded View)
   const sliderExplode = document.getElementById('slider-explode');
   sliderExplode.addEventListener('input', () => {
     const pct = parseFloat(sliderExplode.value);
@@ -685,7 +823,7 @@
     });
   });
 
-  // Visual toggles
+  // ปุ่มสลับการแสดงผล (เส้นขอบ CAD, แกนหมุน Joint, โหมด X-Ray)
   const btnEdges = document.getElementById('btn-toggle-edges');
   btnEdges.addEventListener('click', () => {
     state.showEdges = !state.showEdges;
@@ -710,12 +848,11 @@
     });
   });
 
-  // Hand Mode & Mirror
+  // ตัวเลือกโหมดควบคุมด้วยมือและปุ่มกลับด้านกล้อง (Mirror)
   const selectHandMode = document.getElementById('select-hand-mode');
   selectHandMode.addEventListener('change', () => {
     state.handMode = selectHandMode.value;
-    document.getElementById('hand-mode-tag').textContent =
-      state.handMode === 'ik' ? 'MODE: IK 3D' : 'MODE: DIRECT 4-DOF';
+    ui.handModeTag.textContent = state.handMode === 'ik' ? 'MODE: IK 3D' : 'MODE: DIRECT 4-DOF';
   });
 
   const btnMirror = document.getElementById('btn-mirror-cam');
@@ -725,7 +862,10 @@
     btnMirror.textContent = state.mirrorCam ? '🪞 Mirror: ON' : '🪞 Mirror: OFF';
   });
 
-  // --- Demo Routines ---
+  /* =========================================================================
+   * SECTION 09: โหมดจำลองอัตโนมัติ (Demo), บันทึกท่าทาง (Recorder) & ส่งออก JSON
+   * ========================================================================= */
+
   document.getElementById('btn-demo-pick').addEventListener('click', () => {
     state.demoMode = state.demoMode === 'pick' ? null : 'pick';
     state.demoTime = 0;
@@ -742,29 +882,26 @@
     targetCube.rotation.set(0, 0, 0);
   });
 
-  // --- Pose Recorder & Export ---
-  const btnRecord = document.getElementById('btn-record-pose');
-  const btnPlay = document.getElementById('btn-play-pose');
-  btnRecord.addEventListener('click', () => {
+  ui.btnRecord.addEventListener('click', () => {
     state.recording = !state.recording;
     if (state.recording) {
       state.recordedFrames = [];
-      btnRecord.classList.add('danger');
-      btnRecord.textContent = '⏹️ หยุดบันทึก (Stop)';
+      ui.btnRecord.classList.add('danger');
+      ui.btnRecord.textContent = '⏹️ หยุดบันทึก (Stop)';
     } else {
-      btnRecord.classList.remove('danger');
-      btnRecord.textContent = `⏺️ บันทึก (${state.recordedFrames.length}f)`;
+      ui.btnRecord.classList.remove('danger');
+      ui.btnRecord.textContent = `⏺️ บันทึก (${state.recordedFrames.length}f)`;
     }
   });
 
-  btnPlay.addEventListener('click', () => {
+  ui.btnPlay.addEventListener('click', () => {
     if (state.recordedFrames.length === 0) {
       alert('ยังไม่มีข้อมูลท่าทางที่บันทึกไว้ กดปุ่ม Record แล้วขยับแขนกลก่อนครับ');
       return;
     }
     state.playing = !state.playing;
     state.playIndex = 0;
-    btnPlay.classList.toggle('active', state.playing);
+    ui.btnPlay.classList.toggle('active', state.playing);
   });
 
   document.getElementById('btn-export-traj').addEventListener('click', () => {
@@ -783,31 +920,46 @@
     URL.revokeObjectURL(url);
   });
 
-  // --- WebSerial IoT Bridge (Arduino / ESP32) ---
-  const btnSerial = document.getElementById('btn-connect-serial');
-  btnSerial.addEventListener('click', async () => {
+  /* =========================================================================
+   * SECTION 10: การสื่อสารฮาร์ดแวร์ IoT ผ่าน USB WebSerial API
+   * ========================================================================= */
+
+  /**
+   * ตัดการเชื่อมต่อพอร์ต USB WebSerial อย่างปลอดภัย ปลดล็อก Writer และรีเซ็ตสถานะปุ่มบน UI
+   * (ใช้ร่วมกันทั้งกรณีผู้ใช้กดตัดการเชื่อมต่อเองและกรณีเกิด Error ระหว่างส่งข้อมูล)
+   * @returns {Promise<void>}
+   */
+  async function disconnectSerial() {
+    try {
+      if (state.serialWriter) state.serialWriter.releaseLock();
+    } catch (_) { /* ข้ามข้อผิดพลาดหาก Writer ถูกปล่อยไปแล้ว */ }
+    try {
+      if (state.serialPort) await state.serialPort.close();
+    } catch (_) { /* ข้ามข้อผิดพลาดหากพอร์ตถูกถอดสายไปแล้ว */ }
+    state.serialWriter = null;
+    state.serialPort = null;
+    ui.serialDot.className = 'dot';
+    ui.serialStatusText.textContent = 'IoT Serial: Disconnected';
+    ui.btnSerial.textContent = '🔌 เชื่อมต่อ Arduino / ESP32 (WebSerial)';
+  }
+
+  ui.btnSerial.addEventListener('click', async () => {
     if (!('serial' in navigator)) {
       alert('เบราว์เซอร์นี้ไม่รองรับ WebSerial API (แนะนำให้เปิดด้วย Chrome หรือ Edge บนโน้ตบุ๊ก)');
       return;
     }
     try {
       if (state.serialPort) {
-        if (state.serialWriter) state.serialWriter.releaseLock();
-        await state.serialPort.close();
-        state.serialPort = null;
-        state.serialWriter = null;
-        document.getElementById('serial-dot').className = 'dot';
-        document.getElementById('serial-status-text').textContent = 'IoT Serial: Disconnected';
-        btnSerial.textContent = '🔌 เชื่อมต่อ Arduino / ESP32 (WebSerial)';
+        await disconnectSerial();
         return;
       }
       const port = await navigator.serial.requestPort();
       await port.open({ baudRate: 115200 });
       state.serialPort = port;
       state.serialWriter = port.writable.getWriter();
-      document.getElementById('serial-dot').className = 'dot active';
-      document.getElementById('serial-status-text').textContent = 'IoT Serial: 115200 Connected';
-      btnSerial.textContent = '🔌 ตัดการเชื่อมต่อ Serial';
+      ui.serialDot.className = 'dot active';
+      ui.serialStatusText.textContent = 'IoT Serial: 115200 Connected';
+      ui.btnSerial.textContent = '🔌 ตัดการเชื่อมต่อ Serial';
     } catch (err) {
       console.warn('WebSerial connection cancelled or failed:', err);
     }
@@ -815,6 +967,13 @@
 
   const serialEncoder = new TextEncoder();
 
+  /**
+   * ส่งค่าองศา Servo ปัจจุบันออกทางพอร์ต USB WebSerial ทุก ~40 ms (~25 Hz)
+   * ในรูปแบบข้อความ ASCII CSV "S1,S2,S3,S4\n" (ช่วง 0..180 องศา)
+   * เพื่อส่งต่อไปยังเฟิร์มแวร์ `arduino_servo_bridge/arduino_servo_bridge.ino`
+   * @param {number} now - ค่าเวลาความละเอียดสูง (ms) จาก requestAnimationFrame
+   * @returns {Promise<void>}
+   */
   async function sendSerialTelemetry(now) {
     if (!state.serialWriter || now - state.lastSerialSend < 40) return;
     state.lastSerialSend = now;
@@ -827,33 +986,32 @@
       await state.serialWriter.write(serialEncoder.encode(msg));
     } catch (e) {
       console.warn('Serial write error, disconnecting:', e);
-      try {
-        state.serialWriter.releaseLock();
-      } catch (_) { }
-      try {
-        if (state.serialPort) await state.serialPort.close();
-      } catch (_) { }
-      state.serialWriter = null;
-      state.serialPort = null;
-      document.getElementById('serial-dot').className = 'dot';
-      document.getElementById('serial-status-text').textContent = 'IoT Serial: Disconnected';
-      btnSerial.textContent = '🔌 เชื่อมต่อ Arduino / ESP32 (WebSerial)';
+      await disconnectSerial();
     }
   }
 
-  // --- MediaPipe Hands & Webcam Integration ---
+  /* =========================================================================
+   * SECTION 11: ระบบตรวจจับมือผ่านกล้องเว็บแคม (MediaPipe Hands)
+   * ========================================================================= */
+
   const videoEl = document.getElementById('webcam-video');
   const trackCanvas = document.getElementById('tracking-canvas');
   const trackCtx = trackCanvas.getContext('2d');
   const camOverlay = document.getElementById('camera-overlay');
   const btnToggleCam = document.getElementById('btn-toggle-cam');
   const btnStartCamOverlay = document.getElementById('btn-start-cam-overlay');
-  const handDetectTag = document.getElementById('hand-detect-tag');
 
   let handsInstance = null;
   let mediaStream = null;
   let animCamActive = false;
 
+  /**
+   * ฟังก์ชัน Callback ของ MediaPipe Hands ที่ทำงานทุกเฟรมจากกล้องเว็บแคม
+   * วาดภาพกล้องและโครงกระดูกมือ 21 จุดลงบน `#tracking-canvas`, คำนวณจุดศูนย์กลางฝ่ามือ
+   * (X, Y), ขนาดมือเพื่อประมาณระยะลึก (Reach) และระยะจีบนิ้วโป้ง-นิ้วชี้ (Pinch)
+   * จากนั้นอัปเดตค่าเป้าหมายลงใน `state.target` ตามโหมดที่เลือก (IK หรือ Direct)
+   * @param {Object} results - ผลลัพธ์จาก MediaPipe Hands ประกอบด้วย `image` และ `multiHandLandmarks`
+   */
   function onHandResults(results) {
     trackCtx.save();
     trackCtx.clearRect(0, 0, trackCanvas.width, trackCanvas.height);
@@ -863,18 +1021,18 @@
       trackCtx.scale(-1, 1);
     }
 
-    // Draw webcam frame
+    // วาดภาพเฟรมจากกล้องเว็บแคม
     if (results.image) {
       trackCtx.drawImage(results.image, 0, 0, trackCanvas.width, trackCanvas.height);
     }
 
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
       const lm = results.multiHandLandmarks[0];
-      handDetectTag.textContent = 'HAND LOCKED';
-      handDetectTag.style.borderColor = '#10b981';
-      handDetectTag.style.color = '#6ee7b7';
+      ui.handDetectTag.textContent = 'HAND LOCKED';
+      ui.handDetectTag.style.borderColor = '#10b981';
+      ui.handDetectTag.style.color = '#6ee7b7';
 
-      // Draw skeleton connectors & landmarks
+      // วาดเส้นโครงกระดูกและจุด Landmarks 21 จุดบนมือ
       if (window.drawConnectors && window.HAND_CONNECTIONS) {
         window.drawConnectors(trackCtx, lm, window.HAND_CONNECTIONS, {
           color: '#0ea5e9',
@@ -888,43 +1046,35 @@
         });
       }
 
-      // Compute key hand control features:
-      // 1. Palm center (average of wrist #0, index MCP #5, pinky MCP #17, middle MCP #9)
+      // 1. จุดศูนย์กลางฝ่ามือ (เฉลี่ยจากข้อมือ #0 และโคนนิ้วชี้ #5, กลาง #9, ก้อย #17)
       const rawPalmX = (lm[0].x + lm[5].x + lm[9].x + lm[17].x) / 4;
       const palmX = state.mirrorCam ? 1.0 - rawPalmX : rawPalmX;
       const palmY = (lm[0].y + lm[5].y + lm[9].y + lm[17].y) / 4;
 
-      // 2. Apparent hand size (2D distance between Wrist #0 and Middle MCP #9) for depth (reach) estimation
+      // 2. ขนาดฝ่ามือในภาพ 2 มิติ (ระยะ #0 ถึง #9) ใช้ประมาณระยะใกล้-ไกล (Reach)
       const handScale = Math.hypot(lm[9].x - lm[0].x, lm[9].y - lm[0].y);
 
-      // 3. Thumb tip (#4) to Index tip (#8) pinch distance normalized by handScale
+      // 3. ระยะจีบนิ้วโป้ง (#4) กับนิ้วชี้ (#8) หารด้วยขนาดมือเพื่อให้คงที่ทุกระยะ
       const pinchDist = Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y);
       const normPinch = pinchDist / Math.max(0.08, handScale);
       const gripperOpenPct = THREE.MathUtils.clamp(((normPinch - 0.22) / 0.85) * 100, 0, 100);
 
-      // Draw pinch line between thumb (#4) and index (#8)
-      const tx = lm[4].x * trackCanvas.width;
-      const ty = lm[4].y * trackCanvas.height;
-      const ix = lm[8].x * trackCanvas.width;
-      const iy = lm[8].y * trackCanvas.height;
+      // วาดเส้นแสดงระยะจีบนิ้วบน Canvas
       trackCtx.beginPath();
-      trackCtx.moveTo(tx, ty);
-      trackCtx.lineTo(ix, iy);
+      trackCtx.moveTo(lm[4].x * trackCanvas.width, lm[4].y * trackCanvas.height);
+      trackCtx.lineTo(lm[8].x * trackCanvas.width, lm[8].y * trackCanvas.height);
       trackCtx.strokeStyle = gripperOpenPct < 28 ? '#f43f5e' : '#10b981';
       trackCtx.lineWidth = 4;
       trackCtx.stroke();
 
-      // Update pinch UI bar
-      document.getElementById('pinch-bar').style.width = `${gripperOpenPct}%`;
-      document.getElementById('pinch-val-text').textContent =
+      // อัปเดตแถบ Pinch Meter บนหน้าเว็บ
+      ui.pinchBar.style.width = `${gripperOpenPct}%`;
+      ui.pinchValText.textContent =
         gripperOpenPct < 28 ? `GRAB (${Math.round(gripperOpenPct)}%)` : `${Math.round(gripperOpenPct)}%`;
 
-      // Map to Robot 4-DOF targets
+      // แปลงค่าจากมือเป็นองศาเป้าหมาย 4-DOF
       state.demoMode = null;
       if (state.handMode === 'ik') {
-        // Map palmX (0.15..0.85) -> target Y (-120..+120 mm)
-        // Map palmY (0.85..0.15) -> target Z (15..195 mm)
-        // Map handScale (0.12..0.34) -> target X reach (90..195 mm)
         const targetY = ((0.5 - palmX) / 0.38) * 115.0;
         const targetZ = THREE.MathUtils.clamp(20.0 + (0.85 - palmY) * 230.0, 14.0, 200.0);
         const targetX = THREE.MathUtils.clamp(95.0 + ((handScale - 0.14) / 0.18) * 95.0, 80.0, 195.0);
@@ -935,24 +1085,28 @@
         state.target.j3 = ikSol.j3;
         state.target.j4 = gripperOpenPct;
       } else {
-        // Direct Joint Mapping
+        // โหมดควบคุมข้อต่อโดยตรง (Direct Joint Mapping)
         state.target.j1 = THREE.MathUtils.clamp((0.5 - palmX) * 190, -90, 90);
         state.target.j2 = THREE.MathUtils.clamp((palmY - 0.45) * 140, -45, 65);
-        // Hand roll angle (index MCP #5 to pinky MCP #17) controls Elbow j3
         const handAngle = Math.atan2(lm[17].y - lm[5].y, lm[17].x - lm[5].x);
         state.target.j3 = THREE.MathUtils.clamp(handAngle * 65, -55, 55);
         state.target.j4 = gripperOpenPct;
       }
       syncSlidersFromState();
     } else {
-      handDetectTag.textContent = 'NO HAND';
-      handDetectTag.style.borderColor = 'rgba(56, 189, 248, 0.35)';
-      handDetectTag.style.color = '#e2e8f0';
+      ui.handDetectTag.textContent = 'NO HAND';
+      ui.handDetectTag.style.borderColor = 'rgba(56, 189, 248, 0.35)';
+      ui.handDetectTag.style.color = '#e2e8f0';
     }
 
     trackCtx.restore();
   }
 
+  /**
+   * เปิดหรือปิดสตรีมกล้องเว็บแคม (`getUserMedia`) และเริ่มลูปประมวลผล MediaPipe Hands
+   * โดยทำงานในเบราว์เซอร์ 100% ไม่มีการส่งภาพวิดีโอออกไปยังเซิร์ฟเวอร์ภายนอก
+   * @returns {Promise<void>}
+   */
   async function toggleWebcam() {
     if (state.camRunning) {
       state.camRunning = false;
@@ -962,16 +1116,16 @@
         mediaStream = null;
       }
       camOverlay.style.display = 'flex';
-      document.getElementById('cam-dot').className = 'dot';
-      document.getElementById('cam-status-text').textContent = 'Camera: Standby';
+      ui.camDot.className = 'dot';
+      ui.camStatusText.textContent = 'Camera: Standby';
       btnToggleCam.textContent = '📷 เปิดกล้อง Hand Tracking';
       btnToggleCam.classList.remove('danger');
       return;
     }
 
     try {
-      document.getElementById('cam-dot').className = 'dot warn';
-      document.getElementById('cam-status-text').textContent = 'Camera: Initializing AI...';
+      ui.camDot.className = 'dot warn';
+      ui.camStatusText.textContent = 'Camera: Initializing AI...';
 
       if (!handsInstance) {
         handsInstance = new window.Hands({
@@ -996,8 +1150,8 @@
       state.camRunning = true;
       animCamActive = true;
       camOverlay.style.display = 'none';
-      document.getElementById('cam-dot').className = 'dot active';
-      document.getElementById('cam-status-text').textContent = 'Camera: Live Hand Tracking';
+      ui.camDot.className = 'dot active';
+      ui.camStatusText.textContent = 'Camera: Live Hand Tracking';
       btnToggleCam.textContent = '⏹️ ปิดกล้อง (Stop Camera)';
       btnToggleCam.classList.add('danger');
 
@@ -1009,8 +1163,8 @@
           }
         } catch (err) {
           console.error('Hand tracking frame error:', err);
-          document.getElementById('cam-dot').className = 'dot warn';
-          document.getElementById('cam-status-text').textContent = 'Camera: Tracking Error';
+          ui.camDot.className = 'dot warn';
+          ui.camStatusText.textContent = 'Camera: Tracking Error';
           animCamActive = false;
           return;
         }
@@ -1021,8 +1175,8 @@
       requestAnimationFrame(processVideoFrame);
     } catch (err) {
       console.error('Webcam error:', err);
-      document.getElementById('cam-dot').className = 'dot warn';
-      document.getElementById('cam-status-text').textContent = 'Camera: Permission/Error';
+      ui.camDot.className = 'dot warn';
+      ui.camStatusText.textContent = 'Camera: Permission/Error';
       alert(
         'ไม่สามารถเปิดกล้องเว็บแคมได้: ' +
         (err.message || err) +
@@ -1034,58 +1188,65 @@
   btnToggleCam.addEventListener('click', toggleWebcam);
   btnStartCamOverlay.addEventListener('click', toggleWebcam);
 
-  // --- Main Render & Simulation Loop ---
+  /* =========================================================================
+   * SECTION 12: ลูปเรนเดอร์และจำลองหลัก 60 FPS (Main Loop)
+   * ========================================================================= */
+
   let lastTime = performance.now();
   let frameCounter = 0;
   let fpsTimer = performance.now();
 
+  /**
+   * ลูปหลักสำหรับจำลองและเรนเดอร์ฉาก 3 มิติที่ 60 FPS
+   * ลำดับการทำงานในแต่ละเฟรม:
+   *   1. อัปเดตตัวเลข FPS บนหน้าจอ
+   *   2. คำนวณท่าทางจากโหมดอัตโนมัติ (Pick & Place, วาดวงกลม IK) หรือเล่นซ้ำท่าทางที่บันทึกไว้
+   *   3. บันทึกเฟรมปัจจุบันหากกำลังเปิดโหมด Record
+   *   4. กรองความนุ่มนวลด้วย Exponential Moving Average (EMA): target -> current
+   *   5. อัปเดตป้ายตัวเลข HUD, คำนวณ 4-Bar FK (`updateArmKinematics`), ส่งค่า WebSerial,
+   *      อัปเดต OrbitControls และเรนเดอร์ภาพด้วย Three.js WebGLRenderer
+   * @param {number} now - ค่าเวลาความละเอียดสูง (ms)
+   */
   function animate(now) {
     requestAnimationFrame(animate);
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
 
-    // FPS counter
+    // 1. คำนวณและแสดงอัตราเฟรม (FPS) ทุก 500 ms
     frameCounter++;
     if (now - fpsTimer >= 500) {
       const fps = Math.round((frameCounter * 1000) / (now - fpsTimer));
-      document.getElementById('fps-badge').textContent = `${fps} FPS`;
+      ui.fpsBadge.textContent = `${fps} FPS`;
       frameCounter = 0;
       fpsTimer = now;
     }
 
-    // Handle automated demo sequences
+    // 2. ประมวลผลโหมดจำลองอัตโนมัติหรือเล่นซ้ำท่าทางที่บันทึกไว้
     if (state.demoMode === 'pick') {
       state.demoTime += dt;
       const t = state.demoTime % 8.0;
       if (t < 1.5) {
-        // Move above cube at [135, 45, 60]
         const sol = solveIK(135, 45, 65);
         state.target = { ...sol, j4: 65, wrist: 0 };
       } else if (t < 2.8) {
-        // Descend to cube [135, 45, 16]
         const sol = solveIK(135, 45, 16);
         state.target = { ...sol, j4: 60, wrist: 0 };
       } else if (t < 3.6) {
-        // Close gripper to grab cube
         const sol = solveIK(135, 45, 16);
         state.target = { ...sol, j4: 12, wrist: 0 };
       } else if (t < 5.2) {
-        // Lift & swing to drop zone [135, -55, 85]
         const frac = (t - 3.6) / 1.6;
         const y = 45 - frac * 100;
         const z = 16 + Math.sin(frac * Math.PI) * 75;
         const sol = solveIK(135, y, z);
         state.target = { ...sol, j4: 12, wrist: 0 };
       } else if (t < 6.2) {
-        // Lower to drop zone [135, -55, 18]
         const sol = solveIK(135, -55, 18);
         state.target = { ...sol, j4: 12, wrist: 0 };
       } else if (t < 7.0) {
-        // Release cube
         const sol = solveIK(135, -55, 22);
         state.target = { ...sol, j4: 65, wrist: 0 };
       } else {
-        // Return cube to start for next cycle
         if (!cubeGrabbed) targetCube.position.copy(CUBE_HOME);
         const sol = solveIK(140, 0, 110);
         state.target = { ...sol, j4: 45, wrist: 0 };
@@ -1109,18 +1270,19 @@
       syncSlidersFromState();
     }
 
-    // Record pose frame if recording active
+    // 3. บันทึกเฟรมปัจจุบันหากกำลังเปิดโหมด Record
     if (state.recording) {
       state.recordedFrames.push({ ...state.current });
-      document.getElementById('btn-record-pose').textContent = `⏹️ หยุด (${state.recordedFrames.length}f)`;
+      ui.btnRecord.textContent = `⏹️ หยุด (${state.recordedFrames.length}f)`;
     }
 
-    // Smooth Exponential Moving Average (EMA) interpolation
+    // 4. กรองความนุ่มนวลด้วย Exponential Moving Average (EMA)
     const alpha = state.smoothing;
     ['j1', 'j2', 'j3', 'j4', 'wrist'].forEach((k) => {
       state.current[k] += (state.target[k] - state.current[k]) * alpha;
     });
 
+    // 5. อัปเดต HUD, จลนศาสตร์ 3 มิติ, ส่งคำสั่ง Serial และเรนเดอร์ฉาก
     updateJointLabels();
     updateArmKinematics();
     sendSerialTelemetry(now);
@@ -1135,7 +1297,7 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  // Initial kinematics & start loop
+  // คำนวณท่าเริ่มต้นครั้งแรกและเริ่มลูปหลัก
   updateArmKinematics();
   requestAnimationFrame(animate);
 })();

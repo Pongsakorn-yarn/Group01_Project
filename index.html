@@ -1,3 +1,24 @@
+<!--
+  ==============================================================================
+  @file        index.html
+  @project     ISY49303 IoT — Group01_Project (4-DOF Robotic Arm Digital Twin)
+  @description หน้าเว็บหลักและโครงสร้างส่วนติดต่อผู้ใช้ (UI / HUD Layout)
+  ==============================================================================
+  @sections (ลำดับหมวดหมู่ตรงกับ css/style.css)
+    - SECTION 01 : ฉากแสดงผล 3 มิติ (#canvas-container)
+    - SECTION 02 : แถบสถานะด้านบน (.top-bar — CAD Mesh, กล้อง, WebSerial)
+    - SECTION 03 : แผงซ้าย (.left-panel — Hand Tracking, พิกัด TCP, ชิ้นส่วน CAD 39 ชิ้น)
+    - SECTION 04 : แผงขวา (.right-panel — ควบคุม 4-DOF, Demo/Record, WebSerial, ดาวน์โหลด 3D)
+    - SECTION 05 : แถบคำแนะนำการใช้เมาส์ด้านล่าง (.bottom-hud)
+    - SECTION 06 : โหลดข้อมูล CAD (js/arm_cad_data.js) และสมองหลัก (js/app.js)
+  @data_flow
+    [เปิดหน้าเว็บในเบราว์เซอร์ผ่าน localhost หรือ HTTPS]
+      -> โหลด css/style.css + Three.js และ MediaPipe Hands จาก CDN
+      -> โหลด js/arm_cad_data.js (สร้างตัวแปร window.ARM_CAD_DATA เก็บ Mesh 39 ชิ้น)
+      -> โหลด js/app.js (ผูก DOM IDs -> เรนเดอร์ 3D -> รับค่าจากกล้อง/Slider
+         -> อัปเดตตัวเลข HUD และส่งคำสั่งองศาออกทาง WebSerial ไปยังบอร์ด IoT)
+  ==============================================================================
+-->
 <!DOCTYPE html>
 <html lang="th">
 
@@ -17,10 +38,10 @@
 </head>
 
 <body>
-  <!-- 3D Viewport -->
+  <!-- SECTION 01: ฉากแสดงผล 3 มิติ (3D Viewport) -->
   <div id="canvas-container"></div>
 
-  <!-- Top Navigation & Status Bar -->
+  <!-- SECTION 02: แถบสถานะด้านบน (Top Navigation & Status Bar) -->
   <header class="top-bar">
     <div class="brand-group">
       <span class="brand-badge">DIGITAL TWIN 4-DOF</span>
@@ -45,7 +66,7 @@
     </div>
   </header>
 
-  <!-- Left Panel: Webcam Hand Tracking & CAD Parts Inspector -->
+  <!-- SECTION 03: แผงซ้าย — กล้อง Hand Tracking, พิกัด TCP และรายการชิ้นส่วน CAD -->
   <aside class="left-panel">
     <div class="card">
       <div class="card-header">
@@ -143,7 +164,7 @@
     </div>
   </aside>
 
-  <!-- Right Panel: 4-DOF Joint Controls, Inverse Kinematics, Demo & Export -->
+  <!-- SECTION 04: แผงขวา — ควบคุมข้อต่อ 4-DOF, โหมดจำลอง, WebSerial และดาวน์โหลดไฟล์ 3D -->
   <aside class="right-panel">
     <!-- 4-DOF Joint Angles Card -->
     <div class="card">
@@ -236,7 +257,7 @@
     </div>
   </aside>
 
-  <!-- Bottom Floating Help -->
+  <!-- SECTION 05: แถบคำแนะนำการใช้เมาส์ด้านล่าง (Bottom Floating Help) -->
   <div class="bottom-hud">
     <span><span class="key-hint">คลิกซ้ายลาก:</span> หมุนมุมกล้อง 3D</span>
     <span>•</span>
@@ -247,7 +268,7 @@
     <span><span class="key-hint">คลิกที่ชิ้นส่วนแขนกล:</span> ดูข้อมูล CAD Part</span>
   </div>
 
-  <!-- Extracted CAD Geometry Bundle & Main App -->
+  <!-- SECTION 06: โหลดชุดข้อมูลเรขาคณิต CAD 39 ชิ้น และสมองประมวลผลหลัก -->
   <script src="js/arm_cad_data.js"></script>
   <script src="js/app.js"></script>
 </body>

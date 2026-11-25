@@ -1,0 +1,184 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <style>
+      .sans { font-family: 'Leelawadee UI', 'Segoe UI', 'Noto Sans Thai', Tahoma, sans-serif; }
+      .mono { font-family: 'Consolas', 'Courier New', monospace; }
+      .main-title { font-size: 44px; font-weight: 800; fill: #0f172a; letter-spacing: 0.5px; }
+      .main-sub { font-size: 22px; font-weight: 500; fill: #475569; }
+      .badge-txt { font-size: 18px; font-weight: 700; fill: #ffffff; text-anchor: middle; dominant-baseline: central; }
+      .zone-lbl { font-size: 18px; font-weight: 800; letter-spacing: 0.6px; }
+      .cad-title { font-size: 25px; font-weight: 800; fill: #5b21b6; text-anchor: middle; }
+      .cad-sub { font-size: 20px; font-weight: 600; fill: #6d28d9; text-anchor: middle; }
+      .box-num { font-size: 22px; font-weight: 800; fill: #ffffff; text-anchor: middle; dominant-baseline: central; }
+      .box-title { font-size: 30px; font-weight: 800; fill: #0f172a; text-anchor: middle; }
+      .box-sub { font-size: 22px; font-weight: 600; fill: #475569; text-anchor: middle; }
+      .arr-pill { font-size: 20px; font-weight: 800; text-anchor: middle; dominant-baseline: central; }
+      .arr-sub { font-size: 19px; font-weight: 600; fill: #475569; text-anchor: middle; }
+      .arr-mono { font-size: 20px; font-weight: 800; fill: #c2410c; }
+    </style>
+
+    <filter id="cardShadow" x="-1%" y="-2%" width="102%" height="108%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.06"/>
+    </filter>
+
+    <marker id="arr-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#059669"/>
+    </marker>
+    <marker id="arr-orange" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#ea580c"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#d97706"/>
+    </marker>
+  </defs>
+
+  <!-- พื้นหลังสีขาวสะอาด สัดส่วน 16:9 -->
+  <rect x="0" y="0" width="1920" height="1080" fill="#ffffff"/>
+
+  <!-- Header Banner -->
+  <rect x="60" y="28" width="1800" height="96" rx="16" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.8"/>
+  <rect x="60" y="28" width="12" height="96" rx="6" fill="#1e3a5f"/>
+  <text x="98" y="74" class="sans main-title">END-TO-END DATA FLOW</text>
+  <text x="98" y="108" class="sans main-sub">เส้นทางการส่งต่อข้อมูลทั้งระบบ 4-DOF Robotic Arm Digital Twin</text>
+
+  <rect x="1556" y="52" width="276" height="48" rx="24" fill="#1e3a5f"/>
+  <text x="1694" y="76" class="sans badge-txt">ISY49303 IoT • GROUP 01</text>
+
+  <!-- Subtle Layer Labels -->
+  <rect x="60" y="276" width="320" height="34" rx="17" fill="#e0f2fe"/>
+  <text x="220" y="293" class="sans zone-lbl" fill="#0369a1" text-anchor="middle" dominant-baseline="central">SOFTWARE / WEB LAYER</text>
+
+  <rect x="60" y="716" width="320" height="34" rx="17" fill="#ffedd5"/>
+  <text x="220" y="733" class="sans zone-lbl" fill="#c2410c" text-anchor="middle" dominant-baseline="central">HARDWARE / IoT LAYER</text>
+
+  <!-- ======================================================================= -->
+  <!-- TOP AUXILIARY NODE: 3D CAD MODEL -> 3D DIGITAL TWIN                     -->
+  <!-- ======================================================================= -->
+  <g filter="url(#cardShadow)">
+    <rect x="1440" y="148" width="420" height="86" rx="16" fill="#faf5ff" stroke="#7c3aed" stroke-width="2.4" stroke-dasharray="8,5"/>
+    <text x="1650" y="184" class="sans cad-title">SolidCraft 3D CAD</text>
+    <text x="1650" y="216" class="sans cad-sub">โมเดลแขนกล 3 มิติ (39 ชิ้นส่วน)</text>
+  </g>
+
+  <!-- Arrow: CAD -> Digital Twin -->
+  <line x1="1650" y1="234" x2="1650" y2="328" stroke="#7c3aed" stroke-width="4" marker-end="url(#arr-purple)"/>
+  <rect x="1532" y="262" width="236" height="36" rx="18" fill="#f3e8ff" stroke="#7c3aed" stroke-width="1.6"/>
+  <text x="1650" y="280" class="sans arr-pill" fill="#6d28d9">39 Meshes (Base64)</text>
+
+  <!-- ======================================================================= -->
+  <!-- ROW 1: SOFTWARE / WEB LAYER (y=338..568)                                -->
+  <!-- ======================================================================= -->
+  <g filter="url(#cardShadow)">
+
+    <!-- BOX 1: Webcam / UI -->
+    <rect x="60" y="338" width="420" height="230" rx="20" fill="#eff6ff" stroke="#2563eb" stroke-width="2.8"/>
+    <circle cx="110" cy="386" r="22" fill="#2563eb"/>
+    <text x="110" y="386" class="sans box-num">1</text>
+    <!-- Webcam Icon -->
+    <rect x="234" y="366" width="72" height="48" rx="8" fill="#ffffff" stroke="#1e293b" stroke-width="3"/>
+    <circle cx="270" cy="390" r="11" fill="none" stroke="#2563eb" stroke-width="3"/>
+    <line x1="252" y1="426" x2="288" y2="426" stroke="#1e293b" stroke-width="3.4" stroke-linecap="round"/>
+    <line x1="270" y1="414" x2="270" y2="426" stroke="#1e293b" stroke-width="3.4"/>
+    <text x="270" y="486" class="sans box-title">Webcam / Web UI</text>
+    <text x="270" y="528" class="sans box-sub">รับภาพมือ &amp; อินพุตผู้ใช้</text>
+
+    <!-- ARROW 1 -> 2 -->
+    <line x1="480" y1="453" x2="738" y2="453" stroke="#2563eb" stroke-width="4.6" marker-end="url(#arr-blue)"/>
+    <rect x="524" y="402" width="176" height="38" rx="19" fill="#dbeafe" stroke="#2563eb" stroke-width="1.6"/>
+    <text x="612" y="421" class="sans arr-pill" fill="#1d4ed8">Video Frame</text>
+    <text x="612" y="486" class="sans arr-sub">ภาพมือ 640×480 / UI</text>
+
+    <!-- BOX 2: MediaPipe AI -->
+    <rect x="750" y="338" width="420" height="230" rx="20" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2.8"/>
+    <circle cx="800" cy="386" r="22" fill="#7c3aed"/>
+    <text x="800" y="386" class="sans box-num">2</text>
+    <!-- AI Nodes Icon -->
+    <circle cx="960" cy="374" r="9" fill="#7c3aed"/>
+    <circle cx="932" cy="414" r="9" fill="#7c3aed"/>
+    <circle cx="988" cy="414" r="9" fill="#7c3aed"/>
+    <line x1="960" y1="374" x2="932" y2="414" stroke="#1e293b" stroke-width="3"/>
+    <line x1="960" y1="374" x2="988" y2="414" stroke="#1e293b" stroke-width="3"/>
+    <line x1="932" y1="414" x2="988" y2="414" stroke="#1e293b" stroke-width="3"/>
+    <text x="960" y="486" class="sans box-title">MediaPipe AI &amp; IK</text>
+    <text x="960" y="528" class="sans box-sub">จับมือ 21 จุด → คำนวณมุม</text>
+
+    <!-- ARROW 2 -> 3 -->
+    <line x1="1170" y1="453" x2="1428" y2="453" stroke="#7c3aed" stroke-width="4.6" marker-end="url(#arr-purple)"/>
+    <rect x="1210" y="402" width="184" height="38" rx="19" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.6"/>
+    <text x="1302" y="421" class="sans arr-pill" fill="#6d28d9">Target Angles</text>
+    <text x="1302" y="486" class="sans arr-sub">มุมเป้าหมาย 4 แกน</text>
+
+    <!-- BOX 3: 3D Digital Twin -->
+    <rect x="1440" y="338" width="420" height="230" rx="20" fill="#ecfdf5" stroke="#059669" stroke-width="2.8"/>
+    <circle cx="1490" cy="386" r="22" fill="#059669"/>
+    <text x="1490" y="386" class="sans box-num">3</text>
+    <!-- 3D Cube Icon -->
+    <polygon points="1650,362 1682,378 1682,412 1650,428 1618,412 1618,378" fill="#ffffff" stroke="#1e293b" stroke-width="2.8"/>
+    <polyline points="1618,378 1650,394 1682,378" fill="none" stroke="#059669" stroke-width="2.8"/>
+    <line x1="1650" y1="394" x2="1650" y2="428" stroke="#059669" stroke-width="2.8"/>
+    <text x="1650" y="486" class="sans box-title">3D Digital Twin</text>
+    <text x="1650" y="528" class="sans box-sub">กรอง EMA &amp; จำลอง 3D (60 FPS)</text>
+
+  </g>
+
+  <!-- ======================================================================= -->
+  <!-- FEEDBACK LOOP: 3D DIGITAL TWIN -> WEBCAM / WEB UI (HUD 60 FPS)          -->
+  <!-- ======================================================================= -->
+  <path d="M 1490 568 L 1490 656 L 270 656 L 270 578" fill="none" stroke="#059669" stroke-width="3.6" stroke-dasharray="10,6" marker-end="url(#arr-green)"/>
+  <rect x="646" y="634" width="468" height="44" rx="22" fill="#dcfce7" stroke="#059669" stroke-width="1.8"/>
+  <text x="880" y="656" class="sans arr-pill" fill="#065f46">3D Viewport &amp; HUD Telemetry (60 FPS)</text>
+
+  <!-- ======================================================================= -->
+  <!-- VERTICAL BRIDGE: 3D DIGITAL TWIN -> ESP32 (USB WEBSERIAL 25 Hz)         -->
+  <!-- ======================================================================= -->
+  <line x1="1600" y1="568" x2="1600" y2="762" stroke="#ea580c" stroke-width="5" marker-end="url(#arr-orange)"/>
+  <rect x="1622" y="616" width="248" height="96" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
+  <text x="1746" y="652" class="mono arr-mono" text-anchor="middle">"S1,S2,S3,S4\n"</text>
+  <text x="1746" y="688" class="sans arr-sub" fill="#9a3412">USB WebSerial • 25 Hz</text>
+
+  <!-- ======================================================================= -->
+  <!-- ROW 2: HARDWARE / IoT LAYER (y=774..1004)                               -->
+  <!-- ======================================================================= -->
+  <g filter="url(#cardShadow)">
+
+    <!-- BOX 4: ESP32 / Arduino -->
+    <rect x="1280" y="774" width="520" height="230" rx="20" fill="#fff7ed" stroke="#ea580c" stroke-width="2.8"/>
+    <circle cx="1332" cy="822" r="22" fill="#ea580c"/>
+    <text x="1332" y="822" class="sans box-num">4</text>
+    <!-- Microchip Icon -->
+    <rect x="1516" y="798" width="48" height="48" rx="8" fill="#ffffff" stroke="#1e293b" stroke-width="3"/>
+    <rect x="1528" y="810" width="24" height="24" rx="4" fill="#ea580c"/>
+    <line x1="1504" y1="812" x2="1516" y2="812" stroke="#1e293b" stroke-width="3"/>
+    <line x1="1504" y1="832" x2="1516" y2="832" stroke="#1e293b" stroke-width="3"/>
+    <line x1="1564" y1="812" x2="1576" y2="812" stroke="#1e293b" stroke-width="3"/>
+    <line x1="1564" y1="832" x2="1576" y2="832" stroke="#1e293b" stroke-width="3"/>
+    <text x="1540" y="920" class="sans box-title">ESP32 / Arduino</text>
+    <text x="1540" y="962" class="sans box-sub">แยกมุม 4 แกน &amp; สร้างสัญญาณ PWM</text>
+
+    <!-- ARROW 4 -> 5 (Right to Left) -->
+    <line x1="1280" y1="889" x2="652" y2="889" stroke="#d97706" stroke-width="5" marker-end="url(#arr-amber)"/>
+    <rect x="814" y="834" width="304" height="42" rx="21" fill="#fef3c7" stroke="#d97706" stroke-width="1.8"/>
+    <text x="966" y="855" class="sans arr-pill" fill="#b45309">4× PWM Signals (50 Hz)</text>
+    <text x="966" y="926" class="sans arr-sub">สัญญาณควบคุมมุม 0–180° (4 ช่อง)</text>
+
+    <!-- BOX 5: 4-DOF Robotic Arm -->
+    <rect x="120" y="774" width="520" height="230" rx="20" fill="#fefce8" stroke="#d97706" stroke-width="2.8"/>
+    <circle cx="172" cy="822" r="22" fill="#d97706"/>
+    <text x="172" y="822" class="sans box-num">5</text>
+    <!-- Robotic Arm Icon -->
+    <rect x="352" y="838" width="56" height="12" rx="4" fill="#1e293b"/>
+    <line x1="368" y1="838" x2="384" y2="806" stroke="#d97706" stroke-width="7" stroke-linecap="round"/>
+    <line x1="384" y1="806" x2="412" y2="794" stroke="#1e293b" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="384" cy="806" r="6" fill="#ffffff" stroke="#1e293b" stroke-width="2.6"/>
+    <circle cx="412" cy="794" r="5" fill="#d97706"/>
+    <text x="380" y="920" class="sans box-title">4-DOF Robotic Arm</text>
+    <text x="380" y="962" class="sans box-sub">ขับ 4× Servo จริง (ไฟเลี้ยง 5V 2A+)</text>
+
+  </g>
+</svg>

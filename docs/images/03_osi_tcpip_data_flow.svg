@@ -1,0 +1,309 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1020" width="1600" height="1020">
+  <defs>
+    <style>
+      .sans { font-family: 'Leelawadee UI', 'Segoe UI', 'Noto Sans Thai', Tahoma, sans-serif; }
+      .mono { font-family: 'Consolas', 'Courier New', monospace; }
+      .main-title { font-size: 26px; font-weight: 700; fill: #0f172a; }
+      .main-sub { font-size: 14px; font-weight: 500; fill: #475569; }
+      .col-header { font-size: 22px; font-weight: 800; fill: #1e3a5f; letter-spacing: 0.6px; }
+      .layer-num { font-size: 18px; font-weight: 800; fill: #ffffff; text-anchor: middle; dominant-baseline: central; }
+      .layer-name { font-size: 17px; font-weight: 700; fill: #0f172a; }
+      .layer-sub { font-size: 12px; font-weight: 600; fill: #475569; }
+      .detail-bold { font-size: 13px; font-weight: 700; fill: #1e293b; }
+      .detail-text { font-size: 12.5px; font-weight: 500; fill: #334155; }
+      .detail-mono { font-size: 12px; font-weight: 700; fill: #0369a1; }
+      .tcp-name { font-size: 19px; font-weight: 800; fill: #0f172a; }
+      .tcp-sub { font-size: 12.5px; font-weight: 600; fill: #475569; }
+      .tcp-head { font-size: 13.5px; font-weight: 700; fill: #0f172a; }
+      .tcp-item { font-size: 13px; font-weight: 500; fill: #334155; }
+      .flow-title { font-size: 13px; font-weight: 700; fill: #0f172a; text-anchor: middle; }
+      .flow-sub { font-size: 11.5px; font-weight: 500; fill: #475569; text-anchor: middle; }
+      .badge-txt { font-size: 11.5px; font-weight: 700; fill: #ffffff; text-anchor: middle; }
+    </style>
+
+    <filter id="cardShadow" x="-2%" y="-2%" width="104%" height="106%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.06"/>
+    </filter>
+
+    <marker id="arr-orange" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#ea580c"/>
+    </marker>
+    <marker id="arr-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#16a34a"/>
+    </marker>
+    <marker id="arr-slate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#0284c7"/>
+    </marker>
+  </defs>
+
+  <!-- พื้นหลังสีขาวสะอาดสำหรับใส่สไลด์นำเสนอ -->
+  <rect x="0" y="0" width="1600" height="1020" fill="#ffffff"/>
+
+  <!-- Header Banner -->
+  <rect x="40" y="20" width="1520" height="68" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+  <rect x="40" y="20" width="8" height="68" rx="4" fill="#1e3a5f"/>
+  <text x="66" y="49" class="sans main-title">สถาปัตยกรรมลำดับข้อมูลตาม OSI Model &amp; TCP/IP Model</text>
+  <text x="66" y="74" class="sans main-sub">ระบบ Digital Twin ของโรงงานเพื่อควบคุมแขนกล 4-DOF ด้วย Hand Tracking และแสดงสถานะบน Dashboard (Group01_Project — ISY49303 IoT)</text>
+
+  <!-- Column Headers -->
+  <text x="387" y="114" class="sans col-header" text-anchor="middle">OSI MODEL (7 Layers)</text>
+  <text x="1197" y="114" class="sans col-header" text-anchor="middle">TCP/IP MODEL (4 Layers)</text>
+
+  <!-- ======================================================================= -->
+  <!-- LEFT COLUMN: OSI MODEL (x=40..735, y=128..842, each row = 102px)        -->
+  <!-- ======================================================================= -->
+  <g filter="url(#cardShadow)">
+    <!-- Layer 7: Application -->
+    <rect x="40" y="128" width="695" height="102" fill="#fff7ed" stroke="#ea580c" stroke-width="1.6"/>
+    <circle cx="72" cy="179" r="18" fill="#ea580c"/>
+    <text x="72" y="179" class="sans layer-num">7</text>
+    <!-- Browser/Globe Icon -->
+    <rect x="104" y="159" width="38" height="34" rx="4" fill="#ffffff" stroke="#1e293b" stroke-width="2"/>
+    <line x1="104" y1="168" x2="142" y2="168" stroke="#1e293b" stroke-width="1.8"/>
+    <circle cx="123" cy="180" r="8" fill="none" stroke="#1e293b" stroke-width="1.6"/>
+    <line x1="115" y1="180" x2="131" y2="180" stroke="#1e293b" stroke-width="1.4"/>
+    <ellipse cx="123" cy="180" rx="4" ry="8" fill="none" stroke="#1e293b" stroke-width="1.4"/>
+    <text x="156" y="173" class="sans layer-name">Application</text>
+    <text x="156" y="192" class="sans layer-sub">ชั้นประยุกต์ใช้งาน</text>
+    <line x1="276" y1="142" x2="276" y2="216" stroke="#fed7aa" stroke-width="1.5"/>
+    <text x="292" y="158" class="sans detail-bold">Web Digital Twin Dashboard &amp; MCU App</text>
+    <text x="292" y="179" class="sans detail-text">• หน้าเว็บ <tspan class="mono detail-mono">index.html</tspan> + <tspan class="mono detail-mono">app.js</tspan> (3D Three.js, Hand Tracking AI, 4-Bar IK/FK)</text>
+    <text x="292" y="199" class="sans detail-text">• แสดงสถานะ HUD / TCP / PWM และฝั่ง MCU <tspan class="mono detail-mono">arduino_servo_bridge.ino</tspan></text>
+
+    <!-- Layer 6: Presentation -->
+    <rect x="40" y="230" width="695" height="102" fill="#fff7ed" stroke="#ea580c" stroke-width="1.6"/>
+    <circle cx="72" cy="281" r="18" fill="#ea580c"/>
+    <text x="72" y="281" class="sans layer-num">6</text>
+    <!-- Document/Format Icon -->
+    <rect x="108" y="261" width="30" height="38" rx="3" fill="#ffffff" stroke="#1e293b" stroke-width="2"/>
+    <line x1="114" y1="272" x2="132" y2="272" stroke="#1e293b" stroke-width="2"/>
+    <line x1="114" y1="280" x2="132" y2="280" stroke="#1e293b" stroke-width="2"/>
+    <line x1="114" y1="288" x2="126" y2="288" stroke="#1e293b" stroke-width="2"/>
+    <text x="156" y="275" class="sans layer-name">Presentation</text>
+    <text x="156" y="294" class="sans layer-sub">ชั้นแปลงรูปแบบข้อมูล</text>
+    <line x1="276" y1="244" x2="276" y2="318" stroke="#fed7aa" stroke-width="1.5"/>
+    <text x="292" y="260" class="sans detail-bold">การเข้ารหัส / ถอดรหัสและจัดรูปแบบแพ็กเก็ต</text>
+    <text x="292" y="281" class="sans detail-text">• แปลงองศา 4 แกนเป็นข้อความ ASCII CSV <tspan class="mono detail-mono">"S1,S2,S3,S4\n"</tspan> (UTF-8)</text>
+    <text x="292" y="301" class="sans detail-text">• ถอดรหัสโมเดล CAD (<tspan class="mono detail-mono">Base64 → Float32Array</tspan>) &amp; ส่งออก <tspan class="mono detail-mono">.JSON/.GLB/.STL</tspan></text>
+
+    <!-- Layer 5: Session -->
+    <rect x="40" y="332" width="695" height="102" fill="#fff7ed" stroke="#ea580c" stroke-width="1.6"/>
+    <circle cx="72" cy="383" r="18" fill="#ea580c"/>
+    <text x="72" y="383" class="sans layer-num">5</text>
+    <!-- Session Users/Sync Icon -->
+    <circle cx="117" cy="374" r="7" fill="#1e293b"/>
+    <path d="M 105 394 C 105 385, 129 385, 129 394 Z" fill="#1e293b"/>
+    <circle cx="132" cy="377" r="5.5" fill="#475569"/>
+    <path d="M 123 394 C 123 387, 141 387, 141 394 Z" fill="#475569"/>
+    <text x="156" y="377" class="sans layer-name">Session</text>
+    <text x="156" y="396" class="sans layer-sub">ชั้นควบคุมการเชื่อมต่อ</text>
+    <line x1="276" y1="346" x2="276" y2="420" stroke="#fed7aa" stroke-width="1.5"/>
+    <text x="292" y="362" class="sans detail-bold">จัดการเซสชันกล้องและพอร์ตเชื่อมต่อ MCU</text>
+    <text x="292" y="383" class="sans detail-text">• เปิด/ปิดเซสชัน <tspan class="mono detail-mono">WebSerial API</tspan> (<tspan class="mono detail-mono">requestPort</tspan> / <tspan class="mono detail-mono">disconnectSerial</tspan>)</text>
+    <text x="292" y="403" class="sans detail-text">• คุมจังหวะส่งคำสั่ง <tspan class="mono detail-mono">~25 Hz (ทุก 40 ms)</tspan> และสตรีมกล้อง <tspan class="mono detail-mono">getUserMedia</tspan></text>
+
+    <!-- Layer 4: Transport -->
+    <rect x="40" y="434" width="695" height="102" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.6"/>
+    <circle cx="72" cy="485" r="18" fill="#7c3aed"/>
+    <text x="72" y="485" class="sans layer-num">4</text>
+    <!-- Shield Icon -->
+    <path d="M 123 465 L 139 471 L 139 485 C 139 495 131 501 123 505 C 115 501 107 495 107 485 L 107 471 Z" fill="#ffffff" stroke="#1e293b" stroke-width="2"/>
+    <line x1="123" y1="468" x2="123" y2="502" stroke="#7c3aed" stroke-width="2"/>
+    <text x="156" y="479" class="sans layer-name">Transport</text>
+    <text x="156" y="498" class="sans layer-sub">ชั้นขนส่งข้อมูล</text>
+    <line x1="276" y1="448" x2="276" y2="522" stroke="#ddd6fe" stroke-width="1.5"/>
+    <text x="292" y="464" class="sans detail-bold">TCP Ports (ฝั่งเว็บ) &amp; Serial Stream (ฝั่งฮาร์ดแวร์)</text>
+    <text x="292" y="485" class="sans detail-text">• <tspan class="mono detail-mono">TCP Port 8080</tspan> (Local HTTP Server) &amp; <tspan class="mono detail-mono">Port 443</tspan> (HTTPS CDN)</text>
+    <text x="292" y="505" class="sans detail-text">• <tspan class="mono detail-mono">Serial WritableStream</tspan> ส่งไบต์เรียงลำดับเข้า UART Buffer ของ ESP32</text>
+
+    <!-- Layer 3: Network -->
+    <rect x="40" y="536" width="695" height="102" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+    <circle cx="72" cy="587" r="18" fill="#2563eb"/>
+    <text x="72" y="587" class="sans layer-num">3</text>
+    <!-- 4-Way Routing Arrows Icon -->
+    <line x1="123" y1="567" x2="123" y2="607" stroke="#1e293b" stroke-width="2.2"/>
+    <line x1="103" y1="587" x2="143" y2="587" stroke="#1e293b" stroke-width="2.2"/>
+    <polyline points="118,572 123,567 128,572" fill="none" stroke="#1e293b" stroke-width="2"/>
+    <polyline points="118,602 123,607 128,602" fill="none" stroke="#1e293b" stroke-width="2"/>
+    <polyline points="108,582 103,587 108,592" fill="none" stroke="#1e293b" stroke-width="2"/>
+    <polyline points="138,582 143,587 138,592" fill="none" stroke="#1e293b" stroke-width="2"/>
+    <text x="156" y="581" class="sans layer-name">Network</text>
+    <text x="156" y="600" class="sans layer-sub">ชั้นเครือข่าย / IP</text>
+    <line x1="276" y1="550" x2="276" y2="624" stroke="#bfdbfe" stroke-width="1.5"/>
+    <text x="292" y="566" class="sans detail-bold">IPv4 Addressing (Localhost &amp; Internet CDN)</text>
+    <text x="292" y="587" class="sans detail-text">• <tspan class="mono detail-mono">127.0.0.1</tspan> (Loopback IP ของ Local Server) และ Public IP / DNS ของ CDN</text>
+    <text x="292" y="607" class="sans detail-text">• <tspan style="font-style:italic; fill:#64748b;">หมายเหตุ: ช่วง USB Serial เชื่อมต่อตรงแบบ Point-to-Point ไม่ผ่าน IP Routing</tspan></text>
+
+    <!-- Layer 2: Data Link -->
+    <rect x="40" y="638" width="695" height="102" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.6"/>
+    <circle cx="72" cy="689" r="18" fill="#16a34a"/>
+    <text x="72" y="689" class="sans layer-num">2</text>
+    <!-- Switch / Bridge Icon -->
+    <rect x="103" y="679" width="40" height="20" rx="4" fill="#1e293b"/>
+    <circle cx="111" cy="689" r="2.2" fill="#4ade80"/>
+    <circle cx="119" cy="689" r="2.2" fill="#4ade80"/>
+    <circle cx="127" cy="689" r="2.2" fill="#facc15"/>
+    <circle cx="135" cy="689" r="2.2" fill="#38bdf8"/>
+    <text x="156" y="683" class="sans layer-name">Data Link</text>
+    <text x="156" y="702" class="sans layer-sub">ชั้นเชื่อมโยงข้อมูล</text>
+    <line x1="276" y1="652" x2="276" y2="726" stroke="#bbf7d0" stroke-width="1.5"/>
+    <text x="292" y="668" class="sans detail-bold">เฟรมข้อมูลเครือข่าย &amp; USB-UART Framing</text>
+    <text x="292" y="689" class="sans detail-text">• ฝั่งเว็บ: <tspan class="mono detail-mono">Ethernet / Wi-Fi (MAC)</tspan> และ Loopback Interface</text>
+    <text x="292" y="709" class="sans detail-text">• ฝั่ง MCU: <tspan class="mono detail-mono">USB CDC / UART Frame (115200 baud, 8N1)</tspan> ผ่าน CP210x / CH340</text>
+
+    <!-- Layer 1: Physical -->
+    <rect x="40" y="740" width="695" height="102" fill="#fefce8" stroke="#ca8a04" stroke-width="1.6"/>
+    <circle cx="72" cy="791" r="18" fill="#d97706"/>
+    <text x="72" y="791" class="sans layer-num">1</text>
+    <!-- Waveform Signal Icon -->
+    <polyline points="103,791 111,791 115,775 121,807 127,779 132,799 136,791 144,791" fill="none" stroke="#1e293b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="156" y="785" class="sans layer-name">Physical</text>
+    <text x="156" y="804" class="sans layer-sub">ชั้นกายภาพ</text>
+    <line x1="276" y1="754" x2="276" y2="828" stroke="#fde68a" stroke-width="1.5"/>
+    <text x="292" y="770" class="sans detail-bold">สื่อส่งสัญญาณและอุปกรณ์ฮาร์ดแวร์จริง</text>
+    <text x="292" y="791" class="sans detail-text">• กล้องเว็บแคม, สาย <tspan class="mono detail-mono">USB Data</tspan> (PC ↔ ESP32), สัญญาณ <tspan class="mono detail-mono">PWM 50 Hz</tspan></text>
+    <text x="292" y="811" class="sans detail-text">• <tspan class="mono detail-mono">GPIO 13, 12, 14, 27</tspan> → <tspan class="detail-bold">2× MG90S + 2× SG90</tspan> (ไฟ 5V 2A+ GND ร่วม)</text>
+  </g>
+
+  <!-- ======================================================================= -->
+  <!-- MIDDLE CONNECTORS: OSI -> TCP/IP Mapping Brackets & Arrows (x=735..845) -->
+  <!-- ======================================================================= -->
+  <g fill="none" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+    <!-- OSI 7-5 -> TCP/IP Application -->
+    <path d="M 745 179 L 774 179 L 774 383 L 745 383" stroke="#ea580c"/>
+    <line x1="774" y1="281" x2="836" y2="281" stroke="#ea580c" marker-end="url(#arr-orange)"/>
+
+    <!-- OSI 4 -> TCP/IP Transport -->
+    <line x1="745" y1="485" x2="836" y2="485" stroke="#7c3aed" marker-end="url(#arr-purple)"/>
+
+    <!-- OSI 3 -> TCP/IP Internet -->
+    <line x1="745" y1="587" x2="836" y2="587" stroke="#2563eb" marker-end="url(#arr-blue)"/>
+
+    <!-- OSI 2-1 -> TCP/IP Network Access -->
+    <path d="M 745 689 L 774 689 L 774 791 L 745 791" stroke="#16a34a"/>
+    <line x1="774" y1="740" x2="836" y2="740" stroke="#16a34a" marker-end="url(#arr-green)"/>
+  </g>
+
+  <!-- ======================================================================= -->
+  <!-- RIGHT COLUMN: TCP/IP MODEL (x=845..1560, y=128..842)                    -->
+  <!-- ======================================================================= -->
+  <g filter="url(#cardShadow)">
+    <!-- TCP/IP Layer 4: Application (spans OSI 7-5, height=306) -->
+    <rect x="845" y="128" width="715" height="306" fill="#fff7ed" stroke="#ea580c" stroke-width="1.8"/>
+    <!-- Left Title Zone -->
+    <rect x="875" y="232" width="44" height="52" rx="6" fill="#ffffff" stroke="#1e293b" stroke-width="2.2"/>
+    <rect x="875" y="232" width="44" height="13" rx="4" fill="#1e293b"/>
+    <circle cx="884" cy="238" r="2" fill="#f97316"/>
+    <circle cx="891" cy="238" r="2" fill="#facc15"/>
+    <circle cx="898" cy="238" r="2" fill="#4ade80"/>
+    <line x1="883" y1="256" x2="911" y2="256" stroke="#1e293b" stroke-width="2"/>
+    <line x1="883" y1="265" x2="911" y2="265" stroke="#1e293b" stroke-width="2"/>
+    <line x1="883" y1="274" x2="903" y2="274" stroke="#1e293b" stroke-width="2"/>
+    <text x="934" y="258" class="sans tcp-name">Application</text>
+    <text x="934" y="279" class="sans tcp-sub">รวม OSI ชั้น 7 – 5</text>
+    <line x1="1068" y1="146" x2="1068" y2="416" stroke="#fed7aa" stroke-width="1.6"/>
+    <!-- Right Project Details -->
+    <text x="1088" y="164" class="sans tcp-head">โปรโตคอล &amp; ข้อมูลจริงในโปรเจกต์:</text>
+    <text x="1088" y="192" class="sans tcp-item">• <tspan class="detail-bold">HTTP / HTTPS:</tspan> โหลด Dashboard (<tspan class="mono detail-mono">index.html</tspan>), Three.js &amp; MediaPipe</text>
+    <text x="1088" y="220" class="sans tcp-item">• <tspan class="detail-bold">Digital Twin &amp; AI:</tspan> ตรวจจับมือ 21 จุด → คำนวณ 4-Bar IK/FK + EMA Filter</text>
+    <text x="1088" y="248" class="sans tcp-item">• <tspan class="detail-bold">Dashboard Telemetry:</tspan> แสดงสถานะ Real-Time, พิกัด TCP และมุม 4-DOF</text>
+    <text x="1088" y="276" class="sans tcp-item">• <tspan class="detail-bold">Data Format:</tspan> แพ็กเก็ต CSV <tspan class="mono detail-mono">"S1,S2,S3,S4\n"</tspan>, Base64 CAD, JSON</text>
+    <text x="1088" y="304" class="sans tcp-item">• <tspan class="detail-bold">WebSerial Session:</tspan> เปิดพอร์ต COM ส่งคำสั่งต่อเนื่องทุก <tspan class="mono detail-mono">40 ms (~25 Hz)</tspan></text>
+    <text x="1088" y="332" class="sans tcp-item">• <tspan class="detail-bold">MCU Firmware:</tspan> <tspan class="mono detail-mono">arduino_servo_bridge.ino</tspan> แยกค่า <tspan class="mono detail-mono">sscanf()</tspan> → <tspan class="mono detail-mono">constrain()</tspan></text>
+    <rect x="1088" y="356" width="454" height="54" rx="8" fill="#ffedd5" stroke="#fdba74" stroke-width="1"/>
+    <text x="1102" y="378" class="sans detail-bold">ตัวอย่างแพ็กเก็ตคำสั่งที่ส่งจาก Dashboard → ESP32:</text>
+    <text x="1102" y="399" class="mono detail-mono" font-size="11.5">"90,85,100,45\n" (Base=90°, Shoulder=85°, Elbow=100°, Grip=45°)</text>
+
+    <!-- TCP/IP Layer 3: Transport (spans OSI 4, height=102) -->
+    <rect x="845" y="434" width="715" height="102" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.8"/>
+    <path d="M 897 460 L 917 467 L 917 485 C 917 498 907 506 897 510 C 887 506 877 498 877 485 L 877 467 Z" fill="#6d28d9" stroke="#4c1d95" stroke-width="1.5"/>
+    <text x="897" y="481" class="sans" font-size="10.5" font-weight="800" fill="#ffffff" text-anchor="middle">TCP</text>
+    <text x="897" y="495" class="sans" font-size="10" font-weight="700" fill="#e9d5ff" text-anchor="middle">UART</text>
+    <text x="934" y="481" class="sans tcp-name">Transport</text>
+    <text x="934" y="502" class="sans tcp-sub">ตรงกับ OSI ชั้น 4</text>
+    <line x1="1068" y1="448" x2="1068" y2="522" stroke="#ddd6fe" stroke-width="1.6"/>
+    <text x="1088" y="468" class="sans tcp-item">• <tspan class="detail-bold">TCP (Port 8080 / 443):</tspan> รับ-ส่งไฟล์หน้าเว็บและไลบรารีอย่างครบถ้วน</text>
+    <text x="1088" y="492" class="sans tcp-item">• <tspan class="detail-bold">USB Serial Byte Stream:</tspan> ควบคุมการส่งสตรีมคำสั่งต่อเนื่องไป ESP32</text>
+    <text x="1088" y="514" class="sans tcp-item">• มีกลไกตรวจสอบ Error และตัดการเชื่อมต่ออัตโนมัติ (<tspan class="mono detail-mono">disconnectSerial</tspan>)</text>
+
+    <!-- TCP/IP Layer 2: Internet (spans OSI 3, height=102) -->
+    <rect x="845" y="536" width="715" height="102" fill="#eff6ff" stroke="#2563eb" stroke-width="1.8"/>
+    <circle cx="897" cy="587" r="22" fill="#93c5fd" stroke="#1e3a8a" stroke-width="2"/>
+    <ellipse cx="897" cy="587" rx="10" ry="22" fill="none" stroke="#1e3a8a" stroke-width="1.6"/>
+    <line x1="875" y1="587" x2="919" y2="587" stroke="#1e3a8a" stroke-width="1.6"/>
+    <line x1="879" y1="575" x2="915" y2="575" stroke="#1e3a8a" stroke-width="1.3"/>
+    <line x1="879" y1="599" x2="915" y2="599" stroke="#1e3a8a" stroke-width="1.3"/>
+    <text x="934" y="583" class="sans tcp-name">Internet</text>
+    <text x="934" y="604" class="sans tcp-sub">ตรงกับ OSI ชั้น 3</text>
+    <line x1="1068" y1="550" x2="1068" y2="624" stroke="#bfdbfe" stroke-width="1.6"/>
+    <text x="1088" y="570" class="sans tcp-item">• <tspan class="detail-bold">IP (IPv4):</tspan> <tspan class="mono detail-mono">127.0.0.1</tspan> (Localhost Server) &amp; IP/DNS ของ CDN / GitHub Pages</text>
+    <text x="1088" y="594" class="sans tcp-item">• ใช้ระบุปลายทางเพื่อดึง Three.js และ MediaPipe Hands มารันบนเครื่อง</text>
+    <text x="1088" y="616" class="sans tcp-item" style="fill:#64748b;">• ช่วงควบคุมฮาร์ดแวร์ผ่านสาย USB Serial ไม่ใช้ IP Address (เชื่อมตรง)</text>
+
+    <!-- TCP/IP Layer 1: Network Access (spans OSI 2-1, height=204) -->
+    <rect x="845" y="638" width="715" height="204" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.8"/>
+    <!-- Wi-Fi + Hardware Port Icon -->
+    <path d="M 881 712 A 22 22 0 0 1 913 712" fill="none" stroke="#1e293b" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M 887 719 A 14 14 0 0 1 907 719" fill="none" stroke="#1e293b" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="897" cy="726" r="2.6" fill="#1e293b"/>
+    <rect x="881" y="735" width="32" height="28" rx="4" fill="#ffffff" stroke="#1e293b" stroke-width="2.2"/>
+    <rect x="888" y="742" width="18" height="14" rx="2" fill="#1e293b"/>
+    <text x="934" y="732" class="sans tcp-name">Network</text>
+    <text x="934" y="754" class="sans tcp-name">Access</text>
+    <text x="934" y="775" class="sans tcp-sub">รวม OSI ชั้น 2 – 1</text>
+    <line x1="1068" y1="654" x2="1068" y2="826" stroke="#bbf7d0" stroke-width="1.6"/>
+    <text x="1088" y="676" class="sans tcp-head">การเชื่อมต่อทางกายภาพ &amp; สัญญาณฮาร์ดแวร์:</text>
+    <text x="1088" y="704" class="sans tcp-item">• <tspan class="detail-bold">Web Network:</tspan> Ethernet / Wi-Fi (MAC) &amp; Localhost Loopback</text>
+    <text x="1088" y="732" class="sans tcp-item">• <tspan class="detail-bold">USB-UART Bridge:</tspan> สาย USB Data (<tspan class="mono detail-mono">115200 baud, 8N1</tspan>) → ESP32</text>
+    <text x="1088" y="760" class="sans tcp-item">• <tspan class="detail-bold">PWM Control Signals:</tspan> สัญญาณ 50 Hz ออกขา <tspan class="mono detail-mono">GPIO 13, 12, 14, 27</tspan></text>
+    <text x="1088" y="788" class="sans tcp-item">• <tspan class="detail-bold">Actuators &amp; Power:</tspan> มอเตอร์ Servo <tspan class="detail-bold">2× MG90S + 2× SG90</tspan> + ไฟเลี้ยง <tspan class="detail-bold">5V 2A+</tspan></text>
+    <text x="1088" y="816" class="sans tcp-item" style="fill:#15803d; font-weight:700;">• ต่อกราวด์ร่วม (Common GND) ระหว่างแหล่งจ่ายไฟ 5V กับบอร์ด ESP32</text>
+  </g>
+
+  <!-- ======================================================================= -->
+  <!-- BOTTOM END-TO-END HARDWARE & DATA FLOW SUMMARY BAR (y=866..994)         -->
+  <!-- ======================================================================= -->
+  <rect x="40" y="866" width="1520" height="128" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.3"/>
+  <rect x="56" y="878" width="225" height="24" rx="12" fill="#0284c7"/>
+  <text x="168" y="894" class="sans badge-txt">END-TO-END DATA FLOW (REAL-TIME)</text>
+  <text x="296" y="895" class="sans main-sub">เส้นทางข้อมูลจริงจากมือผู้ใช้ → Dashboard Digital Twin → บอร์ด ESP32 → แขนกล 4-DOF</text>
+
+  <!-- Step 1 -->
+  <rect x="58" y="914" width="265" height="66" rx="8" fill="#ffffff" stroke="#f97316" stroke-width="1.5"/>
+  <text x="190" y="939" class="sans flow-title">1. กล้องเว็บแคม &amp; Hand Tracking</text>
+  <text x="190" y="961" class="sans flow-sub">MediaPipe Hands (21 จุด) + Pinch</text>
+
+  <line x1="323" y1="947" x2="363" y2="947" stroke="#0284c7" stroke-width="2.4" marker-end="url(#arr-slate)"/>
+
+  <!-- Step 2 -->
+  <rect x="369" y="914" width="285" height="66" rx="8" fill="#ffffff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="511" y="939" class="sans flow-title">2. Web Digital Twin Dashboard</text>
+  <text x="511" y="961" class="sans flow-sub">4-Bar IK/FK + EMA Filter (localhost:8080)</text>
+
+  <line x1="654" y1="947" x2="694" y2="947" stroke="#0284c7" stroke-width="2.4" marker-end="url(#arr-slate)"/>
+
+  <!-- Step 3 -->
+  <rect x="700" y="914" width="270" height="66" rx="8" fill="#ffffff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="835" y="939" class="sans flow-title">3. USB WebSerial (25 Hz)</text>
+  <text x="835" y="961" class="mono flow-sub" style="fill:#0369a1; font-weight:700;">115200 8N1 → "S1,S2,S3,S4\n"</text>
+
+  <line x1="970" y1="947" x2="1010" y2="947" stroke="#0284c7" stroke-width="2.4" marker-end="url(#arr-slate)"/>
+
+  <!-- Step 4 -->
+  <rect x="1016" y="914" width="245" height="66" rx="8" fill="#ffffff" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="1138" y="939" class="sans flow-title">4. ESP32 Firmware</text>
+  <text x="1138" y="961" class="sans flow-sub">arduino_servo_bridge.ino (PWM)</text>
+
+  <line x1="1261" y1="947" x2="1301" y2="947" stroke="#0284c7" stroke-width="2.4" marker-end="url(#arr-slate)"/>
+
+  <!-- Step 5 -->
+  <rect x="1307" y="914" width="235" height="66" rx="8" fill="#ffffff" stroke="#ca8a04" stroke-width="1.5"/>
+  <text x="1424" y="939" class="sans flow-title">5. แขนกล 4-DOF จริง</text>
+  <text x="1424" y="961" class="sans flow-sub">2× MG90S + 2× SG90 (5V 2A+)</text>
+</svg>

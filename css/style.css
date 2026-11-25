@@ -1,3 +1,28 @@
+/**
+ * =============================================================================
+ * @file        css/style.css
+ * @project     ISY49303 IoT — Group01_Project (4-DOF Robotic Arm Digital Twin)
+ * @description ไฟล์กำหนดสไตล์หน้าเว็บธีม Dark-Mode HUD แบบ Glassmorphism
+ * -----------------------------------------------------------------------------
+ * @sections (ลำดับหมวดหมู่ตรงกับ index.html)
+ *   - SECTION 00 : ตัวแปรธีมสีและค่าพื้นฐาน (:root, Reset, body)
+ *   - SECTION 01 : ฉากแสดงผล 3 มิติ (#canvas-container, z-index: 1)
+ *   - SECTION 02 : แถบสถานะด้านบน (.top-bar, .status-pills, z-index: 10)
+ *   - SECTION 03 : แผงซ้าย-ขวา และการ์ด HUD (.left-panel, .right-panel, .card)
+ *   - SECTION 04 : คอมโพเนนต์ควบคุม (กล้อง, Pinch Bar, ปุ่ม, Slider, Telemetry, Parts)
+ *   - SECTION 05 : แถบคำแนะนำด้านล่าง (.bottom-hud, z-index: 9)
+ * @architecture
+ *   - การทะลุเมาส์ (Pass-Through): .left-panel ตั้ง pointer-events: none ที่กรอบนอก
+ *     และ pointer-events: auto เฉพาะการ์ดด้านใน เพื่อให้ลากเมาส์หมุนกล้อง 3D
+ *     ในพื้นที่ว่างด้านหลังแผงควบคุมได้ตามปกติ
+ * @data_flow
+ *   ถูกโหลดโดย index.html -> ตกแต่งโครงสร้างหน้าเว็บและคลาสสถานะที่ js/app.js
+ *   สลับใช้งานแบบ Real-Time (.active, .warn, .danger, .selected, ความกว้าง #pinch-bar)
+ * =============================================================================
+ */
+
+/* SECTION 00: ตัวแปรธีมสีและค่าพื้นฐาน */
+
 :root {
   --bg-dark: #090d16;
   --panel-bg: rgba(15, 23, 42, 0.86);
@@ -29,6 +54,7 @@ body, html {
   font-family: var(--font-sans);
 }
 
+/* SECTION 01: ฉากแสดงผล 3 มิติ (z-index: 1) */
 #canvas-container {
   position: absolute;
   inset: 0;
@@ -37,7 +63,7 @@ body, html {
   z-index: 1;
 }
 
-/* Top Header Bar */
+/* SECTION 02: แถบสถานะด้านบน (Top Header Bar, z-index: 10) */
 .top-bar {
   position: absolute;
   top: 14px;
@@ -120,7 +146,8 @@ body, html {
   box-shadow: 0 0 8px var(--accent-amber);
 }
 
-/* Left Panel: Hand Tracking & Camera HUD */
+/* SECTION 03: แผงซ้าย-ขวา และการ์ด HUD */
+/* แผงซ้าย: กล้อง Hand Tracking และตัวตรวจสอบชิ้นส่วน CAD */
 .left-panel {
   position: absolute;
   top: 80px;
@@ -192,7 +219,8 @@ body, html {
   gap: 6px;
 }
 
-/* Camera Preview Box */
+/* SECTION 04: คอมโพเนนต์ควบคุม (กล้อง, Pinch Bar, ปุ่ม, Slider, Telemetry, Parts) */
+/* กล่องแสดงภาพกล้องเว็บแคม */
 .camera-box {
   position: relative;
   width: 100%;
@@ -436,7 +464,7 @@ input[type="range"]::-webkit-slider-thumb {
   margin-right: 6px;
 }
 
-/* Bottom Center Floating Help */
+/* SECTION 05: แถบคำแนะนำด้านล่าง (Bottom Center Floating Help, z-index: 9) */
 .bottom-hud {
   position: absolute;
   bottom: 16px;
