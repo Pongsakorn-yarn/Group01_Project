@@ -54,18 +54,41 @@
   const cadData = window.ARM_CAD_DATA;
   const cadDotEl = document.getElementById('cad-dot');
   const cadStatusEl = document.getElementById('cad-status-text');
+  const toastContainerEl = document.getElementById('toast-container');
+
+  /**
+   * แสดงข้อความแจ้งเตือนแบบ Non-Blocking Toast (แทน alert() ที่บล็อกการทำงาน)
+   * @param {string} message - ข้อความแจ้งเตือน
+   * @param {'info'|'success'|'warn'|'error'} [type='info'] - ระดับสีของข้อความ
+   * @param {number} [duration=4200] - ระยะเวลาแสดงผล (ms)
+   */
+  function showToast(message, type = 'info', duration = 4200) {
+    if (!toastContainerEl) {
+      console.warn(`[${type}] ${message}`);
+      return;
+    }
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    toastContainerEl.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.25s ease';
+      setTimeout(() => toast.remove(), 260);
+    }, duration);
+  }
 
   if (typeof THREE === 'undefined') {
     if (cadDotEl) cadDotEl.className = 'dot warn';
     if (cadStatusEl) cadStatusEl.textContent = '3D Engine: CDN Offline';
-    alert('ไม่สามารถโหลดไลบรารี Three.js จาก CDN ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วรีเฟรชหน้าเว็บ');
+    showToast('ไม่สามารถโหลดไลบรารี Three.js จาก CDN ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วรีเฟรชหน้าเว็บ', 'error', 7000);
     return;
   }
 
   if (!cadData || !Array.isArray(cadData.bodies)) {
     if (cadDotEl) cadDotEl.className = 'dot warn';
     if (cadStatusEl) cadStatusEl.textContent = 'CAD Mesh: Missing';
-    alert('ไม่พบข้อมูลโมเดล CAD (js/arm_cad_data.js)');
+    showToast('ไม่พบข้อมูลโมเดล CAD (js/arm_cad_data.js)', 'error', 7000);
     return;
   }
 
@@ -106,6 +129,7 @@
     valWrist: document.getElementById('val-wrist'),
     fpsBadge: document.getElementById('fps-badge'),
     pinchBar: document.getElementById('pinch-bar'),
+    pinchBarTrack: document.getElementById('pinch-bar-track'),
     pinchValText: document.getElementById('pinch-val-text'),
     handModeTag: document.getElementById('hand-mode-tag'),
     handDetectTag: document.getElementById('hand-detect-tag'),
@@ -113,11 +137,13 @@
     camStatusText: document.getElementById('cam-status-text'),
     serialDot: document.getElementById('serial-dot'),
     serialStatusText: document.getElementById('serial-status-text'),
+    serialHelperText: document.getElementById('serial-helper-text'),
     btnSerial: document.getElementById('btn-connect-serial'),
     btnDemoPick: document.getElementById('btn-demo-pick'),
     btnDemoCircle: document.getElementById('btn-demo-circle'),
     btnRecord: document.getElementById('btn-record-pose'),
-    btnPlay: document.getElementById('btn-play-pose')
+    btnPlay: document.getElementById('btn-play-pose'),
+    btnToggleHud: document.getElementById('btn-toggle-hud')
   };
 
   /**
@@ -164,8 +190,49 @@
     state.demoMode = null;
     state.playing = false;
     ui.btnDemoPick.classList.remove('active');
+    ui.btnDemoPick.setAttribute('aria-pressed', 'false');
     ui.btnDemoCircle.classList.remove('active');
+    ui.btnDemoCircle.setAttribute('aria-pressed', 'false');
     ui.btnPlay.classList.remove('active');
+    ui.btnPlay.setAttribute('aria-pressed', 'false');
+  }
+
+  /* ระบบสลับแผงควบคุมสำหรับ Desktop (ซ่อน/แสดง HUD) และ Tablet/Mobile (Drawer/Bottom Sheet) */
+  function setMobilePanel(panel) {
+    document.body.classList.remove('mobile-panel-left', 'mobile-panel-right');
+    if (panel === 'left') {
+      document.body.classList.add('mobile-panel-left');
+    } else if (panel === 'right') {
+      document.body.classList.add('mobile-panel-right');
+    }
+    document.querySelectorAll('.mobile-nav-btn').forEach((btn) => {
+      const isActive = btn.dataset.panel === panel;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', String(isActive));
+    });
+  }
+
+  document.querySelectorAll('.mobile-nav-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.panel || 'none';
+      const alreadyOpen =
+        (target === 'left' && document.body.classList.contains('mobile-panel-left')) ||
+        (target === 'right' && document.body.classList.contains('mobile-panel-right'));
+      setMobilePanel(alreadyOpen ? 'none' : target);
+    });
+  });
+
+  document.querySelectorAll('.drawer-handle').forEach((handle) => {
+    handle.addEventListener('click', () => setMobilePanel('none'));
+  });
+
+  if (ui.btnToggleHud) {
+    ui.btnToggleHud.addEventListener('click', () => {
+      const hidden = document.body.classList.toggle('hud-hidden');
+      ui.btnToggleHud.setAttribute('aria-pressed', String(hidden));
+      const labelEl = ui.btnToggleHud.querySelector('.btn-icon-label');
+      if (labelEl) labelEl.textContent = hidden ? 'แสดงแผง' : 'ซ่อนแผง';
+    });
   }
 
   /* =========================================================================
@@ -176,17 +243,20 @@
   scene.background = new THREE.Color(0x070b14);
   scene.fog = new THREE.FogExp2(0x070b14, 0.0009);
 
+  const initWidth = ui.canvasContainer.clientWidth || window.innerWidth;
+  const initHeight = ui.canvasContainer.clientHeight || window.innerHeight;
+
   const camera = new THREE.PerspectiveCamera(
     42,
-    window.innerWidth / window.innerHeight,
+    initWidth / initHeight,
     1,
     3000
   );
-  camera.position.set(240, 210, 260);
+  camera.position.set(275, 225, 315);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(initWidth, initHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputEncoding = THREE.sRGBEncoding;
@@ -194,8 +264,17 @@
   renderer.toneMappingExposure = 1.15;
   ui.canvasContainer.appendChild(renderer.domElement);
 
+  renderer.domElement.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault();
+    showToast('WebGL Context ถูกขัดจังหวะชั่วคราว กำลังพยายามกู้คืนฉาก 3 มิติ...', 'warn', 5000);
+  });
+
+  renderer.domElement.addEventListener('webglcontextrestored', () => {
+    showToast('กู้คืนฉากแสดงผล 3 มิติสำเร็จแล้ว', 'success', 3000);
+  });
+
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
-  controls.target.set(25, 85, 0);
+  controls.target.set(45, 82, 0);
   controls.enableDamping = true;
   controls.dampingFactor = 0.06;
   controls.maxPolarAngle = Math.PI / 2 + 0.08;
@@ -485,9 +564,12 @@
     parentGroup.add(mesh);
     bodyMeshes.push(mesh);
 
-    // เพิ่มรายการชิ้นส่วนลงในแผง CAD Parts Inspector (ใช้ DOM API ที่ปลอดภัย)
-    const item = document.createElement('div');
+    // เพิ่มรายการชิ้นส่วนลงในแผง CAD Parts Inspector (ใช้ DOM API ที่ปลอดภัยและรองรับคีย์บอร์ด)
+    const item = document.createElement('button');
+    item.type = 'button';
     item.className = 'part-item';
+    item.setAttribute('role', 'option');
+    item.setAttribute('aria-selected', 'false');
     item.dataset.bodyId = b.id;
 
     const leftWrap = document.createElement('span');
@@ -521,7 +603,9 @@
   function selectPart(bodyId) {
     state.selectedBodyId = state.selectedBodyId === bodyId ? null : bodyId;
     document.querySelectorAll('.part-item').forEach((el) => {
-      el.classList.toggle('selected', Number(el.dataset.bodyId) === state.selectedBodyId);
+      const isSelected = Number(el.dataset.bodyId) === state.selectedBodyId;
+      el.classList.toggle('selected', isSelected);
+      el.setAttribute('aria-selected', String(isSelected));
     });
     bodyMeshes.forEach((m) => {
       const isSel = m.userData.bodyId === state.selectedBodyId;
@@ -549,10 +633,12 @@
   });
 
   renderer.domElement.addEventListener('pointerup', (e) => {
-    // ข้ามหากเป็นการลากเมาส์หมุนกล้อง (> 5 px)
-    if (Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 5) return;
-    pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-    pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    // ข้ามหากเป็นการลากเมาส์หรือนิ้วหมุนกล้อง (> 6 px)
+    if (Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 6) return;
+    const rect = renderer.domElement.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
     const hits = raycaster.intersectObjects(bodyMeshes, false);
     if (hits.length > 0) {
@@ -833,6 +919,8 @@
   document.getElementById('btn-reset-home').addEventListener('click', () => {
     stopAutomation();
     state.target = { ...HOME_POSE };
+    trailCount = 0;
+    trailGeo.setDrawRange(0, 0);
     syncSlidersFromState();
   });
 
@@ -860,6 +948,7 @@
   btnEdges.addEventListener('click', () => {
     state.showEdges = !state.showEdges;
     btnEdges.classList.toggle('active', state.showEdges);
+    btnEdges.setAttribute('aria-pressed', String(state.showEdges));
     edgeLines.forEach((l) => (l.visible = state.showEdges));
   });
 
@@ -867,6 +956,7 @@
   btnPivots.addEventListener('click', () => {
     state.showPivots = !state.showPivots;
     btnPivots.classList.toggle('active', state.showPivots);
+    btnPivots.setAttribute('aria-pressed', String(state.showPivots));
     pivotMarkers.forEach((p) => (p.visible = state.showPivots));
   });
 
@@ -874,6 +964,7 @@
   btnXray.addEventListener('click', () => {
     state.xrayMode = !state.xrayMode;
     btnXray.classList.toggle('active', state.xrayMode);
+    btnXray.setAttribute('aria-pressed', String(state.xrayMode));
     bodyMeshes.forEach((m) => {
       m.material.transparent = state.xrayMode;
       m.material.opacity = state.xrayMode ? 0.42 : 1.0;
@@ -891,6 +982,7 @@
   btnMirror.addEventListener('click', () => {
     state.mirrorCam = !state.mirrorCam;
     btnMirror.classList.toggle('active', state.mirrorCam);
+    btnMirror.setAttribute('aria-pressed', String(state.mirrorCam));
     btnMirror.textContent = state.mirrorCam ? '🪞 Mirror: ON' : '🪞 Mirror: OFF';
   });
 
@@ -903,7 +995,9 @@
     stopAutomation();
     state.demoMode = nextMode;
     state.demoTime = 0;
-    ui.btnDemoPick.classList.toggle('active', state.demoMode === 'pick');
+    const isActive = state.demoMode === 'pick';
+    ui.btnDemoPick.classList.toggle('active', isActive);
+    ui.btnDemoPick.setAttribute('aria-pressed', String(isActive));
   });
 
   ui.btnDemoCircle.addEventListener('click', () => {
@@ -911,7 +1005,9 @@
     stopAutomation();
     state.demoMode = nextMode;
     state.demoTime = 0;
-    ui.btnDemoCircle.classList.toggle('active', state.demoMode === 'circle');
+    const isActive = state.demoMode === 'circle';
+    ui.btnDemoCircle.classList.toggle('active', isActive);
+    ui.btnDemoCircle.setAttribute('aria-pressed', String(isActive));
   });
 
   document.getElementById('btn-reset-cube').addEventListener('click', () => {
@@ -922,10 +1018,12 @@
 
   ui.btnRecord.addEventListener('click', () => {
     state.recording = !state.recording;
+    ui.btnRecord.setAttribute('aria-pressed', String(state.recording));
     if (state.recording) {
       if (state.playing) {
         state.playing = false;
         ui.btnPlay.classList.remove('active');
+        ui.btnPlay.setAttribute('aria-pressed', 'false');
       }
       state.recordedFrames = [];
       state.recordStartTime = performance.now();
@@ -939,7 +1037,7 @@
 
   ui.btnPlay.addEventListener('click', () => {
     if (state.recordedFrames.length === 0) {
-      alert('ยังไม่มีข้อมูลท่าทางที่บันทึกไว้ กดปุ่ม Record แล้วขยับแขนกลก่อนครับ');
+      showToast('ยังไม่มีข้อมูลท่าทางที่บันทึกไว้ กดปุ่ม Record แล้วขยับแขนกลก่อนครับ', 'warn');
       return;
     }
     const nextPlay = !state.playing;
@@ -947,12 +1045,14 @@
     if (nextPlay && state.recording) {
       state.recording = false;
       ui.btnRecord.classList.remove('danger');
+      ui.btnRecord.setAttribute('aria-pressed', 'false');
       ui.btnRecord.textContent = `⏺️ บันทึก (${state.recordedFrames.length}f)`;
     }
     state.playing = nextPlay;
     state.playIndex = 0;
     state.playElapsed = 0;
     ui.btnPlay.classList.toggle('active', state.playing);
+    ui.btnPlay.setAttribute('aria-pressed', String(state.playing));
   });
 
   document.getElementById('btn-export-traj').addEventListener('click', () => {
@@ -995,23 +1095,34 @@
     ui.btnSerial.textContent = '🔌 เชื่อมต่อ Arduino / ESP32 (WebSerial)';
   }
 
-  if ('serial' in navigator) {
+  const serialSupported = 'serial' in navigator;
+
+  if (serialSupported) {
     navigator.serial.addEventListener('disconnect', (event) => {
       if (state.serialPort && event.target === state.serialPort) {
         console.warn('USB Serial device physically disconnected');
         disconnectSerial();
+        showToast('สาย USB Serial ถูกถอดออก ระบบตัดการเชื่อมต่อแล้ว', 'warn');
       }
     });
+  } else {
+    ui.serialStatusText.textContent = 'IoT Serial: Desktop Only';
+    ui.btnSerial.textContent = '🔌 WebSerial (รองรับเฉพาะ Chrome/Edge บน PC)';
+    if (ui.serialHelperText) {
+      ui.serialHelperText.textContent =
+        'อุปกรณ์หรือเบราว์เซอร์นี้ไม่รองรับ USB WebSerial (สามารถควบคุม 3D และ Hand Tracking ได้ตามปกติ หากต้องการต่อบอร์ดจริงกรุณาเปิดด้วย Chrome/Edge บน PC)';
+    }
   }
 
   ui.btnSerial.addEventListener('click', async () => {
-    if (!('serial' in navigator)) {
-      alert('เบราว์เซอร์นี้ไม่รองรับ WebSerial API (แนะนำให้เปิดด้วย Chrome หรือ Edge บนโน้ตบุ๊ก)');
+    if (!serialSupported) {
+      showToast('เบราว์เซอร์นี้ไม่รองรับ WebSerial API (รองรับเฉพาะ Google Chrome หรือ Edge บนคอมพิวเตอร์)', 'warn', 5000);
       return;
     }
     try {
       if (state.serialPort) {
         await disconnectSerial();
+        showToast('ตัดการเชื่อมต่อ USB Serial เรียบร้อยแล้ว', 'info', 2500);
         return;
       }
       const port = await navigator.serial.requestPort();
@@ -1021,8 +1132,12 @@
       ui.serialDot.className = 'dot active';
       ui.serialStatusText.textContent = 'IoT Serial: 115200 Connected';
       ui.btnSerial.textContent = '🔌 ตัดการเชื่อมต่อ Serial';
+      showToast('เชื่อมต่อบอร์ด Arduino / ESP32 (115200 baud) สำเร็จ', 'success', 3000);
     } catch (err) {
       console.warn('WebSerial connection cancelled or failed:', err);
+      if (err && err.name !== 'NotFoundError') {
+        showToast('ไม่สามารถเปิดพอร์ต Serial ได้ (ตรวจสอบว่าปิด Serial Monitor ใน Arduino IDE แล้ว)', 'error', 5000);
+      }
     }
   });
 
@@ -1133,6 +1248,9 @@
 
       // อัปเดตแถบ Pinch Meter บนหน้าเว็บ
       ui.pinchBar.style.width = `${gripperOpenPct}%`;
+      if (ui.pinchBarTrack) {
+        ui.pinchBarTrack.setAttribute('aria-valuenow', String(Math.round(gripperOpenPct)));
+      }
       ui.pinchValText.textContent =
         gripperOpenPct < 28 ? `GRAB (${Math.round(gripperOpenPct)}%)` : `${Math.round(gripperOpenPct)}%`;
 
@@ -1201,14 +1319,14 @@
     if (typeof window.Hands === 'undefined') {
       ui.camDot.className = 'dot warn';
       ui.camStatusText.textContent = 'Camera: MediaPipe CDN Offline';
-      alert('ไม่สามารถโหลด MediaPipe Hands จาก CDN ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+      showToast('ไม่สามารถโหลด MediaPipe Hands จาก CDN ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่', 'error', 5500);
       return;
     }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       ui.camDot.className = 'dot warn';
       ui.camStatusText.textContent = 'Camera: Unsupported Context';
-      alert('เบราว์เซอร์ไม่อนุญาตให้เข้าถึงกล้อง กรุณาเปิดผ่าน http://localhost:8080 หรือ HTTPS');
+      showToast('เบราว์เซอร์ไม่อนุญาตให้เข้าถึงกล้อง กรุณาเปิดผ่าน http://localhost:8080 หรือ HTTPS', 'warn', 5500);
       return;
     }
 
@@ -1231,11 +1349,17 @@
       }
 
       mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, facingMode: 'user' },
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
         audio: false
       });
       videoEl.srcObject = mediaStream;
       await videoEl.play();
+
+      // ปรับสัดส่วน Canvas ให้ตรงกับความละเอียดจริงของกล้อง (รองรับทั้งแนวนอน PC และแนวตั้งมือถือ)
+      if (videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+        trackCanvas.width = videoEl.videoWidth;
+        trackCanvas.height = videoEl.videoHeight;
+      }
 
       state.camRunning = true;
       animCamActive = true;
@@ -1254,6 +1378,7 @@
         } catch (err) {
           console.error('Hand tracking frame error:', err);
           stopWebcam('Camera: Tracking Error', 'dot warn');
+          showToast('เกิดข้อผิดพลาดขณะประมวลผลภาพกล้อง กรุณาลองเปิดกล้องใหม่อีกครั้ง', 'error');
           return;
         }
         if (animCamActive) {
@@ -1264,10 +1389,10 @@
     } catch (err) {
       console.error('Webcam error:', err);
       stopWebcam('Camera: Permission/Error', 'dot warn');
-      alert(
-        'ไม่สามารถเปิดกล้องเว็บแคมได้: ' +
-        (err.message || err) +
-        '\nตรวจสอบว่าอนุญาตสิทธิ์การใช้กล้องในเบราว์เซอร์แล้ว'
+      showToast(
+        'ไม่สามารถเปิดกล้องได้: ' + (err.message || err) + ' (ตรวจสอบการอนุญาตสิทธิ์กล้องในเบราว์เซอร์)',
+        'error',
+        6000
       );
     } finally {
       state.camInitializing = false;
@@ -1394,10 +1519,37 @@
     renderer.render(scene, camera);
   }
 
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+  const topBarEl = document.querySelector('.top-bar');
+
+  function syncTopBarOffset() {
+    if (!topBarEl) return;
+    const rect = topBarEl.getBoundingClientRect();
+    const offset = Math.ceil(rect.bottom + 10);
+    document.documentElement.style.setProperty('--topbar-offset', `${offset}px`);
+  }
+
+  function handleViewportResize() {
+    syncTopBarOffset();
+    const w = ui.canvasContainer.clientWidth || window.innerWidth;
+    const h = ui.canvasContainer.clientHeight || window.innerHeight;
+    if (w <= 0 || h <= 0) return;
+    camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(w, h);
+    if (w >= 1200) {
+      setMobilePanel('none');
+    }
+  }
+
+  syncTopBarOffset();
+  window.addEventListener('resize', handleViewportResize);
+  window.addEventListener('orientationchange', () => setTimeout(handleViewportResize, 120));
+
+  // ปิดกล้องและปลดพอร์ต Serial อัตโนมัติเมื่อผู้ใช้ปิดแท็บหรือรีเฟรชหน้าเว็บ
+  window.addEventListener('pagehide', () => {
+    if (state.camRunning) stopWebcam();
+    if (state.serialPort) disconnectSerial();
   });
 
   // คำนวณท่าเริ่มต้นครั้งแรกและเริ่มลูปหลัก
