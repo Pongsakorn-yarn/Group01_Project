@@ -155,7 +155,7 @@
   <circle cx="960" cy="698" r="11" fill="#d97706"/>
   <text x="960" y="702" text-anchor="middle" class="font-sans step-num">8</text>
   <line x1="942" y1="710" x2="1435" y2="710" stroke="#d97706" stroke-width="2.8" marker-end="url(#arr-amber)"/>
-  <text x="1192" y="694" text-anchor="middle" class="font-sans msg-main" style="fill:#92400e;">sendSerialTelemetry(): ส่งแพ็กเก็ต ASCII CSV "S1,S2,S3,S4\n"</text>
+  <text x="1192" y="694" text-anchor="middle" class="font-sans msg-main" style="fill:#92400e;">sendSerialTelemetry(): ส่งแพ็กเก็ต ASCII CSV "BASE,GRIP_L,GRIP_R\n"</text>
   <text x="1192" y="726" text-anchor="middle" class="font-mono msg-sub" style="fill:#b45309;">USB UART 115200 baud, 8N1 (แปลงค่า 0..180°)</text>
 
   <!-- Step 9 (Arduino loop) -->

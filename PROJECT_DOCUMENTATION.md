@@ -1,7 +1,7 @@
 # เอกสารทะเบียนไฟล์และสถาปัตยกรรมเชิงเทคนิค — Group01_Project
 
 > **รายวิชา:** ISY49303 IoT | **โปรเจกต์:** 4-DOF Robotic Arm Digital Twin (Hand Tracking & IoT WebSerial)  
-> **สรุปขนาดโปรเจกต์:** 74 ไฟล์ (9.38 MB) | **บทบาทเอกสารนี้:** แหล่งอ้างอิงกลาง (Single Source of Truth) สำหรับทะเบียนไฟล์ทั้งหมด สถาปัตยกรรม Data Flow จลนศาสตร์ 4-Bar โปรโตคอล Serial และแนวทางส่งมอบ *(สำหรับคู่มือเริ่มต้นใช้งาน, Pinout และ Troubleshooting ดูที่ [`README.md`](./README.md))*
+> **สรุปขนาดโปรเจกต์:** 80 ไฟล์ | **บทบาทเอกสารนี้:** แหล่งอ้างอิงกลาง (Single Source of Truth) สำหรับทะเบียนไฟล์ทั้งหมด สถาปัตยกรรม Data Flow จลนศาสตร์ 4-Bar โปรโตคอล Serial และแนวทางส่งมอบ *(สำหรับคู่มือเริ่มต้นใช้งาน, Pinout และ Troubleshooting ดูที่ [`README.md`](./README.md))*
 
 **สารบัญ (Table of Contents):**
 [1. ตารางสรุปไฟล์ทั้งหมด (5 หมวดมาตรฐานสากล)](#1-ตารางสรุปไฟล์ทั้งหมด-เรียงตามหมวดหมู่มาตรฐานสากล) • [2. สถาปัตยกรรมระบบและเส้นทางข้อมูล](#2-สถาปัตยกรรมภาพรวมและเส้นทางข้อมูลเชิงเทคนิค-system-architecture--data-flow) • [3. จลนศาสตร์ 4-Bar และโปรโตคอล Serial](#3-ระบบพิกัด-จลนศาสตร์-4-bar-และโปรโตคอล-usb-serial) • [4. มาตรฐานโค้ดและการส่งออก](#4-มาตรฐานโค้ดและการส่งออกผลลัพธ์พร้อมใช้งาน)
@@ -14,7 +14,7 @@
 | ลำดับ | ไฟล์ / โฟลเดอร์ | หน้าที่โดยสรุป |
 | :---: | :--- | :--- |
 | 1 | [`README.md`](./README.md) | คู่มือเริ่มต้นใช้งาน (Quick Start), ตาราง Pinout, การควบคุม และการแก้ปัญหาเบื้องต้น |
-| 2 | [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md) | ทะเบียนไฟล์ทั้งหมด 74 ไฟล์ และเอกสารอ้างอิงเชิงเทคนิคกลาง (ไฟล์นี้) |
+| 2 | [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md) | ทะเบียนไฟล์ทั้งหมด 80 ไฟล์ และเอกสารอ้างอิงเชิงเทคนิคกลาง (ไฟล์นี้) |
 | 3 | [`docs/WIRING_GUIDE.md`](./docs/WIRING_GUIDE.md) | คู่มือต่อวงจรฮาร์ดแวร์, BOM (GOOUUU ESP32-S3-CAM + 1×MG996R + 2×MG90S), ขา `GPIO 1, 2, 41`, ไฟ 5V 3A–5A และ Common GND |
 | 4 | [`docs/images/`](./docs/images/) *(16 ไฟล์)* | แผนภาพสถาปัตยกรรม, OSI/TCP-IP และ Data Flow 8 ชุด (`.png` + `.svg`) สำหรับเอกสารและสไลด์ |
 
@@ -41,16 +41,22 @@
 | 6 | [`.gitattributes`](./.gitattributes) | มาตรฐาน Line Endings ข้ามแพลตฟอร์ม (`LF` สำหรับโค้ด, `CRLF` สำหรับ `.bat`, `binary` สำหรับโมเดล/ภาพ) |
 | 7 | [`start_digital_twin.bat`](./start_digital_twin.bat) | สคริปต์ Windows เปิด Python HTTP Server (`127.0.0.1:8080`) และเปิดเบราว์เซอร์เพื่อให้ได้ Secure Context |
 
-### หมวดที่ 3: เว็บแอปพลิเคชัน Digital Twin & PWA (Web Frontend) — 7 ไฟล์
+### หมวดที่ 3: เว็บแอปพลิเคชัน Digital Twin, Multi-Page Control Room & PWA (Web Frontend) — 13 ไฟล์
 | ลำดับ | ไฟล์ / โฟลเดอร์ | หน้าที่โดยสรุป |
 | :---: | :--- | :--- |
-| 8 | [`index.html`](./index.html) | หน้าเว็บหลักและโครงสร้าง HUD 6 ส่วน (ฉาก 3D, แถบสถานะ, แผงกล้อง/CAD, แผงควบคุม 4-DOF, Mobile Nav, สคริปต์) |
-| 9 | [`css/style.css`](./css/style.css) | ธีม Dark-Mode Glassmorphism, Responsive (Desktop/Tablet/Mobile) และมาตรฐาน WCAG 2.1 AA |
-| 10 | [`js/app.js`](./js/app.js) | สมองหลัก: Three.js 3D, 4-Bar FK/IK, MediaPipe Hand Tracking, EMA Filter, Demo/Recorder, E-Stop, 2-Way WebSerial |
-| 11 | [`js/arm_cad_data.js`](./js/arm_cad_data.js) | ข้อมูลเรขาคณิต CAD 39 ชิ้น (18,080 สามเหลี่ยม) เข้ารหัส Base64 สำหรับเรนเดอร์ 3D ในเว็บ *(สร้างอัตโนมัติจาก `.sc` ไม่ควรแก้ด้วยมือ)* |
-| 12 | [`manifest.json`](./manifest.json) | ไฟล์ตั้งค่า Progressive Web App (PWA) สำหรับติดตั้งเป็นแอปบนเดสก์ท็อปและมือถือ |
-| 13 | [`sw.js`](./sw.js) | Service Worker แคชไฟล์หลักแบบ Network-First เพื่อรองรับ PWA และการใช้งานออฟไลน์ |
-| 14 | [`assets/icon.svg`](./assets/icon.svg) | ไอคอนเวกเตอร์สำหรับ Favicon และไอคอนแอป PWA |
+| 8 | [`index.html`](./index.html) | หน้าควบคุมหลัก 3D HUD (ฉาก 3D, แถบสถานะ, แผงกล้อง/CAD, แผงควบคุม 4-DOF + แยกนิ้ว L/R, Modal ตั้งค่า & รีเซ็ตระบบ) |
+| 9 | [`dashboard.html`](./dashboard.html) | หน้า Factory Dashboard แสดง KPI, OEE, Cycle Count, กราฟ Real-Time Telemetry, เกจข้อต่อ (HW vs SIM) และ Event Log |
+| 10 | [`diagnostics.html`](./diagnostics.html) | หน้า IoT Diagnostics แสดง Live Serial Monitor, ตาราง Joint Safety Limits และผัง Pinout GOOUUU ESP32-S3-CAM |
+| 11 | [`css/style.css`](./css/style.css) | ธีม Dark/Light Glassmorphism, Responsive (Desktop/Tablet/Mobile) และมาตรฐาน WCAG 2.1 AA |
+| 12 | [`css/pages.css`](./css/pages.css) | สไตล์เฉพาะหน้า Factory Dashboard และ IoT Diagnostics (KPI Cards, Canvas Chart, Tables) |
+| 13 | [`js/factory_bus.js`](./js/factory_bus.js) | บัสซิงก์ข้อมูลสดข้ามหน้าต่าง (`BroadcastChannel` + `localStorage`), ทะเบียน `PINOUT_SPEC` และ `HARD_LIMITS` |
+| 14 | [`js/app.js`](./js/app.js) | สมองหลัก: Three.js 3D, 4-Bar FK/IK, MediaPipe Hand Tracking (Sync/Split), EMA Filter, Demo/Recorder, E-Stop, System Reset, WebSerial |
+| 15 | [`js/dashboard.js`](./js/dashboard.js) | ลอจิกหน้า Factory Dashboard: วาดกราฟ HTML5 Canvas, อัปเดต KPI/OEE/เกจ และ Export Event CSV |
+| 16 | [`js/diagnostics.js`](./js/diagnostics.js) | ลอจิกหน้า IoT Diagnostics: สตรีมแพ็กเก็ต Serial สด, ตาราง Safety Limits & Pinout และ Export Diagnostics JSON |
+| 17 | [`js/arm_cad_data.js`](./js/arm_cad_data.js) | ข้อมูลเรขาคณิต CAD 39 ชิ้น (18,080 สามเหลี่ยม) เข้ารหัส Base64 สำหรับเรนเดอร์ 3D ในเว็บ *(สร้างอัตโนมัติจาก `.sc` ไม่ควรแก้ด้วยมือ)* |
+| 18 | [`manifest.json`](./manifest.json) | ไฟล์ตั้งค่า Progressive Web App (PWA) สำหรับติดตั้งเป็นแอปบนเดสก์ท็อปและมือถือ |
+| 19 | [`sw.js`](./sw.js) | Service Worker แคชไฟล์หลักแบบ Network-First (`arm-4dof-twin-v17`) เพื่อรองรับ PWA และการใช้งานออฟไลน์ |
+| 20 | [`assets/icon.svg`](./assets/icon.svg) | ไอคอนเวกเตอร์สำหรับ Favicon และไอคอนแอป PWA |
 
 ### หมวดที่ 4: เฟิร์มแวร์ไมโครคอนโทรลเลอร์ (IoT Firmware) — 2 ไฟล์
 | ลำดับ | ไฟล์ / โฟลเดอร์ | หน้าที่โดยสรุป |
@@ -138,7 +144,7 @@ flowchart TB
 | **2B** | UI / Demo / Play | `index.html` → `js/app.js` (SEC 08/09/12) | Sliders, Pick & Place, Circle IK, `recordedFrames[i]` | `state.target` |
 | **3** | กรองสัญญาณ | `js/app.js` (`animate` EMA Filter, SEC 12) | `current += (target - current) * smoothing` | `state.current` |
 | **4A** | เรนเดอร์ 3D & HUD | `js/app.js` (`updateArmKinematics`, `updateJointLabels`) | มุม 12 กลุ่มกลไก, พิกัด `TCP (mm)`, ฟิสิกส์หยิบกล่อง | WebGL & HUD |
-| **4B** | ส่งคำสั่ง IoT | `js/app.js` (`sendSerialTelemetry`, SEC 10) | CSV `"S1,S2,S3,S4\n"` (`0..180`) ทุก ~40 ms (`25 Hz`) | USB WebSerial |
+| **4B** | ส่งคำสั่ง IoT | `js/app.js` (`sendSerialTelemetry`, SEC 10) | CSV `"BASE,GRIP_L,GRIP_R\n"` (`0..180`) ทุก ~40 ms (`25 Hz`) | USB WebSerial |
 | **5** | ขับมอเตอร์จริง | `arduino_servo_bridge.ino` (`loop` → `writeAllServos`) | Non-blocking buffer → `sscanf` → Safety Limits → PWM | Servo 4 ตัว |
 | **6** | ส่งออกเส้นทาง | `js/app.js` (`#btn-export-traj`, SEC 09) | JSON (`model`, `timestamp`, `current_pose`, `recorded_frames`) | `robotic_arm_4dof_trajectory.json` |
 

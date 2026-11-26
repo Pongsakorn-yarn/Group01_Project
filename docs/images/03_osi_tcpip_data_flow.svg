@@ -89,7 +89,7 @@
     <text x="156" y="294" class="sans layer-sub">ชั้นแปลงรูปแบบข้อมูล</text>
     <line x1="276" y1="244" x2="276" y2="318" stroke="#fed7aa" stroke-width="1.5"/>
     <text x="292" y="260" class="sans detail-bold">การเข้ารหัส / ถอดรหัสและจัดรูปแบบแพ็กเก็ต</text>
-    <text x="292" y="281" class="sans detail-text">• แปลงองศา 4 แกนเป็นข้อความ ASCII CSV <tspan class="mono detail-mono">"S1,S2,S3,S4\n"</tspan> (UTF-8)</text>
+    <text x="292" y="281" class="sans detail-text">• แปลงองศา 3 Servo เป็นข้อความ ASCII CSV <tspan class="mono detail-mono">"BASE,GRIP_L,GRIP_R\n"</tspan> (UTF-8)</text>
     <text x="292" y="301" class="sans detail-text">• ถอดรหัสโมเดล CAD (<tspan class="mono detail-mono">Base64 → Float32Array</tspan>) &amp; ส่งออก <tspan class="mono detail-mono">.JSON/.GLB/.STL</tspan></text>
 
     <!-- Layer 5: Session -->
@@ -213,7 +213,7 @@
     <text x="1088" y="192" class="sans tcp-item">• <tspan class="detail-bold">HTTP / HTTPS:</tspan> โหลด Dashboard (<tspan class="mono detail-mono">index.html</tspan>), Three.js &amp; MediaPipe</text>
     <text x="1088" y="220" class="sans tcp-item">• <tspan class="detail-bold">Digital Twin &amp; AI:</tspan> ตรวจจับมือ 21 จุด → คำนวณ 4-Bar IK/FK + EMA Filter</text>
     <text x="1088" y="248" class="sans tcp-item">• <tspan class="detail-bold">Dashboard Telemetry:</tspan> แสดงสถานะ Real-Time, พิกัด TCP และมุม 4-DOF</text>
-    <text x="1088" y="276" class="sans tcp-item">• <tspan class="detail-bold">Data Format:</tspan> แพ็กเก็ต CSV <tspan class="mono detail-mono">"S1,S2,S3,S4\n"</tspan>, Base64 CAD, JSON</text>
+    <text x="1088" y="276" class="sans tcp-item">• <tspan class="detail-bold">Data Format:</tspan> แพ็กเก็ต CSV <tspan class="mono detail-mono">"BASE,GRIP_L,GRIP_R\n"</tspan>, Base64 CAD, JSON</text>
     <text x="1088" y="304" class="sans tcp-item">• <tspan class="detail-bold">WebSerial Session:</tspan> เปิดพอร์ต COM ส่งคำสั่งต่อเนื่องทุก <tspan class="mono detail-mono">40 ms (~25 Hz)</tspan></text>
     <text x="1088" y="332" class="sans tcp-item">• <tspan class="detail-bold">MCU Firmware:</tspan> <tspan class="mono detail-mono">arduino_servo_bridge.ino</tspan> แยกค่า <tspan class="mono detail-mono">sscanf()</tspan> → <tspan class="mono detail-mono">constrain()</tspan></text>
     <rect x="1088" y="356" width="454" height="54" rx="8" fill="#ffedd5" stroke="#fdba74" stroke-width="1"/>
@@ -291,7 +291,7 @@
   <!-- Step 3 -->
   <rect x="700" y="914" width="270" height="66" rx="8" fill="#ffffff" stroke="#2563eb" stroke-width="1.5"/>
   <text x="835" y="939" class="sans flow-title">3. USB WebSerial (25 Hz)</text>
-  <text x="835" y="961" class="mono flow-sub" style="fill:#0369a1; font-weight:700;">115200 8N1 → "S1,S2,S3,S4\n"</text>
+  <text x="835" y="961" class="mono flow-sub" style="fill:#0369a1; font-weight:700;">115200 8N1 → "BASE,GL,GR\n"</text>
 
   <line x1="970" y1="947" x2="1010" y2="947" stroke="#0284c7" stroke-width="2.4" marker-end="url(#arr-slate)"/>
 

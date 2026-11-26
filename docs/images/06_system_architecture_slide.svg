@@ -174,7 +174,7 @@
     <text x="1635" y="772" class="sans card-bullet">4× มอเตอร์ Servo จริง</text>
     <line x1="1496" y1="806" x2="1774" y2="806" stroke="#fef3c7" stroke-width="2"/>
     <text x="1635" y="858" class="sans card-bullet">Base • Shoulder • Elbow</text>
-    <text x="1635" y="906" class="sans card-sub">Gripper (ไฟเลี้ยง 5V 2A+)</text>
+    <text x="1635" y="906" class="sans card-sub">Gripper L/R (ไฟเลี้ยง 5V 3A–5A+)</text>
 
   </g>
 </svg>

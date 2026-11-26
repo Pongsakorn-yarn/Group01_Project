@@ -6,7 +6,7 @@
  *              การคำนวณ Forward Kinematics (FK) ของกลไก 4-Bar Parallel Linkage,
  *              การคำนวณ Inverse Kinematics (IK) แบบวิเคราะห์ 3 มิติ, การตรวจจับมือ
  *              ด้วย MediaPipe Hands, ฟิสิกส์หยิบ-วางวัตถุ, การบันทึก/ส่งออกท่าทาง
- *              และการส่งคำสั่งผ่าน USB WebSerial ไปยังบอร์ด Arduino / ESP32
+ *              และการส่งคำสั่งผ่าน USB WebSerial ไปยังบอร์ด GOOUUU ESP32-S3-CAM (3 Servo: MG996R + 2x MG90S)
  * -----------------------------------------------------------------------------
  * @dependencies
  *   - THREE & THREE.OrbitControls (โหลดผ่าน CDN ใน index.html)
@@ -24,7 +24,7 @@
  *        (39 ชิ้นส่วน), อัปเดตพิกัดปลายแขน (TCP) และตรวจจับการหยิบ-ปล่อยกล่อง
  *   3. ข้อมูลขาออก (OUTPUTS)
  *      - หน้าจอ 3D : Three.js WebGLRenderer + ตัวเลข Telemetry บน index.html
- *      - ฮาร์ดแวร์  : `sendSerialTelemetry()` ส่งข้อความ "S1,S2,S3,S4\n" ทุก ~40 ms
+ *      - ฮาร์ดแวร์  : `sendSerialTelemetry()` ส่งข้อความ "BASE,GRIP_L,GRIP_R\n" ทุก ~40 ms
  *                   ผ่าน WebSerial (115200 baud) -> arduino_servo_bridge.ino
  *      - ส่งออกไฟล์ : ดาวน์โหลดเส้นทางท่าทาง JSON (`robotic_arm_4dof_trajectory.json`)
  *
@@ -222,7 +222,14 @@
     btnToggleHud: document.getElementById('btn-toggle-hud'),
     edgeTabLeft: document.getElementById('edge-tab-left'),
     edgeTabRight: document.getElementById('edge-tab-right'),
-    btnResetCam: document.getElementById('btn-reset-cam'),
+    btnResetSystem: document.getElementById('btn-reset-system'),
+    resetConfirmBackdrop: document.getElementById('reset-confirm-backdrop'),
+    resetConfirmModal: document.getElementById('reset-confirm-modal'),
+    btnCloseResetModal: document.getElementById('btn-close-reset-modal'),
+    btnCancelResetSystem: document.getElementById('btn-cancel-reset-system'),
+    btnConfirmResetSystem: document.getElementById('btn-confirm-reset-system'),
+    chkResetDisconnectUsb: document.getElementById('chk-reset-disconnect-usb'),
+    chkResetCycleCount: document.getElementById('chk-reset-cycle-count'),
     btnEstop: document.getElementById('btn-estop'),
     btnOpenSettings: document.getElementById('btn-open-settings'),
     settingsBackdrop: document.getElementById('settings-backdrop'),
@@ -586,13 +593,6 @@
     camera.position.set(DEFAULT_CAM_POS.x, DEFAULT_CAM_POS.y, DEFAULT_CAM_POS.z);
     controls.target.set(DEFAULT_CAM_TARGET.x, DEFAULT_CAM_TARGET.y, DEFAULT_CAM_TARGET.z);
     controls.update();
-  }
-
-  if (ui.btnResetCam) {
-    ui.btnResetCam.addEventListener('click', () => {
-      resetCameraView();
-      showToast('รีเซ็ตมุมกล้อง 3D เรียบร้อยแล้ว', 'info', 2000);
-    });
   }
   controls.enableDamping = true;
   controls.dampingFactor = 0.06;
@@ -2329,7 +2329,7 @@
   }
 
   /**
-   * อ่านข้อมูลตอบกลับจากไมโครคอนโทรลเลอร์ (2-Way Handshake) เช่น "READY:4DOF_BRIDGE"
+   * อ่านข้อมูลตอบกลับจากไมโครคอนโทรลเลอร์ (2-Way Handshake) เช่น "READY:3SERVO_S3CAM" และ "OK:LIMITS"
    * @param {SerialPort} port - พอร์ต WebSerial ที่เปิดเชื่อมต่อแล้ว
    */
   async function readSerialLoop(port) {
@@ -2448,7 +2448,7 @@
 
   /**
    * ส่งค่าองศา Servo ปัจจุบันออกทางพอร์ต USB WebSerial ทุก ~40 ms (~25 Hz)
-   * ในรูปแบบข้อความ ASCII CSV "S1,S2,S3,S4\n" (ช่วง 0..180 องศา)
+   * ในรูปแบบข้อความ ASCII CSV "BASE,GRIP_L,GRIP_R\n" (ช่วง 0..180 องศา สำหรับ 3 มอเตอร์จริง)
    * เพื่อส่งต่อไปยังเฟิร์มแวร์ `arduino_servo_bridge/arduino_servo_bridge.ino`
    * @param {number} now - ค่าเวลาความละเอียดสูง (ms) จาก requestAnimationFrame
    * @returns {Promise<void>}
@@ -3217,8 +3217,214 @@
     ui.btnEstop.addEventListener('click', () => toggleEstop());
   }
 
+  // ---------------------------------------------------------------------------
+  // ระบบรีเซ็ตทั้งระบบกลับค่าเริ่มต้น (Full System Reset to Factory Defaults)
+  // ใช้ WAI-ARIA alertdialog ตามหลัก Error Prevention (ISO 9241-110 / WCAG 2.1)
+  // ---------------------------------------------------------------------------
+  let lastResetTriggerEl = null;
+
+  function isResetModalOpen() {
+    return Boolean(ui.resetConfirmBackdrop && !ui.resetConfirmBackdrop.hidden);
+  }
+
+  function openResetConfirmModal(triggerEl) {
+    if (!ui.resetConfirmBackdrop || !ui.resetConfirmModal) return;
+    if (isSettingsModalOpen()) closeSettingsModal();
+    lastResetTriggerEl = triggerEl || document.activeElement;
+    if (ui.chkResetDisconnectUsb) ui.chkResetDisconnectUsb.checked = false;
+    if (ui.chkResetCycleCount) ui.chkResetCycleCount.checked = false;
+    ui.resetConfirmBackdrop.hidden = false;
+    if (ui.btnResetSystem) ui.btnResetSystem.setAttribute('aria-expanded', 'true');
+    requestAnimationFrame(() => {
+      if (ui.btnCancelResetSystem) ui.btnCancelResetSystem.focus();
+    });
+  }
+
+  function closeResetConfirmModal(restoreFocus = true) {
+    if (!ui.resetConfirmBackdrop || ui.resetConfirmBackdrop.hidden) return;
+    ui.resetConfirmBackdrop.hidden = true;
+    if (ui.btnResetSystem) ui.btnResetSystem.setAttribute('aria-expanded', 'false');
+    if (restoreFocus && lastResetTriggerEl && typeof lastResetTriggerEl.focus === 'function') {
+      lastResetTriggerEl.focus();
+    }
+    lastResetTriggerEl = null;
+  }
+
+  /**
+   * คืนค่าสถานะทั้งหมดของระบบ Digital Twin กลับสู่ค่าเริ่มต้นมาตรฐาน (6 หมวดครบถ้วน)
+   * @param {{ disconnectUsb?: boolean, resetCycleCount?: boolean }} options
+   */
+  async function resetSystemToDefaults(options = {}) {
+    const disconnectUsb = Boolean(options.disconnectUsb);
+    const resetCycleCount = Boolean(options.resetCycleCount);
+
+    // 1. หยุดโหมดอัตโนมัติ (Demo/Play), หยุดและล้างการบันทึกท่าทาง, ปิดกล้อง Hand Tracking
+    stopAutomation();
+    if (state.recording) {
+      state.recording = false;
+      ui.btnRecord.classList.remove('danger');
+      ui.btnRecord.setAttribute('aria-pressed', 'false');
+    }
+    state.recordedFrames = [];
+    state.playIndex = 0;
+    state.playElapsed = 0;
+    ui.btnRecord.textContent = '⏺️ Record';
+    if (state.camRunning) {
+      stopWebcam('Camera: Standby', 'dot');
+    }
+    state.handMode = 'ik';
+    selectHandMode.value = 'ik';
+    ui.handModeTag.textContent = 'MODE: IK 3D';
+    state.mirrorCam = true;
+    btnMirror.classList.add('active');
+    btnMirror.setAttribute('aria-pressed', 'true');
+    btnMirror.textContent = '🪞 Mirror: ON';
+
+    // 2. ปลดล็อก E-STOP (ถ้าเปิดค้างอยู่) และคืนขอบเขตความปลอดภัย Joint Limits เป็นค่าเริ่มต้น
+    if (state.estop) {
+      state.estop = false;
+      if (ui.btnEstop) {
+        ui.btnEstop.setAttribute('aria-pressed', 'false');
+        const labelEl = ui.btnEstop.querySelector('.btn-estop-label');
+        if (labelEl) labelEl.textContent = 'E-STOP';
+      }
+    }
+    showLimitValidationNotice('');
+    JOINT_AXES.forEach((a) => { limitHitState[a] = false; });
+    applyJointLimits(createDefaultJointLimits(), true, true);
+
+    // 3. คืนท่าแขนกลกลับ HOME_POSE, ปิดโหมด Split มือหนีบกลับ Sync และคืนค่า Smoothing
+    state.splitGripper = false;
+    if (ui.splitGripPanel) ui.splitGripPanel.hidden = true;
+    if (ui.btnToggleSplitGrip) {
+      ui.btnToggleSplitGrip.classList.remove('active');
+      ui.btnToggleSplitGrip.setAttribute('aria-pressed', 'false');
+      ui.btnToggleSplitGrip.textContent = '🔀 แยกนิ้วซ้าย/ขวา: ปิด (Sync)';
+    }
+    state.smoothing = 0.22;
+    sliderSmoothing.value = '0.22';
+    document.getElementById('val-smoothing').textContent = '0.22';
+    state.target = clampJointTargets(HOME_POSE, true);
+    state.targetGrip.left = state.target.j4;
+    state.targetGrip.right = state.target.j4;
+    syncSlidersFromState();
+    updateLimitIndicatorsUI();
+
+    // 4. รีเซ็ตฉาก 3D, มุมกล้อง, CAD Viewer (Explode/Edges/Pivots/X-Ray), ชิ้นส่วนที่เลือก, กล่อง และ TCP Trail
+    resetCameraView();
+    state.explodeFactor = 0;
+    sliderExplode.value = '0';
+    document.getElementById('val-explode').textContent = '0%';
+    bodyMeshes.forEach((m) => m.position.set(0, 0, 0));
+
+    state.showEdges = true;
+    btnEdges.classList.add('active');
+    btnEdges.setAttribute('aria-pressed', 'true');
+    edgeLines.forEach((l) => { l.visible = true; });
+
+    state.showPivots = true;
+    btnPivots.classList.add('active');
+    btnPivots.setAttribute('aria-pressed', 'true');
+    pivotMarkers.forEach((p) => { p.visible = true; });
+
+    state.xrayMode = false;
+    btnXray.classList.remove('active');
+    btnXray.setAttribute('aria-pressed', 'false');
+    bodyMeshes.forEach((m) => {
+      m.material.transparent = false;
+      m.material.opacity = 1.0;
+    });
+
+    if (state.selectedBodyId !== null) {
+      selectPart(state.selectedBodyId);
+    }
+
+    cubeGrabbed = false;
+    targetCube.position.copy(CUBE_HOME);
+    targetCube.rotation.set(0, 0, 0);
+    updateCubeVisualState();
+
+    trailCount = 0;
+    trailGeo.setDrawRange(0, 0);
+
+    // 5. คืนค่าการแสดงผล (Theme/Brightness/Opacity/Blur/Scale) และ Layout แผงควบคุมทั้งหมด
+    applyDisplaySettings({ ...DISPLAY_DEFAULTS }, true);
+    setDesktopPanelCollapsed('left', false, false);
+    setDesktopPanelCollapsed('right', false, false);
+    setMobilePanel('none');
+    document.querySelectorAll('.collapsible-card').forEach((card) => setCardCollapsed(card, false, false));
+    try {
+      localStorage.removeItem(LAYOUT_STORAGE_KEY);
+    } catch (_) { /* ignore */ }
+
+    // 6. จัดการ USB WebSerial, ตัวนับ Cycle Count และส่ง Audit Log ข้ามทุกหน้าต่าง
+    if (resetCycleCount) {
+      factoryMetrics.cycleCount = 0;
+    }
+    if (disconnectUsb && state.serialPort) {
+      await disconnectSerial();
+    } else if (state.serialPort) {
+      state.pendingLimitSync = true;
+    }
+
+    const detailMsg = [
+      disconnectUsb ? 'ตัด USB Serial' : (state.serialPort ? 'คง USB Serial + ส่ง Home' : 'Offline'),
+      resetCycleCount ? 'รีเซ็ต Cycle Count = 0' : 'คงยอด Cycle Count'
+    ].join(' • ');
+    logFactoryEvent('info', 'SYSTEM', 'รีเซ็ตระบบทั้งหมดกลับค่าเริ่มต้น (Factory Default)', detailMsg);
+    publishFactoryTelemetry(performance.now(), true);
+    showToast('🔄 รีเซ็ตระบบทั้งหมดกลับสู่ค่าเริ่มต้นมาตรฐานเรียบร้อยแล้ว', 'success', 3200);
+  }
+
+  if (ui.btnResetSystem) {
+    ui.btnResetSystem.addEventListener('click', () => openResetConfirmModal(ui.btnResetSystem));
+  }
+  if (ui.btnCloseResetModal) {
+    ui.btnCloseResetModal.addEventListener('click', () => closeResetConfirmModal(true));
+  }
+  if (ui.btnCancelResetSystem) {
+    ui.btnCancelResetSystem.addEventListener('click', () => closeResetConfirmModal(true));
+  }
+  if (ui.resetConfirmBackdrop) {
+    ui.resetConfirmBackdrop.addEventListener('click', (e) => {
+      if (e.target === ui.resetConfirmBackdrop) closeResetConfirmModal(true);
+    });
+  }
+  if (ui.btnConfirmResetSystem) {
+    ui.btnConfirmResetSystem.addEventListener('click', async () => {
+      const disconnectUsb = Boolean(ui.chkResetDisconnectUsb && ui.chkResetDisconnectUsb.checked);
+      const resetCycleCount = Boolean(ui.chkResetCycleCount && ui.chkResetCycleCount.checked);
+      closeResetConfirmModal(true);
+      await resetSystemToDefaults({ disconnectUsb, resetCycleCount });
+    });
+  }
+
   window.addEventListener('keydown', (e) => {
-    // ปิดหน้าต่างตั้งค่าด้วยปุ่ม Esc เสมอ แม้โฟกัสอยู่ใน Slider หรือปุ่มภายใน Modal
+    // ปิดหน้าต่างยืนยันรีเซ็ตระบบหรือหน้าต่างตั้งค่าด้วยปุ่ม Esc และทำ Focus Trap ตามมาตรฐาน WAI-ARIA 1.2
+    if (isResetModalOpen()) {
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        closeResetConfirmModal(true);
+        return;
+      }
+      if (e.key === 'Tab' && ui.resetConfirmModal) {
+        const focusables = ui.resetConfirmModal.querySelectorAll(
+          'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusables.length > 0) {
+          const first = focusables[0];
+          const last = focusables[focusables.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+      return;
+    }
     if (e.code === 'Escape' && isSettingsModalOpen()) {
       e.preventDefault();
       closeSettingsModal();
@@ -3228,13 +3434,16 @@
     const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (isSettingsModalOpen()) return;
+    if (isResetModalOpen() || isSettingsModalOpen()) return;
     const navBackdropEl = document.getElementById('nav-backdrop');
     if (navBackdropEl && !navBackdropEl.hidden) return;
 
     if (e.code === 'Space') {
       e.preventDefault();
       toggleEstop();
+    } else if (e.code === 'KeyR' && e.shiftKey) {
+      e.preventDefault();
+      openResetConfirmModal(ui.btnResetSystem);
     } else if (e.code === 'KeyR') {
       resetCameraView();
       showToast('รีเซ็ตมุมกล้อง 3D (R)', 'info', 1800);

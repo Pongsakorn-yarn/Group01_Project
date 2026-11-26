@@ -68,7 +68,7 @@
     <text x="234" y="356" class="sans layer-sub">ชั้นแปลงรูปแบบข้อมูล</text>
     <line x1="474" y1="296" x2="474" y2="372" stroke="#fed7aa" stroke-width="2"/>
     <text x="506" y="324" class="sans detail-head">จัดรูปแบบแพ็กเก็ตและถอดรหัส 3D CAD</text>
-    <text x="506" y="362" class="sans detail-text">แปลงมุม 4 แกนเป็น ASCII CSV <tspan class="mono detail-mono">"S1,S2,S3,S4\n"</tspan> และถอดรหัส <tspan class="mono detail-mono">Base64 CAD</tspan></text>
+    <text x="506" y="362" class="sans detail-text">แปลงมุม 3 Servo เป็น ASCII CSV <tspan class="mono detail-mono">"BASE,GRIP_L,GRIP_R\n"</tspan> และถอดรหัส <tspan class="mono detail-mono">Base64 CAD</tspan></text>
 
     <!-- Layer 5: Session -->
     <rect x="60" y="406" width="1600" height="116" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="2.2"/>
@@ -141,7 +141,7 @@
     <text x="234" y="1006" class="sans layer-sub">ชั้นกายภาพ</text>
     <line x1="474" y1="946" x2="474" y2="1022" stroke="#fde68a" stroke-width="2"/>
     <text x="506" y="974" class="sans detail-head">สายสัญญาณและฮาร์ดแวร์แขนกลจริง</text>
-    <text x="506" y="1012" class="sans detail-text">Webcam, สาย USB Data, สัญญาณ <tspan class="mono detail-mono">PWM 50 Hz</tspan> ขับ <tspan class="mono detail-mono">4× Servo</tspan> (ไฟ 5V 2A+ &amp; GND ร่วม)</text>
+    <text x="506" y="1012" class="sans detail-text">Webcam, สาย USB-C Data, สัญญาณ <tspan class="mono detail-mono">PWM 50 Hz</tspan> ขับ <tspan class="mono detail-mono">3× Servo</tspan> (ไฟ 5V 3A–5A+ &amp; GND ร่วม)</text>
 
   </g>
 

@@ -139,7 +139,7 @@
   <!-- ======================================================================= -->
   <line x1="1600" y1="568" x2="1600" y2="762" stroke="#ea580c" stroke-width="5" marker-end="url(#arr-orange)"/>
   <rect x="1622" y="616" width="248" height="96" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
-  <text x="1746" y="652" class="mono arr-mono" text-anchor="middle">"S1,S2,S3,S4\n"</text>
+  <text x="1746" y="652" class="mono arr-mono" text-anchor="middle">"BASE,GL,GR\n"</text>
   <text x="1746" y="688" class="sans arr-sub" fill="#9a3412">USB WebSerial • 25 Hz</text>
 
   <!-- ======================================================================= -->
@@ -178,7 +178,7 @@
     <circle cx="384" cy="806" r="6" fill="#ffffff" stroke="#1e293b" stroke-width="2.6"/>
     <circle cx="412" cy="794" r="5" fill="#d97706"/>
     <text x="380" y="920" class="sans box-title">4-DOF Robotic Arm</text>
-    <text x="380" y="962" class="sans box-sub">ขับ 4× Servo จริง (ไฟเลี้ยง 5V 2A+)</text>
+    <text x="380" y="962" class="sans box-sub">ขับ 3× Servo จริง (ไฟเลี้ยง 5V 3A–5A+)</text>
 
   </g>
 </svg>

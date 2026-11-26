@@ -159,7 +159,7 @@
   <rect x="1100" y="446" width="84" height="36" rx="5" fill="#fffbeb" stroke="#fcd34d"/>
   <text x="1142" y="461" text-anchor="middle" class="font-sans arrow-label" style="fill:#b45309;">USB Serial</text>
   <text x="1142" y="476" text-anchor="middle" class="font-mono arrow-sub" style="fill:#b45309;">115200</text>
-  <text x="1142" y="508" text-anchor="middle" class="font-mono arrow-sub" style="fill:#92400e;font-weight:700;">"S1,S2,S3,S4\n"</text>
+  <text x="1142" y="508" text-anchor="middle" class="font-mono arrow-sub" style="fill:#92400e;font-weight:700;">"BASE,GL,GR\n"</text>
 
   <!-- ขั้นที่ 4: Firmware & Hardware -->
   <rect x="1196" y="366" width="338" height="170" rx="10" fill="#ffffff" stroke="#d97706" stroke-width="2" filter="url(#shadow)"/>
