@@ -248,7 +248,7 @@
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x070b14);
-  scene.fog = new THREE.FogExp2(0x070b14, 0.0009);
+  scene.fog = new THREE.FogExp2(0x070b14, 0.00115);
 
   const initWidth = ui.canvasContainer.clientWidth || window.innerWidth;
   const initHeight = ui.canvasContainer.clientHeight || window.innerHeight;
@@ -260,13 +260,13 @@
     42,
     initWidth / initHeight,
     1,
-    3000
+    6000
   );
   camera.position.set(DEFAULT_CAM_POS.x, DEFAULT_CAM_POS.y, DEFAULT_CAM_POS.z);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  renderer.setSize(initWidth, initHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(initWidth, initHeight, false);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputEncoding = THREE.sRGBEncoding;
@@ -300,7 +300,7 @@
   }
   controls.enableDamping = true;
   controls.dampingFactor = 0.06;
-  controls.maxPolarAngle = Math.PI / 2 + 0.08;
+  controls.maxPolarAngle = Math.PI / 2 - 0.03;
   controls.minDistance = 80;
   controls.maxDistance = 900;
 
@@ -332,9 +332,10 @@
   gridHelper.position.y = -0.2;
   scene.add(gridHelper);
 
+  // พื้นรับเงาแบบวงกลมขนาดใหญ่กลืนเข้ากับขอบฟ้า (Infinite Studio Horizon) ไม่เห็นขอบตัดเมื่อซูมออก
   const groundMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(1200, 1200),
-    new THREE.MeshStandardMaterial({ color: 0x090d18, roughness: 0.85, metalness: 0.1 })
+    new THREE.CircleGeometry(5000, 64),
+    new THREE.MeshStandardMaterial({ color: 0x0b1220, roughness: 0.92, metalness: 0.05 })
   );
   groundMesh.rotation.x = -Math.PI / 2;
   groundMesh.position.y = -0.5;
@@ -1586,7 +1587,10 @@
       state.current[k] += (state.target[k] - state.current[k]) * alpha;
     });
 
-    // 5. อัปเดต HUD, จลนศาสตร์ 3 มิติ, ส่งคำสั่ง Serial และเรนเดอร์ฉาก
+    // 5. ตรวจสอบขนาด Canvas เทียบกับ Viewport จริงทุกเฟรม (มาตรฐาน Three.js resizeRendererToDisplaySize)
+    syncRendererToDisplaySize();
+
+    // 6. อัปเดต HUD, จลนศาสตร์ 3 มิติ, ส่งคำสั่ง Serial และเรนเดอร์ฉาก
     updateJointLabels();
     updateArmKinematics();
     sendSerialTelemetry(now);
@@ -1604,23 +1608,56 @@
     document.documentElement.style.setProperty('--topbar-offset', `${offset}px`);
   }
 
-  function handleViewportResize() {
-    syncTopBarOffset();
-    const w = ui.canvasContainer.clientWidth || window.innerWidth;
-    const h = ui.canvasContainer.clientHeight || window.innerHeight;
+  let lastCanvasW = 0;
+  let lastCanvasH = 0;
+  let lastDpr = 0;
+
+  /**
+   * ซิงก์ขนาด WebGL Drawing Buffer ให้ตรงกับขนาดจริงของ #canvas-container เสมอ
+   * รองรับการซูมเบราว์เซอร์ (33%–400%), ย้ายจอต่าง DPR และการหมุนหน้าจอมือถือโดยไม่เกิดแถบสีดำ
+   */
+  function syncRendererToDisplaySize() {
+    const w = Math.floor(ui.canvasContainer.clientWidth || window.innerWidth);
+    const h = Math.floor(ui.canvasContainer.clientHeight || window.innerHeight);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     if (w <= 0 || h <= 0) return;
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(w, h);
-    if (w >= 1200) {
-      setMobilePanel('none');
+    if (w !== lastCanvasW || h !== lastCanvasH || dpr !== lastDpr) {
+      lastCanvasW = w;
+      lastCanvasH = h;
+      lastDpr = dpr;
+      renderer.setPixelRatio(dpr);
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      syncTopBarOffset();
+      if (w >= 1200) {
+        setMobilePanel('none');
+      }
     }
   }
 
+  function handleViewportResize() {
+    syncRendererToDisplaySize();
+    syncTopBarOffset();
+  }
+
   syncTopBarOffset();
+  syncRendererToDisplaySize();
+
+  if (typeof ResizeObserver !== 'undefined') {
+    const ro = new ResizeObserver(() => handleViewportResize());
+    ro.observe(ui.canvasContainer);
+    if (topBarEl) ro.observe(topBarEl);
+  }
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', handleViewportResize);
+  }
   window.addEventListener('resize', handleViewportResize);
   window.addEventListener('orientationchange', () => setTimeout(handleViewportResize, 120));
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) handleViewportResize();
+  });
 
   // ปิดกล้องและปลดพอร์ต Serial อัตโนมัติเมื่อผู้ใช้ปิดแท็บหรือรีเฟรชหน้าเว็บ
   window.addEventListener('pagehide', () => {

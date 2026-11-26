@@ -360,7 +360,7 @@ body.hud-hidden .right-panel {
 .card-parts {
   display: flex;
   flex-direction: column;
-  flex: 1 0 auto;
+  flex: 0 0 auto;
 }
 
 .card-header {
@@ -695,9 +695,7 @@ select.select-input {
 
 /* CAD Parts Inspector */
 .parts-list {
-  min-height: 170px;
-  max-height: 240px;
-  flex: 1 0 auto;
+  height: clamp(160px, 24vh, 240px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
