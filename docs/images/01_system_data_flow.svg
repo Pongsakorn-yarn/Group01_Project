@@ -182,7 +182,7 @@
   <text x="1212" y="610" class="font-sans box-title" style="fill:#92400e;">ขั้นที่ 5: ฮาร์ดแวร์จริง (3 Servos + Sim 3D)</text>
   <text x="1212" y="634" class="font-sans box-desc">• S1 Base (MG996R)        : S3-CAM GPIO 1</text>
   <text x="1212" y="655" class="font-sans box-desc">• S2 Gripper L (MG90S #1) : S3-CAM GPIO 2</text>
-  <text x="1212" y="676" class="font-sans box-desc">• S3 Gripper R (MG90S #2) : S3-CAM GPIO 41</text>
+  <text x="1212" y="676" class="font-sans box-desc">• S3 Gripper R (MG90S #2) : S3-CAM GPIO 14</text>
   <text x="1212" y="697" class="font-sans box-desc">• Shoulder / Elbow        : Virtual 3D Sim</text>
   <text x="1212" y="719" class="font-sans box-small" style="fill:#92400e;">Home (Base, GripL, GripR): 90°, 63°, 63°</text>
 

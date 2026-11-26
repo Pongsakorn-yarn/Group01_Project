@@ -2206,8 +2206,8 @@ body.hud-hidden .panel-edge-tab-right {
 }
 
 .hw-badge.hw-real {
-  background: rgba(16, 185, 129, 0.16);
-  color: #34d399;
+  background: var(--accent-active-bg);
+  color: var(--accent-active-text);
   border: 1px solid rgba(16, 185, 129, 0.38);
 }
 

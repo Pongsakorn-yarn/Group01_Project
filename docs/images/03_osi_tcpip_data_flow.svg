@@ -168,7 +168,7 @@
     <line x1="276" y1="754" x2="276" y2="828" stroke="#fde68a" stroke-width="1.5"/>
     <text x="292" y="770" class="sans detail-bold">สื่อส่งสัญญาณและอุปกรณ์ฮาร์ดแวร์จริง</text>
     <text x="292" y="791" class="sans detail-text">• กล้องเว็บแคม, สาย <tspan class="mono detail-mono">USB-C Data</tspan> (PC ↔ GOOUUU S3-CAM), <tspan class="mono detail-mono">PWM 50 Hz</tspan></text>
-    <text x="292" y="811" class="sans detail-text">• <tspan class="mono detail-mono">GPIO 1, 2, 41</tspan> → <tspan class="detail-bold">1× MG996R + 2× MG90S</tspan> (ไฟ 5V 3A–5A+ GND ร่วม)</text>
+    <text x="292" y="811" class="sans detail-text">• <tspan class="mono detail-mono">GPIO 1, 2, 14</tspan> → <tspan class="detail-bold">1× MG996R + 2× MG90S</tspan> (ไฟ 5V 3A–5A+ GND ร่วม)</text>
   </g>
 
   <!-- ======================================================================= -->
@@ -261,7 +261,7 @@
     <text x="1088" y="676" class="sans tcp-head">การเชื่อมต่อทางกายภาพ &amp; สัญญาณฮาร์ดแวร์:</text>
     <text x="1088" y="704" class="sans tcp-item">• <tspan class="detail-bold">Web Network:</tspan> Ethernet / Wi-Fi (MAC) &amp; Localhost Loopback</text>
     <text x="1088" y="732" class="sans tcp-item">• <tspan class="detail-bold">USB-C UART Bridge:</tspan> สาย USB-C Data (<tspan class="mono detail-mono">115200 baud, 8N1</tspan>) → S3-CAM</text>
-    <text x="1088" y="760" class="sans tcp-item">• <tspan class="detail-bold">PWM Control Signals:</tspan> สัญญาณ 50 Hz ออกขา <tspan class="mono detail-mono">GPIO 1, 2, 41</tspan> (3 Servo)</text>
+    <text x="1088" y="760" class="sans tcp-item">• <tspan class="detail-bold">PWM Control Signals:</tspan> สัญญาณ 50 Hz ออกขา <tspan class="mono detail-mono">GPIO 1, 2, 14</tspan> (3 Servo)</text>
     <text x="1088" y="788" class="sans tcp-item">• <tspan class="detail-bold">Actuators &amp; Power:</tspan> มอเตอร์ Servo <tspan class="detail-bold">1× MG996R + 2× MG90S</tspan> + ไฟเลี้ยง <tspan class="detail-bold">5V 3A–5A+</tspan></text>
     <text x="1088" y="816" class="sans tcp-item" style="fill:#15803d; font-weight:700;">• ต่อกราวด์ร่วม (Common GND) ระหว่างแหล่งจ่ายไฟ 5V กับ GOOUUU ESP32-S3-CAM</text>
   </g>

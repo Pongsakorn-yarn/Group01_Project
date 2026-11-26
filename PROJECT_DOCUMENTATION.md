@@ -15,7 +15,7 @@
 | :---: | :--- | :--- |
 | 1 | [`README.md`](./README.md) | คู่มือเริ่มต้นใช้งาน (Quick Start), ตาราง Pinout, การควบคุม และการแก้ปัญหาเบื้องต้น |
 | 2 | [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md) | ทะเบียนไฟล์ทั้งหมด 80 ไฟล์ และเอกสารอ้างอิงเชิงเทคนิคกลาง (ไฟล์นี้) |
-| 3 | [`docs/WIRING_GUIDE.md`](./docs/WIRING_GUIDE.md) | คู่มือต่อวงจรฮาร์ดแวร์, BOM (GOOUUU ESP32-S3-CAM + 1×MG996R + 2×MG90S), ขา `GPIO 1, 2, 41`, ไฟ 5V 3A–5A และ Common GND |
+| 3 | [`docs/WIRING_GUIDE.md`](./docs/WIRING_GUIDE.md) | คู่มือต่อวงจรฮาร์ดแวร์, BOM (GOOUUU ESP32-S3-CAM + 1×MG996R + 2×MG90S), ขา `GPIO 1, 2, 14` (Native LEDC CH0/1/2), ไฟ 5V 3A–5A และ Common GND |
 | 4 | [`docs/images/`](./docs/images/) *(16 ไฟล์)* | แผนภาพสถาปัตยกรรม, OSI/TCP-IP และ Data Flow 8 ชุด (`.png` + `.svg`) สำหรับเอกสารและสไลด์ |
 
 <details>
@@ -55,22 +55,22 @@
 | 16 | [`js/diagnostics.js`](./js/diagnostics.js) | ลอจิกหน้า IoT Diagnostics: สตรีมแพ็กเก็ต Serial สด, ตาราง Safety Limits & Pinout และ Export Diagnostics JSON |
 | 17 | [`js/arm_cad_data.js`](./js/arm_cad_data.js) | ข้อมูลเรขาคณิต CAD 39 ชิ้น (18,080 สามเหลี่ยม) เข้ารหัส Base64 สำหรับเรนเดอร์ 3D ในเว็บ *(สร้างอัตโนมัติจาก `.sc` ไม่ควรแก้ด้วยมือ)* |
 | 18 | [`manifest.json`](./manifest.json) | ไฟล์ตั้งค่า Progressive Web App (PWA) สำหรับติดตั้งเป็นแอปบนเดสก์ท็อปและมือถือ |
-| 19 | [`sw.js`](./sw.js) | Service Worker แคชไฟล์หลักแบบ Network-First (`arm-4dof-twin-v17`) เพื่อรองรับ PWA และการใช้งานออฟไลน์ |
+| 19 | [`sw.js`](./sw.js) | Service Worker แคชไฟล์หลักแบบ Network-First (`arm-4dof-twin-v18`) เพื่อรองรับ PWA และการใช้งานออฟไลน์ |
 | 20 | [`assets/icon.svg`](./assets/icon.svg) | ไอคอนเวกเตอร์สำหรับ Favicon และไอคอนแอป PWA |
 
 ### หมวดที่ 4: เฟิร์มแวร์ไมโครคอนโทรลเลอร์ (IoT Firmware) — 2 ไฟล์
 | ลำดับ | ไฟล์ / โฟลเดอร์ | หน้าที่โดยสรุป |
 | :---: | :--- | :--- |
-| 15 | [`arduino_servo_bridge/arduino_servo_bridge.ino`](./arduino_servo_bridge/arduino_servo_bridge.ino) | เฟิร์มแวร์ใช้งานจริง (GOOUUU ESP32-S3-CAM) รับ CSV `BASE,GRIP_L,GRIP_R\n` ที่ 115200 baud พร้อม `PING`/`LIMIT` ขับ Servo จริง 3 ตัว (`GPIO 1, 2, 41`) |
-| 16 | [`servo_test_esp32/servo_test_esp32.ino`](./servo_test_esp32/servo_test_esp32.ino) | เฟิร์มแวร์ทดสอบ Servo จริง 3 ตัว (1×MG996R + 2×MG90S ซ้าย/ขวา) บน GOOUUU ESP32-S3-CAM และตั้งค่า Home `90°` ก่อนประกอบจริง |
+| 21 | [`arduino_servo_bridge/arduino_servo_bridge.ino`](./arduino_servo_bridge/arduino_servo_bridge.ino) | เฟิร์มแวร์ใช้งานจริง (GOOUUU ESP32-S3-CAM) รับ CSV `BASE,GRIP_L,GRIP_R\n` ที่ 115200 baud พร้อม `PING`/`STATUS`/`LIMIT` ขับ Servo จริง 3 ตัวด้วย Native LEDC (`GPIO 1, 2, 14`) |
+| 22 | [`servo_test_esp32/servo_test_esp32.ino`](./servo_test_esp32/servo_test_esp32.ino) | เฟิร์มแวร์ทดสอบ Servo จริง 3 ตัว (1×MG996R + 2×MG90S ซ้าย/ขวา) บน GOOUUU ESP32-S3-CAM และตั้งค่า Home `90°` ก่อนประกอบจริง |
 
 ### หมวดที่ 5: โมเดล 3 มิติและไฟล์หุ่นยนต์ (CAD & Robotics Models) — 43 ไฟล์
 | ลำดับ | ไฟล์ / โฟลเดอร์ | หน้าที่โดยสรุป |
 | :---: | :--- | :--- |
-| 17 | [`models/Robotic_Arm_4DOF_Assembly.sc`](./models/Robotic_Arm_4DOF_Assembly.sc) | ไฟล์ต้นฉบับ Parametric CAD (SolidCraft) ใช้สกัดไฟล์ 3D อื่น ๆ ทั้งหมด |
-| 18 | [`models/Robotic_Arm_4DOF_Assembly.glb`](./models/Robotic_Arm_4DOF_Assembly.glb) | โมเดล 3D สำเร็จรูปมาตรฐาน glTF 2.0 Binary (สำหรับ 3D Viewer และดาวน์โหลดจากหน้าเว็บ) |
-| 19 | [`models/Robotic_Arm_4DOF.urdf`](./models/Robotic_Arm_4DOF.urdf) | ไฟล์นิยามหุ่นยนต์ XML (URDF) แปลงสเกล `0.001` เป็นเมตรสำหรับ ROS / Gazebo / PyBullet |
-| 20 | [`models/stl/`](./models/stl/) *(39 ชิ้นแยก + 1 ชิ้นเต็ม)* | ไฟล์ Binary STL หน่วย mm สำหรับพิมพ์ 3D และอ้างอิงใน URDF (ดูรายการครบ 40 ไฟล์ด้านล่าง) |
+| 23 | [`models/Robotic_Arm_4DOF_Assembly.sc`](./models/Robotic_Arm_4DOF_Assembly.sc) | ไฟล์ต้นฉบับ Parametric CAD (SolidCraft) ใช้สกัดไฟล์ 3D อื่น ๆ ทั้งหมด |
+| 24 | [`models/Robotic_Arm_4DOF_Assembly.glb`](./models/Robotic_Arm_4DOF_Assembly.glb) | โมเดล 3D สำเร็จรูปมาตรฐาน glTF 2.0 Binary (สำหรับ 3D Viewer และดาวน์โหลดจากหน้าเว็บ) |
+| 25 | [`models/Robotic_Arm_4DOF.urdf`](./models/Robotic_Arm_4DOF.urdf) | ไฟล์นิยามหุ่นยนต์ XML (URDF) แปลงสเกล `0.001` เป็นเมตรสำหรับ ROS / Gazebo / PyBullet |
+| 26 | [`models/stl/`](./models/stl/) *(39 ชิ้นแยก + 1 ชิ้นเต็ม)* | ไฟล์ Binary STL หน่วย mm สำหรับพิมพ์ 3D และอ้างอิงใน URDF (ดูรายการครบ 40 ไฟล์ด้านล่าง) |
 
 <details>
 <summary>📂 ดูรายการไฟล์ย่อยทั้งหมดใน <code>models/stl/</code> (40 ไฟล์ — 39 ชิ้นส่วนแยก + 1 ชิ้นประกอบเต็ม)</summary>
@@ -111,7 +111,7 @@ flowchart TB
 
     subgraph L3["3. Embedded IoT Hardware Layer (GOOUUU ESP32-S3-CAM)"]
         MCU["GOOUUU ESP32-S3-CAM<br/>(arduino_servo_bridge.ino)<br/>Non-Blocking 3-Servo Parser + Safety Limits"]
-        SRV["3 Physical Servo Actuators<br/>S1 Base (MG996R @ GPIO 1) / S2 Grip-L (MG90S @ GPIO 2) / S3 Grip-R (MG90S @ GPIO 41)"]
+        SRV["3 Physical Servo Actuators<br/>S1 Base (MG996R @ GPIO 1 / CH0) / S2 Grip-L (MG90S @ GPIO 2 / CH1) / S3 Grip-R (MG90S @ GPIO 14 / CH2)"]
         PSU["External 5V >= 3A-5A Power Supply<br/>+ 1000uF Cap + Common GND"]
     end
 
@@ -145,7 +145,7 @@ flowchart TB
 | **3** | กรองสัญญาณ | `js/app.js` (`animate` EMA Filter, SEC 12) | `current += (target - current) * smoothing` | `state.current` |
 | **4A** | เรนเดอร์ 3D & HUD | `js/app.js` (`updateArmKinematics`, `updateJointLabels`) | มุม 12 กลุ่มกลไก, พิกัด `TCP (mm)`, ฟิสิกส์หยิบกล่อง | WebGL & HUD |
 | **4B** | ส่งคำสั่ง IoT | `js/app.js` (`sendSerialTelemetry`, SEC 10) | CSV `"BASE,GRIP_L,GRIP_R\n"` (`0..180`) ทุก ~40 ms (`25 Hz`) | USB WebSerial |
-| **5** | ขับมอเตอร์จริง | `arduino_servo_bridge.ino` (`loop` → `writeAllServos`) | Non-blocking buffer → `sscanf` → Safety Limits → PWM | Servo 4 ตัว |
+| **5** | ขับมอเตอร์จริง | `arduino_servo_bridge.ino` (`loop` → `writeAllServos`) | Non-blocking buffer → `sscanf` → Safety Limits → PWM | Servo จริง 3 ตัว |
 | **6** | ส่งออกเส้นทาง | `js/app.js` (`#btn-export-traj`, SEC 09) | JSON (`model`, `timestamp`, `current_pose`, `recorded_frames`) | `robotic_arm_4dof_trajectory.json` |
 
 ### 2.3 CAD Asset Pipeline
@@ -163,7 +163,7 @@ flowchart TB
 * **สูตรแปลงค่าควบคุม → องศา Servo จริง (`0..180°`) และแกนจำลอง 3D:**
   * `BASE (MG996R @ GPIO 1) = clamp(round(90 + j1), 0, 180)` *(ช่วง `j1`: `-90°..+90°`)*
   * `GRIP_L (MG90S #1 @ GPIO 2) = clamp(round((j4L / 100) * 180), 0, 180)` *(แมปเข้าช่วงปลอดภัย `20°..120°`)*
-  * `GRIP_R (MG90S #2 @ GPIO 41) = clamp(round((j4R / 100) * 180), 0, 180)` *(Invert สมมาตรและแมปเข้าช่วงปลอดภัย `20°..120°`)*
+  * `GRIP_R (MG90S #2 @ GPIO 14 / CH2) = clamp(round((j4R / 100) * 180), 0, 180)` *(Invert สมมาตรและแมปเข้าช่วงปลอดภัย `20°..120°`)*
   * `j2 (Shoulder: -45°..+65°)` และ `j3 (Elbow: -55°..+55°)` คงการทำงานแบบ **Virtual Digital Twin (Sim 3D)** บนหน้าควบคุมและ Dashboard ครบถ้วน
 
 ---

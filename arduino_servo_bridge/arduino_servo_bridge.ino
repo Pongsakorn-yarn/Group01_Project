@@ -13,50 +13,69 @@
  *   - แพ็กเก็ตหลัก  : "BASE,GRIP_L,GRIP_R\n" (จำนวนเต็ม 0..180 องศา สำหรับ 3 มอเตอร์จริง)
  *   - ซิงก์ขอบเขต  : "LIMIT:minB,maxB,minGL,maxGL,minGR,maxGR\n" -> ตอบกลับ "OK:LIMITS"
  *   - Handshake     : "PING\n" -> ตอบกลับ "READY:3SERVO_S3CAM" (รองรับ ESP32-S3 ที่ไม่ Auto-Reset)
- * @pinout (GOOUUU ESP32-S3-CAM — เลี่ยงขากล้อง 4-18, PSRAM 26-37, SD 38-40, Strapping 0/3/45/46)
- *   - Servo 1 — Base Yaw (MG996R หมุนฐาน)             : GPIO 1  (Fallback ESP32: 13 | Arduino: D3)
- *   - Servo 2 — Gripper Left Claw (MG90S ก้ามหนีบซ้าย) : GPIO 2  (Fallback ESP32: 26 | Arduino: D5)
- *   - Servo 3 — Gripper Right Claw (MG90S ก้ามหนีบขวา) : GPIO 41 (Fallback ESP32: 14 | Arduino: D6)
+ *   - ตรวจสถานะ     : "STATUS\n" -> แสดงขา GPIO, LEDC Channel และองศาล่าสุดของทั้ง 3 มอเตอร์
+ * @pinout (GOOUUU ESP32-S3-CAM — เลี่ยงขากล้อง 4-13/15-18, PSRAM 26-37, SD 38-40, JTAG 39-42, Strapping 0/3/45/46)
+ *   - Servo 1 — Base Yaw (MG996R หมุนฐาน)             : GPIO 1  [LEDC CH 0] (Fallback ESP32: 13 | Arduino: D3)
+ *   - Servo 2 — Gripper Left Claw (MG90S ก้ามหนีบซ้าย) : GPIO 2  [LEDC CH 1] (Fallback ESP32: 26 | Arduino: D5)
+ *   - Servo 3 — Gripper Right Claw (MG90S ก้ามหนีบขวา) : GPIO 14 [LEDC CH 2] (Fallback ESP32: 14 | Arduino: D6)
+ * @pwm_architecture
+ *   - ใช้ Native ESP32 Hardware LEDC (50 Hz, 14-bit: 0..16383) โดยล็อก LEDC Channel แยกอิสระ
+ *     CH0=Base (GPIO 1), CH1=GripL (GPIO 2), CH2=GripR (GPIO 14) พร้อม gpio_reset_pin()
+ *   - แก้ปัญหาขา GPIO 41 (JTAG MTDI) และปัญหา ESP32Servo ชน Channel 0 บน ESP32-S3 (Arduino Core v3.x)
+ *   - รองรับทั้ง Arduino-ESP32 Core v3.x และ v2.x โดยไม่ต้องติดตั้งไลบรารี ESP32Servo เพิ่มเติม
  * @wiring_note
  *   - ต้องใช้แหล่งจ่ายไฟภายนอก 5V DC (กระแส 3A–5A ขึ้นไป) เลี้ยง MG996R + 2x MG90S
  *     พร้อมตัวเก็บประจุ 1000uF คร่อมรางไฟ และต่อสายกราวด์ร่วม (Common GND) กับบอร์ดเสมอ
  *   - Arduino IDE Settings: Board = "ESP32S3 Dev Module", Flash = "16MB (128Mb)",
- *     PSRAM = "OPI PSRAM", Library = "ESP32Servo" (v3.0.5+)
+ *     PSRAM = "OPI PSRAM", USB CDC On Boot = "Disabled" (เมื่อเสียบช่อง UART)
  * @data_flow
  *   [เว็บ Digital Twin (js/app.js ส่งผ่าน WebSerial API ทุก ~40 ms / 25 Hz)]
  *     -> สาย USB-C UART ("BASE,GRIP_L,GRIP_R\n")
- *     -> loop(): Non-blocking char buffer reader -> PING / LIMIT / sscanf()
- *     -> ปรับทิศทาง (Invert) / ชดเชยศูนย์ (Offset) / จำกัดช่วงปลอดภัย -> Servo.write() 3 ช่อง
+ *     -> loop(): Non-blocking char buffer reader -> PING / STATUS / LIMIT / sscanf()
+ *     -> ปรับทิศทาง (Invert) / ชดเชยศูนย์ (Offset) / จำกัดช่วงปลอดภัย -> Native LEDC CH0/CH1/CH2
  * =============================================================================
  */
 
 // -----------------------------------------------------------------------------
-// SECTION 01: เลือกไลบรารีและขา Pin อัตโนมัติตามชนิดบอร์ด
+// SECTION 01: กำหนดขา Pin และระบบขับ PWM แยก Channel อัตโนมัติตามชนิดบอร์ด
 // -----------------------------------------------------------------------------
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
-  // บอร์ดหลักของโปรเจกต์: GOOUUU ESP32-S3-CAM (ขาปลอดการชนกับกล้อง, SD, PSRAM, USB, Strapping)
-  #include <ESP32Servo.h>
-  const int PIN_SERVO_BASE   = 1;  // Servo 1: MG996R  — Base Yaw (หมุนฐาน)
-  const int PIN_SERVO_GRIP_L = 2;  // Servo 2: MG90S#1 — Gripper Left Claw (ก้ามหนีบซ้าย)
-  const int PIN_SERVO_GRIP_R = 41; // Servo 3: MG90S#2 — Gripper Right Claw (ก้ามหนีบขวา)
-  const int SERVO_FREQ_HZ    = 50;
-  const int SERVO_MIN_US     = 500;
-  const int SERVO_MAX_US     = 2400;
+  // บอร์ดหลักของโปรเจกต์: GOOUUU ESP32-S3-CAM
+  // ใช้ GPIO 1, 2, 14 (เลี่ยงกล้อง 4-13/15-18, PSRAM 26-37, SD 38-40, JTAG 39-42, Strapping 0/3/45/46)
+  #include <driver/gpio.h>
+  const int PIN_SERVO_BASE   = 1;  // Servo 1: MG996R  — Base Yaw (หมุนฐาน)        [LEDC CH 0]
+  const int PIN_SERVO_GRIP_L = 2;  // Servo 2: MG90S#1 — Gripper Left (ก้ามซ้าย)   [LEDC CH 1]
+  const int PIN_SERVO_GRIP_R = 14; // Servo 3: MG90S#2 — Gripper Right (ก้ามขวา)  [LEDC CH 2]
 #elif defined(ESP32)
   // Fallback สำหรับ ESP32 Dev Module รุ่นเดิม
-  #include <ESP32Servo.h>
+  #include <driver/gpio.h>
   const int PIN_SERVO_BASE   = 13;
   const int PIN_SERVO_GRIP_L = 26;
   const int PIN_SERVO_GRIP_R = 14;
-  const int SERVO_FREQ_HZ    = 50;
-  const int SERVO_MIN_US     = 500;
-  const int SERVO_MAX_US     = 2400;
 #else
   // Fallback สำหรับ Arduino UNO / Nano
   #include <Servo.h>
   const int PIN_SERVO_BASE   = 3;
   const int PIN_SERVO_GRIP_L = 5;
   const int PIN_SERVO_GRIP_R = 6;
+  Servo servo1_BaseYaw;
+  Servo servo2_GripLeft;
+  Servo servo3_GripRight;
+#endif
+
+#if defined(ESP32)
+  // Native ESP32 Hardware LEDC: 50 Hz, 14-bit (0..16383 -> ความละเอียด ~1.22 us/step)
+  const uint32_t SERVO_FREQ_HZ   = 50;
+  const uint8_t  SERVO_PWM_RES   = 14;
+  const uint32_t SERVO_PWM_MAX   = (1UL << SERVO_PWM_RES) - 1; // 16383
+  const uint32_t SERVO_PERIOD_US = 20000UL;                    // คาบสัญญาณ 50 Hz = 20,000 us
+  const int      SERVO_MIN_US    = 500;
+  const int      SERVO_MAX_US    = 2400;
+
+  // ล็อก LEDC Channel แยกอิสระ 100% เพื่อป้องกันสัญญาณทับซ้อนกันระหว่าง Base กับ Gripper
+  const uint8_t CH_SERVO_BASE   = 0;
+  const uint8_t CH_SERVO_GRIP_L = 1;
+  const uint8_t CH_SERVO_GRIP_R = 2;
 #endif
 
 // ค่าคงที่การสื่อสารและท่าเริ่มต้นมาตรฐาน (Home Pose ตรงกับ HOME_POSE ใน js/app.js)
@@ -91,19 +110,49 @@ int softMinBase  = HARD_MIN_BASE;   int softMaxBase  = HARD_MAX_BASE;
 int softMinGripL = HARD_MIN_GRIP_L; int softMaxGripL = HARD_MAX_GRIP_L;
 int softMinGripR = HARD_MIN_GRIP_R; int softMaxGripR = HARD_MAX_GRIP_R;
 
-// ออบเจกต์ควบคุมมอเตอร์ Servo จริงทั้ง 3 ตัว
-Servo servo1_BaseYaw;   // MG996R
-Servo servo2_GripLeft;  // MG90S #1
-Servo servo3_GripRight; // MG90S #2
+// ค่าองศาฮาร์ดแวร์ล่าสุดของแต่ละช่อง (ใช้รายงานผ่านคำสั่ง STATUS)
+int lastHwBase  = HOME_CMD_BASE;
+int lastHwGripL = 90;
+int lastHwGripR = 90;
 
-// บัฟเฟอร์รับข้อมูล Serial แบบขนาดคงที่ (64 ไบต์ รองรับ "BASE,GRIP_L,GRIP_R", "LIMIT:...", "PING")
+// บัฟเฟอร์รับข้อมูล Serial แบบขนาดคงที่ (64 ไบต์ รองรับ "BASE,GRIP_L,GRIP_R", "LIMIT:...", "PING", "STATUS")
 const size_t RX_BUF_SIZE = 64;
 char rxBuf[RX_BUF_SIZE];
 size_t rxLen = 0;
 
 // -----------------------------------------------------------------------------
-// SECTION 03: ฟังก์ชันช่วยคำนวณและสั่งขับมอเตอร์อย่างปลอดภัย
+// SECTION 03: ฟังก์ชันช่วยขับ PWM แยก Channel และคำนวณองศาอย่างปลอดภัย
 // -----------------------------------------------------------------------------
+
+#if defined(ESP32)
+/**
+ * @brief รีเซ็ต IO MUX ของขา GPIO แล้วผูกเข้ากับ LEDC Hardware Channel ที่ระบุแบบเจาะจง
+ */
+bool attachServoChannel(int pin, uint8_t channel) {
+  gpio_reset_pin((gpio_num_t)pin);
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0))
+  return ledcAttachChannel(pin, SERVO_FREQ_HZ, SERVO_PWM_RES, channel);
+#else
+  ledcSetup(channel, SERVO_FREQ_HZ, SERVO_PWM_RES);
+  ledcAttachPin(pin, channel);
+  return true;
+#endif
+}
+
+/**
+ * @brief แปลงองศา 0..180 เป็นความกว้างพัลส์ 500..2400 us แล้วเขียนลง LEDC Channel ที่ระบุโดยตรง
+ */
+void writeServoChannel(uint8_t channel, int angleDeg) {
+  angleDeg = constrain(angleDeg, 0, 180);
+  uint32_t pulseUs = (uint32_t)map(angleDeg, 0, 180, SERVO_MIN_US, SERVO_MAX_US);
+  uint32_t duty = (uint32_t)(((uint64_t)pulseUs * SERVO_PWM_MAX + (SERVO_PERIOD_US / 2)) / SERVO_PERIOD_US);
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0))
+  ledcWriteChannel(channel, duty);
+#else
+  ledcWrite(channel, duty);
+#endif
+}
+#endif
 
 /**
  * @brief อัปเดตขอบเขตความปลอดภัยแบบซอฟต์แวร์ โดยบังคับให้อยู่ภายใน Hard Mechanical Limits เสมอ
@@ -151,7 +200,7 @@ int computeSafeGripperAngle(int rawCmd, bool invert, int offset,
 }
 
 /**
- * @brief สั่งขับ Servo จริงทั้ง 3 ตัว (Base MG996R, Gripper Left MG90S, Gripper Right MG90S)
+ * @brief สั่งขับ Servo จริงทั้ง 3 ตัวแยก Channel อิสระ (Base MG996R, Gripper Left MG90S, Gripper Right MG90S)
  */
 void writeAllServos(int baseCmd, int gripLCmd, int gripRCmd) {
   int aBase = computeSafeBaseAngle(baseCmd);
@@ -166,9 +215,38 @@ void writeAllServos(int baseCmd, int gripLCmd, int gripRCmd) {
     GRIP_R_HW_MIN, GRIP_R_HW_MAX
   );
 
+  lastHwBase  = aBase;
+  lastHwGripL = aGripL;
+  lastHwGripR = aGripR;
+
+#if defined(ESP32)
+  writeServoChannel(CH_SERVO_BASE, aBase);
+  writeServoChannel(CH_SERVO_GRIP_L, aGripL);
+  writeServoChannel(CH_SERVO_GRIP_R, aGripR);
+#else
   servo1_BaseYaw.write(aBase);
   servo2_GripLeft.write(aGripL);
   servo3_GripRight.write(aGripR);
+#endif
+}
+
+/**
+ * @brief พิมพ์สถานะการผูกขา GPIO, LEDC Channel และองศาปัจจุบัน (สำหรับตรวจสอบผ่าน Serial Monitor)
+ */
+void printBridgeStatus() {
+  Serial.print("STATUS:BASE=GPIO");
+  Serial.print(PIN_SERVO_BASE);
+  Serial.print("(");
+  Serial.print(lastHwBase);
+  Serial.print("),GRIP_L=GPIO");
+  Serial.print(PIN_SERVO_GRIP_L);
+  Serial.print("(");
+  Serial.print(lastHwGripL);
+  Serial.print("),GRIP_R=GPIO");
+  Serial.print(PIN_SERVO_GRIP_R);
+  Serial.print("(");
+  Serial.print(lastHwGripR);
+  Serial.println(")");
 }
 
 // -----------------------------------------------------------------------------
@@ -180,18 +258,9 @@ void setup() {
   delay(300); // รอพอร์ต UART / USB CDC บน ESP32-S3 พร้อมรับ-ส่งข้อมูล
 
 #if defined(ESP32)
-  // จอง PWM Timer 3 ช่องสำหรับขับ Servo จริง 3 ตัวที่ความถี่ 50 Hz (500..2400 us)
-  ESP32PWM::allocateTimer(0);
-  ESP32PWM::allocateTimer(1);
-  ESP32PWM::allocateTimer(2);
-
-  servo1_BaseYaw.setPeriodHertz(SERVO_FREQ_HZ);
-  servo2_GripLeft.setPeriodHertz(SERVO_FREQ_HZ);
-  servo3_GripRight.setPeriodHertz(SERVO_FREQ_HZ);
-
-  servo1_BaseYaw.attach(PIN_SERVO_BASE, SERVO_MIN_US, SERVO_MAX_US);
-  servo2_GripLeft.attach(PIN_SERVO_GRIP_L, SERVO_MIN_US, SERVO_MAX_US);
-  servo3_GripRight.attach(PIN_SERVO_GRIP_R, SERVO_MIN_US, SERVO_MAX_US);
+  attachServoChannel(PIN_SERVO_BASE, CH_SERVO_BASE);
+  attachServoChannel(PIN_SERVO_GRIP_L, CH_SERVO_GRIP_L);
+  attachServoChannel(PIN_SERVO_GRIP_R, CH_SERVO_GRIP_R);
 #else
   servo1_BaseYaw.attach(PIN_SERVO_BASE);
   servo2_GripLeft.attach(PIN_SERVO_GRIP_L);
@@ -220,6 +289,8 @@ void loop() {
         if (strcmp(rxBuf, "PING") == 0) {
           // ตอบกลับ Handshake ทันที (สำคัญสำหรับ ESP32-S3 ที่ไม่ Auto-Reset เมื่อเปิด WebSerial)
           Serial.println("READY:3SERVO_S3CAM");
+        } else if (strcmp(rxBuf, "STATUS") == 0) {
+          printBridgeStatus();
         } else if (strncmp(rxBuf, "LIMIT:", 6) == 0) {
           int mnB, mxB, mnGL, mxGL, mnGR, mxGR, unused1, unused2;
           int parsed = sscanf(rxBuf + 6, "%d,%d,%d,%d,%d,%d,%d,%d",

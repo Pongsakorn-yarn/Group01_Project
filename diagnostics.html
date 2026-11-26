@@ -22,6 +22,13 @@
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
   <link rel="apple-touch-icon" href="assets/icon.svg" />
 
+  <!-- Web Fonts (Fallback ไปยัง System Font อัตโนมัติหากใช้งานแบบออฟไลน์) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="css/pages.css" />
 
@@ -103,6 +110,19 @@
         <button type="button" class="btn-modal-close" id="btn-close-nav" aria-label="ปิดเมนูนำทาง" title="ปิด (Esc)">✕</button>
       </div>
       <nav class="nav-drawer-list" aria-label="เมนูนำทางหลักของระบบโรงงาน">
+        <div class="nav-drawer-row">
+          <a class="nav-drawer-link" href="home.html"
+            data-window-name="arm4dof_home" data-page-label="Home">
+            <span aria-hidden="true">🏠</span>
+            <span class="nav-link-text">
+              <span>Home</span>
+              <span class="nav-link-sub">ภาพรวมระบบ, สเปกฮาร์ดแวร์ &amp; คู่มือเริ่มต้น</span>
+            </span>
+          </a>
+          <button type="button" class="nav-popout-btn" data-popout-url="home.html" data-popout-name="arm4dof_home"
+            aria-label="เปิด Home แยกหน้าต่าง (Multi-Monitor)" title="เปิดแยกจอ / สลับไปแท็บเดิม (Multi-Monitor)">↗</button>
+        </div>
+
         <div class="nav-drawer-row">
           <a class="nav-drawer-link" href="index.html"
             data-window-name="arm4dof_control" data-page-label="3D Control">
@@ -258,7 +278,7 @@
           <ul>
             <li>ใช้แหล่งจ่ายไฟ <strong>5V DC ภายนอก (3A–5A ขึ้นไป)</strong> + ตัวเก็บประจุ <code>1000µF</code> เลี้ยง MG996R และ 2×MG90S โดยตรง ห้ามดึงไฟจากพอร์ต USB ของบอร์ด</li>
             <li>ต้องต่อสายกราวด์ร่วม (<strong>Common GND</strong>) ระหว่างแหล่งจ่ายไฟ 5V ภายนอก กับขา <code>GND</code> ของบอร์ด GOOUUU ESP32-S3-CAM ทุกครั้ง</li>
-            <li>ใช้ขา <code>GPIO 1, 2, 41</code> (เลี่ยงขากล้อง <code>4–18</code>, Internal Flash/PSRAM <code>26–37</code>, SD <code>38–40</code> และ Strapping <code>0/3/45/46</code>) และแนะนำให้เสียบสาย USB-C ที่ช่อง <strong><code>UART</code></strong> (ส่วนแกน Shoulder / Elbow ทำงานแบบ Sim 3D)</li>
+            <li>ใช้ขา <code>GPIO 1, 2, 14</code> (Native LEDC CH0/CH1/CH2 — เลี่ยงขากล้อง <code>4–13, 15–18</code>, PSRAM <code>26–37</code>, SD <code>38–40</code>, JTAG <code>39–42</code> และ Strapping <code>0/3/45/46</code>) และแนะนำให้เสียบสาย USB-C ที่ช่อง <strong><code>UART</code></strong> (ส่วนแกน Shoulder / Elbow ทำงานแบบ Sim 3D)</li>
           </ul>
         </div>
       </section>

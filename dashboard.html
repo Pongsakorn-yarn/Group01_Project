@@ -22,6 +22,13 @@
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
   <link rel="apple-touch-icon" href="assets/icon.svg" />
 
+  <!-- Web Fonts (Fallback ไปยัง System Font อัตโนมัติหากใช้งานแบบออฟไลน์) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="css/pages.css" />
 
@@ -98,6 +105,19 @@
         <button type="button" class="btn-modal-close" id="btn-close-nav" aria-label="ปิดเมนูนำทาง" title="ปิด (Esc)">✕</button>
       </div>
       <nav class="nav-drawer-list" aria-label="เมนูนำทางหลักของระบบโรงงาน">
+        <div class="nav-drawer-row">
+          <a class="nav-drawer-link" href="home.html"
+            data-window-name="arm4dof_home" data-page-label="Home">
+            <span aria-hidden="true">🏠</span>
+            <span class="nav-link-text">
+              <span>Home</span>
+              <span class="nav-link-sub">ภาพรวมระบบ, สเปกฮาร์ดแวร์ &amp; คู่มือเริ่มต้น</span>
+            </span>
+          </a>
+          <button type="button" class="nav-popout-btn" data-popout-url="home.html" data-popout-name="arm4dof_home"
+            aria-label="เปิด Home แยกหน้าต่าง (Multi-Monitor)" title="เปิดแยกจอ / สลับไปแท็บเดิม (Multi-Monitor)">↗</button>
+        </div>
+
         <div class="nav-drawer-row">
           <a class="nav-drawer-link" href="index.html"
             data-window-name="arm4dof_control" data-page-label="3D Control">
@@ -243,8 +263,8 @@
 
         <div class="chart-legend" aria-label="คำอธิบายเส้นกราฟ 3 Servo จริง และ 2 แกนจำลอง 3D">
           <span class="legend-item"><span class="legend-swatch" style="background:#38bdf8"></span>S1 Base (MG996R): <strong id="leg-s1">90°</strong></span>
-          <span class="legend-item"><span class="legend-swatch" style="background:#10b981"></span>Shoulder (Sim): <strong id="leg-s2">0.0°</strong></span>
-          <span class="legend-item"><span class="legend-swatch" style="background:#f59e0b"></span>Elbow (Sim): <strong id="leg-s3">0.0°</strong></span>
+          <span class="legend-item"><span class="legend-swatch" style="background:#10b981"></span>Shoulder (Sim): <strong id="leg-s2">90° (Sim 0.0°)</strong></span>
+          <span class="legend-item"><span class="legend-swatch" style="background:#f59e0b"></span>Elbow (Sim): <strong id="leg-s3">90° (Sim 0.0°)</strong></span>
           <span class="legend-item"><span class="legend-swatch" style="background:#f43f5e"></span>S2/S3 Grip L/R (2×MG90S): <strong id="leg-s4">L:63° R:63°</strong></span>
         </div>
       </section>
@@ -327,7 +347,7 @@
 
           <div class="joint-gauge-item" id="gauge-card-j4">
             <div class="joint-gauge-top">
-              <span class="joint-gauge-name">DOF 4: Gripper L/R <span class="hw-badge hw-real">HW · 2×MG90S · GPIO 2/41</span></span>
+              <span class="joint-gauge-name">DOF 4: Gripper L/R <span class="hw-badge hw-real">HW · 2×MG90S · GPIO 2/14</span></span>
               <span class="joint-gauge-val">
                 <span class="limit-pill" id="dash-limit-j4" hidden>LIMIT</span>
                 <span id="dash-val-j4">35% (L:63° R:63°)</span>

@@ -161,6 +161,19 @@
       </div>
       <nav class="nav-drawer-list" aria-label="เมนูนำทางหลักของระบบโรงงาน">
         <div class="nav-drawer-row">
+          <a class="nav-drawer-link" href="home.html"
+            data-window-name="arm4dof_home" data-page-label="Home">
+            <span aria-hidden="true">🏠</span>
+            <span class="nav-link-text">
+              <span>Home</span>
+              <span class="nav-link-sub">ภาพรวมระบบ, สเปกฮาร์ดแวร์ &amp; คู่มือเริ่มต้น</span>
+            </span>
+          </a>
+          <button type="button" class="nav-popout-btn" data-popout-url="home.html" data-popout-name="arm4dof_home"
+            aria-label="เปิด Home แยกหน้าต่าง (Multi-Monitor)" title="เปิดแยกจอ / สลับไปแท็บเดิม (Multi-Monitor)">↗</button>
+        </div>
+
+        <div class="nav-drawer-row">
           <a class="nav-drawer-link active" href="index.html" aria-current="page"
             data-window-name="arm4dof_control" data-page-label="3D Control">
             <span aria-hidden="true">🧊</span>
@@ -403,7 +416,7 @@
 
             <div class="control-group" id="ctrl-group-j4">
               <div class="control-label">
-                <label class="control-name" for="slider-j4">DOF 4: Gripper L/R <span class="hw-badge hw-real" title="มอเตอร์จริง 2×MG90S แยกก้ามซ้าย (GPIO 2) และขวา (GPIO 41)">HW · 2×MG90S</span></label>
+                <label class="control-name" for="slider-j4">DOF 4: Gripper L/R <span class="hw-badge hw-real" title="มอเตอร์จริง 2×MG90S แยกก้ามซ้าย (GPIO 2) และขวา (GPIO 14)">HW · 2×MG90S</span></label>
                 <span class="control-val-wrap">
                   <span class="limit-pill" id="hud-limit-j4" hidden title="ถูกจำกัดโดยขอบเขตความปลอดภัย Servo">LIMIT</span>
                   <span class="control-val" id="val-j4">35% (L:63° R:63°)</span>
@@ -425,7 +438,7 @@
                 </div>
                 <div class="split-grip-row">
                   <div class="control-label">
-                    <label class="control-name" for="slider-j4r">ก้ามขวา (MG90S · GPIO 41)</label>
+                    <label class="control-name" for="slider-j4r">ก้ามขวา (MG90S · GPIO 14)</label>
                     <span class="control-val" id="val-j4r">35% (PWM 63°)</span>
                   </div>
                   <input type="range" id="slider-j4r" min="0" max="100" step="1" value="35" />
@@ -737,7 +750,7 @@
           <!-- DOF 4 -->
           <div class="setting-section limit-axis-card" id="limit-card-j4">
             <div class="setting-label-row">
-              <span class="setting-label">DOF 4: Gripper L/R <span class="hw-badge hw-real">HW · 2×MG90S · GPIO 2/41</span></span>
+              <span class="setting-label">DOF 4: Gripper L/R <span class="hw-badge hw-real">HW · 2×MG90S · GPIO 2/14</span></span>
               <span class="limit-badge-group">
                 <span class="limit-pill" id="modal-limit-j4" hidden>LIMIT</span>
                 <span class="setting-badge" id="pwm-range-j4">PWM 0°–180°</span>
@@ -770,8 +783,8 @@
 
   <!-- หน้าต่างยืนยันการรีเซ็ตระบบทั้งหมด (WAI-ARIA AlertDialog ตามหลัก Error Prevention) -->
   <div class="settings-backdrop" id="reset-confirm-backdrop" hidden>
-    <div class="settings-modal reset-confirm-modal" id="reset-confirm-modal" role="alertdialog" aria-modal="true"
-      aria-labelledby="reset-confirm-title" aria-describedby="reset-confirm-desc">
+    <div class="settings-dialog reset-confirm-modal" id="reset-confirm-modal" role="alertdialog" aria-modal="true"
+      aria-labelledby="reset-confirm-title" aria-describedby="reset-confirm-desc" tabindex="-1">
       <div class="settings-header">
         <h2 class="settings-title" id="reset-confirm-title">🔄 ยืนยันการรีเซ็ตระบบทั้งหมด</h2>
         <button type="button" class="btn-modal-close" id="btn-close-reset-modal" aria-label="ยกเลิกและปิดหน้าต่าง" title="ปิด (Esc)">✕</button>

@@ -330,6 +330,7 @@
     serialReading: false,
     serialSending: false,
     boardReady: false,
+    pendingPing: false,
     pendingLimitSync: false,
     lastSerialSend: 0
   };
@@ -1430,11 +1431,15 @@
       }
       const badge = ui.pwmRangeBadges[axis];
       if (badge) {
-        const pwmMin = axisValueToPwm(axis, lim.min);
-        const pwmMax = axisValueToPwm(axis, lim.max);
-        badge.textContent = axis === 'j4'
-          ? `PWM ${pwmMin}°–${pwmMax}° (${lim.min}%–${lim.max}%)`
-          : `PWM ${pwmMin}°–${pwmMax}°`;
+        if (axis === 'j2' || axis === 'j3') {
+          badge.textContent = `Sim 3D (${lim.min}°..${lim.max > 0 ? '+' : ''}${lim.max}°)`;
+        } else {
+          const pwmMin = axisValueToPwm(axis, lim.min);
+          const pwmMax = axisValueToPwm(axis, lim.max);
+          badge.textContent = axis === 'j4'
+            ? `PWM ${pwmMin}°–${pwmMax}° (${lim.min}%–${lim.max}%)`
+            : `PWM ${pwmMin}°–${pwmMax}°`;
+        }
       }
     });
   }
@@ -1452,6 +1457,12 @@
       el.min = String(jointLimits[axis].min);
       el.max = String(jointLimits[axis].max);
     });
+    ['slider-j4l', 'slider-j4r'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.min = String(jointLimits.j4.min);
+      el.max = String(jointLimits.j4.max);
+    });
   }
 
   function applyJointLimits(nextLimits, persist = true, syncSerial = true) {
@@ -1461,6 +1472,8 @@
 
     // ปรับเฉพาะ state.target ให้อยู่ในช่วงปลอดภัย เพื่อให้ EMA Filter ค่อย ๆ ลู่แขนกลเข้าช่วงอย่างนุ่มนวล (ไม่กระชาก)
     state.target = clampJointTargets(state.target, true);
+    state.targetGrip.left = THREE.MathUtils.clamp(state.targetGrip.left, jointLimits.j4.min, jointLimits.j4.max);
+    state.targetGrip.right = THREE.MathUtils.clamp(state.targetGrip.right, jointLimits.j4.min, jointLimits.j4.max);
     if (typeof syncSlidersFromState === 'function') {
       syncSlidersFromState();
     }
@@ -2099,6 +2112,10 @@
   });
 
   document.getElementById('btn-reset-home').addEventListener('click', () => {
+    if (state.estop) {
+      showToast('กรุณาปลดล็อก E-STOP ก่อนกลับท่า Home Pose', 'warn', 2500);
+      return;
+    }
     stopAutomation();
     state.target = clampJointTargets(HOME_POSE, true);
     state.targetGrip.left = state.target.j4;
@@ -2319,6 +2336,8 @@
     state.serialPort = null;
     state.serialSending = false;
     state.boardReady = false;
+    state.pendingPing = false;
+    state.pendingLimitSync = false;
     factoryMetrics.serial.txHz = 0;
     factoryMetrics.serial.lastHandshake = 'Disconnected';
     factoryMetrics.serial.limitsAcked = false;
@@ -2428,13 +2447,11 @@
       showToast('เชื่อมต่อบอร์ด GOOUUU ESP32-S3-CAM (115200 baud) สำเร็จ', 'success', 3000);
       logFactoryEvent('success', 'SERIAL', 'เชื่อมต่อ GOOUUU ESP32-S3-CAM ผ่าน USB WebSerial (115200 baud) สำเร็จ');
       readSerialLoop(port);
-      // ส่ง PING เพื่อขอ Handshake กรณีบอร์ด ESP32-S3 ไม่ได้ Auto-Reset ตอนเปิดพอร์ต
-      setTimeout(async () => {
-        if (!state.serialWriter || state.boardReady) return;
-        try {
-          await state.serialWriter.write(serialEncoder.encode('PING\n'));
-          recordSerialPacket('TX', 'PING');
-        } catch (_) { /* ignore */ }
+      // ขอ Handshake ด้วย PING ผ่านคิว serialSending ของ sendSerialTelemetry (ป้องกัน Race Condition)
+      setTimeout(() => {
+        if (state.serialWriter && !state.boardReady) {
+          state.pendingPing = true;
+        }
       }, 180);
     } catch (err) {
       console.warn('WebSerial connection cancelled or failed:', err);
@@ -2455,6 +2472,24 @@
    */
   async function sendSerialTelemetry(now) {
     if (!state.serialWriter || state.serialSending) return;
+
+    // ส่ง Handshake PING ผ่านคิวเดียวกับตัวส่งหลักเพื่อป้องกันการเขียนทับกันบน WritableStream
+    if (state.pendingPing) {
+      state.pendingPing = false;
+      if (!state.boardReady) {
+        state.serialSending = true;
+        try {
+          await state.serialWriter.write(serialEncoder.encode('PING\n'));
+          recordSerialPacket('TX', 'PING');
+        } catch (e) {
+          console.warn('Serial PING error, disconnecting:', e);
+          await disconnectSerial();
+        } finally {
+          state.serialSending = false;
+        }
+        return;
+      }
+    }
 
     // ซิงก์คำสั่งขอบเขตความปลอดภัย LIMIT:... ไปยังบอร์ดแบบไม่ชนกับแพ็กเก็ตองศา (รองรับบอร์ดรุ่นเก่าโดยไม่ Error)
     if (state.pendingLimitSync) {
@@ -3202,6 +3237,8 @@
       factoryMetrics.serial.txHz = 0;
       factoryMetrics.serial.txWindowCount = 0;
       state.target = { ...state.current };
+      state.targetGrip.left = state.currentGrip.left;
+      state.targetGrip.right = state.currentGrip.right;
       syncSlidersFromState();
       showToast('🛑 E-STOP ทำงาน: หยุดการเคลื่อนที่และหยุดส่งคำสั่ง Serial ชั่วคราว (กด Space หรือปุ่ม RELEASE เพื่อปลดล็อก)', 'error', 5500);
       logFactoryEvent('error', 'SAFETY', 'เปิดใช้งานหยุดฉุกเฉิน E-STOP', 'หยุดการเคลื่อนที่และระงับคำสั่ง USB Serial ชั่วคราว');
@@ -3439,6 +3476,8 @@
     if (navBackdropEl && !navBackdropEl.hidden) return;
 
     if (e.code === 'Space') {
+      const roleAttr = e.target && e.target.getAttribute ? e.target.getAttribute('role') : '';
+      if (tag === 'BUTTON' || tag === 'A' || roleAttr === 'button') return;
       e.preventDefault();
       toggleEstop();
     } else if (e.code === 'KeyR' && e.shiftKey) {
@@ -3454,6 +3493,8 @@
       }
       stopAutomation();
       state.target = clampJointTargets(HOME_POSE, true);
+      state.targetGrip.left = state.target.j4;
+      state.targetGrip.right = state.target.j4;
       trailCount = 0;
       trailGeo.setDrawRange(0, 0);
       syncSlidersFromState();

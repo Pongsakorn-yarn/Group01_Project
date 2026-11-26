@@ -1,0 +1,456 @@
+<!--
+  ==============================================================================
+  @file        home.html
+  @project     ISY49303 IoT — Group01_Project (4-DOF Robotic Arm Digital Twin)
+  @description หน้า Home / Overview สำหรับแนะนำภาพรวมระบบแขนกล 4-DOF Digital Twin,
+               Quick Launch เข้าสู่สถานีหลักทั้ง 3 หน้า (3D Control, Factory Dashboard,
+               IoT Diagnostics), สเปกฮาร์ดแวร์ GOOUUU ESP32-S3-CAM และคู่มือเริ่มต้นเร็ว
+  ==============================================================================
+-->
+<!DOCTYPE html>
+<html lang="th" class="factory-page-root">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description"
+    content="หน้าหลัก 4-DOF Robotic Arm Digital Twin (ISY49303 IoT — Group01_Project) ควบคุมด้วย MediaPipe Hands AI บนเบราว์เซอร์ ซิงก์ CAD 39 ชิ้น และส่งคำสั่งผ่าน USB WebSerial ไปยัง GOOUUU ESP32-S3-CAM" />
+  <meta name="theme-color" content="#090d16" />
+  <title>Home — 4-DOF Robotic Arm Digital Twin (Group01_Project)</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
+  <link rel="apple-touch-icon" href="assets/icon.svg" />
+
+  <!-- Web Fonts (Fallback ไปยัง System Font อัตโนมัติหากใช้งานแบบออฟไลน์) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+  <link rel="stylesheet" href="css/home.css" />
+
+  <!-- โหลดธีมสีและค่าแสดงผลจาก localStorage ทันทีก่อนเรนเดอร์ เพื่อไม่ให้เกิดการกะพริบ (No-FOUC) -->
+  <script>
+    (function () {
+      try {
+        window.name = 'arm4dof_home';
+        var raw = localStorage.getItem('arm4dof_display_settings_v1');
+        var cfg = raw ? JSON.parse(raw) : {};
+        var themePref = (cfg.theme === 'light' || cfg.theme === 'dark' || cfg.theme === 'auto') ? cfg.theme : 'dark';
+        var resolvedTheme = themePref === 'auto'
+          ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+          : themePref;
+        var root = document.documentElement;
+        root.dataset.theme = resolvedTheme;
+        var scale = (cfg.uiScale === 'compact' || cfg.uiScale === 'normal' || cfg.uiScale === 'large') ? cfg.uiScale : 'normal';
+        root.dataset.uiScale = scale;
+        var opacity = typeof cfg.panelOpacity === 'number' ? Math.min(100, Math.max(45, cfg.panelOpacity)) : 88;
+        var alpha = +(opacity / 100).toFixed(2);
+        var alphaStrong = +Math.min(1, alpha + 0.06).toFixed(2);
+        root.style.setProperty('--panel-alpha', String(alpha));
+        root.style.setProperty('--panel-alpha-strong', String(alphaStrong));
+        if (cfg.glassBlur === false) {
+          root.classList.add('no-glass-blur');
+        }
+        var metaTheme = document.querySelector('meta[name="theme-color"]');
+        if (metaTheme) {
+          metaTheme.setAttribute('content', resolvedTheme === 'light' ? '#e8eef5' : '#090d16');
+        }
+      } catch (_) {
+        document.documentElement.dataset.theme = 'dark';
+        document.documentElement.dataset.uiScale = 'normal';
+      }
+    })();
+  </script>
+</head>
+
+<body class="factory-page">
+  <a class="skip-link" href="#main-content">ข้ามไปยังเนื้อหาหลัก</a>
+
+  <header class="top-bar page-top-bar" role="banner">
+    <div class="brand-group">
+      <button type="button" class="btn-hamburger" id="btn-nav-menu"
+        aria-label="เปิดเมนูนำทาง" aria-expanded="false" aria-controls="nav-drawer" aria-haspopup="dialog"
+        title="เปิดเมนูนำทาง (Navigation)">☰</button>
+      <span class="brand-badge">HOME OVERVIEW</span>
+      <div class="brand-text">
+        <span class="brand-title">4-DOF Robotic Arm Digital Twin</span>
+        <span class="brand-subtitle">ISY49303 IoT • Group01_Project • Hybrid Web Digital Twin</span>
+      </div>
+    </div>
+
+    <div class="top-bar-actions">
+      <div class="status-pills" aria-live="polite">
+        <div class="pill" title="สถานะการเชื่อมต่อสดกับสถานี 3D Control (index.html)">
+          <span class="dot warn" id="home-live-dot" aria-hidden="true"></span>
+          <span id="home-live-text">3D Control: Standby</span>
+        </div>
+      </div>
+      <div class="top-bar-btns">
+        <button type="button" class="btn-icon" id="btn-cycle-theme" aria-label="สลับธีมสี Dark, Light หรือ Auto"
+          title="สลับธีมสี (ซิงก์ร่วมกันทุกหน้า)">
+          <span aria-hidden="true" id="theme-icon">🌙</span>
+          <span class="btn-icon-label" id="theme-label">Dark</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- เมนูนำทางแบบ Drawer (WAI-ARIA Dialog) -->
+  <div class="nav-backdrop" id="nav-backdrop" hidden>
+    <div class="nav-drawer" id="nav-drawer" role="dialog" aria-modal="true" aria-labelledby="nav-drawer-title">
+      <div class="nav-drawer-header">
+        <h2 class="nav-drawer-title" id="nav-drawer-title">☰ เมนูระบบโรงงาน 4-DOF</h2>
+        <button type="button" class="btn-modal-close" id="btn-close-nav" aria-label="ปิดเมนูนำทาง" title="ปิด (Esc)">✕</button>
+      </div>
+      <nav class="nav-drawer-list" aria-label="เมนูนำทางหลักของระบบโรงงาน">
+        <div class="nav-drawer-row">
+          <a class="nav-drawer-link active" href="home.html" aria-current="page"
+            data-window-name="arm4dof_home" data-page-label="Home">
+            <span aria-hidden="true">🏠</span>
+            <span class="nav-link-text">
+              <span>Home</span>
+              <span class="nav-link-sub">หน้าปัจจุบัน • ภาพรวมระบบ &amp; คู่มือเริ่มต้น</span>
+            </span>
+          </a>
+          <button type="button" class="nav-popout-btn" data-popout-url="home.html" data-popout-name="arm4dof_home"
+            aria-label="เปิด Home แยกหน้าต่าง (Multi-Monitor)" title="เปิดแยกจอ / สลับไปแท็บเดิม (Multi-Monitor)">↗</button>
+        </div>
+
+        <div class="nav-drawer-row">
+          <a class="nav-drawer-link" href="index.html"
+            data-window-name="arm4dof_control" data-page-label="3D Control">
+            <span aria-hidden="true">🧊</span>
+            <span class="nav-link-text">
+              <span>3D Control</span>
+              <span class="nav-link-sub">ควบคุมแขนกล 3D, Hand Tracking &amp; USB</span>
+            </span>
+          </a>
+          <button type="button" class="nav-popout-btn" data-popout-url="index.html" data-popout-name="arm4dof_control"
+            aria-label="เปิด 3D Control แยกหน้าต่าง (Multi-Monitor)" title="เปิดแยกจอ / สลับไปแท็บเดิม (Multi-Monitor)">↗</button>
+        </div>
+
+        <div class="nav-drawer-row">
+          <a class="nav-drawer-link" href="dashboard.html"
+            data-window-name="arm4dof_dashboard" data-page-label="Factory Dashboard">
+            <span aria-hidden="true">📊</span>
+            <span class="nav-link-text">
+              <span>Factory Dashboard</span>
+              <span class="nav-link-sub">KPI, OEE, กราฟ Telemetry &amp; Event Log</span>
+            </span>
+          </a>
+          <button type="button" class="nav-popout-btn" data-popout-url="dashboard.html" data-popout-name="arm4dof_dashboard"
+            aria-label="เปิด Factory Dashboard แยกหน้าต่าง (Multi-Monitor)" title="เปิดแยกจอ / สลับไปแท็บเดิม (Multi-Monitor)">↗</button>
+        </div>
+
+        <div class="nav-drawer-row">
+          <a class="nav-drawer-link" href="diagnostics.html"
+            data-window-name="arm4dof_diagnostics" data-page-label="IoT Diagnostics">
+            <span aria-hidden="true">🔧</span>
+            <span class="nav-link-text">
+              <span>IoT Diagnostics</span>
+              <span class="nav-link-sub">Serial Monitor, Safety Limits &amp; Pinout</span>
+            </span>
+          </a>
+          <button type="button" class="nav-popout-btn" data-popout-url="diagnostics.html" data-popout-name="arm4dof_diagnostics"
+            aria-label="เปิด IoT Diagnostics แยกหน้าต่าง (Multi-Monitor)" title="เปิดแยกจอ / สลับไปแท็บเดิม (Multi-Monitor)">↗</button>
+        </div>
+      </nav>
+      <div class="nav-drawer-footer">
+        คลิกชื่อหน้าเพื่อสลับในแท็บเดิม • กด <strong>↗</strong> เพื่อเปิดแยกจอ Multi-Monitor โดยสลับไปแท็บเดิมไม่เปิดซ้ำ
+      </div>
+    </div>
+  </div>
+
+  <main class="page-shell home-shell" id="main-content">
+    <!-- SECTION 1: HERO -->
+    <section class="home-hero" aria-labelledby="hero-heading">
+      <div class="hero-copy">
+        <div class="hero-eyebrow-row">
+          <span class="hero-eyebrow">⚡ Hybrid Digital Twin Platform</span>
+          <span class="hero-course-tag">ISY49303 IoT • Group01_Project</span>
+        </div>
+
+        <h1 class="hero-title" id="hero-heading">4-DOF Robotic Arm Digital Twin</h1>
+        <p class="hero-tagline">Hybrid Web Digital Twin • Hand Tracking AI • IoT WebSerial</p>
+        <p class="hero-desc">
+          ควบคุมแขนกลกลไก 4-Bar Parallel Linkage ด้วยมือผ่านกล้องเว็บแคมด้วย MediaPipe Hands ที่ประมวลผลบนเครื่อง 100%
+          ซิงก์ท่าทางแบบเรียลไทม์กับโมเดล CAD 39 ชิ้น พร้อมส่งคำสั่งควบคุมฮาร์ดแวร์จริงผ่าน USB WebSerial
+        </p>
+
+        <div class="hero-cta-group">
+          <a class="btn primary hero-cta-btn" href="index.html">🧊 เริ่มควบคุมแขนกล 3D</a>
+          <a class="btn hero-cta-btn" href="dashboard.html">📊 เปิด Factory Dashboard</a>
+          <a class="btn hero-cta-btn" href="diagnostics.html">🔧 ดู IoT Diagnostics</a>
+        </div>
+
+        <div class="hero-metrics-strip" aria-label="สรุปความสามารถหลักของระบบ">
+          <div class="hero-metric">
+            <div class="hero-metric-val">39 Bodies</div>
+            <div class="hero-metric-lbl">โมเดล CAD 4-Bar Linkage</div>
+          </div>
+          <div class="hero-metric">
+            <div class="hero-metric-val">100% Local</div>
+            <div class="hero-metric-lbl">MediaPipe Hands AI</div>
+          </div>
+          <div class="hero-metric">
+            <div class="hero-metric-val">3 Servos HW</div>
+            <div class="hero-metric-lbl">1×MG996R + 2×MG90S</div>
+          </div>
+          <div class="hero-metric">
+            <div class="hero-metric-val">115200 8N1</div>
+            <div class="hero-metric-lbl">USB WebSerial ~25 Hz</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-visual-card" aria-label="แผนภาพสถาปัตยกรรมและการไหลของข้อมูลระบบ">
+        <div class="hero-visual-header">
+          <div class="diagram-tabs" role="group" aria-label="เลือกแผนภาพที่ต้องการแสดง">
+            <button type="button" class="filter-chip active" id="btn-diagram-arch" data-diagram="arch" aria-pressed="true">
+              สถาปัตยกรรมระบบ
+            </button>
+            <button type="button" class="filter-chip" id="btn-diagram-flow" data-diagram="flow" aria-pressed="false">
+              Data Flow
+            </button>
+          </div>
+          <a class="diagram-open-link" id="diagram-open-link" href="docs/images/06_system_architecture_slide.svg"
+            target="_blank" rel="noopener">เปิดภาพขนาดเต็ม ↗</a>
+        </div>
+
+        <div class="diagram-stage">
+          <img class="diagram-img" id="hero-diagram-img"
+            src="docs/images/06_system_architecture_slide.svg"
+            alt="แผนภาพสถาปัตยกรรมระบบ 4-DOF Robotic Arm Digital Twin แสดงการทำงานร่วมกันของ CAD 39 ชิ้น, MediaPipe Hands AI, Web Digital Twin และบอร์ด GOOUUU ESP32-S3-CAM"
+            loading="eager" />
+        </div>
+
+        <div class="hero-visual-footer">
+          <div class="hero-live-summary">
+            <span>สถานะสถานี: <strong id="home-station-mode">Standby</strong></span>
+            <span>•</span>
+            <span>WebSerial: <strong id="home-serial-state">Disconnected</strong></span>
+            <span>•</span>
+            <span>Cycles: <strong id="home-cycle-count">0</strong></span>
+          </div>
+          <span id="diagram-caption">docs/images/06_system_architecture_slide.svg</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: QUICK LAUNCH & MODULE CARDS -->
+    <section class="home-section" aria-labelledby="modules-heading">
+      <div class="section-header">
+        <h2 class="section-title" id="modules-heading">🚀 Quick Launch — สถานีการทำงานหลักทั้ง 3 หน้า</h2>
+        <span class="section-subtitle">สลับในแท็บเดิมหรือกดปุ่ม ↗ เพื่อเปิดแยกจอ Multi-Monitor โดยไม่ตัดสัญญาณกล้อง/USB</span>
+      </div>
+
+      <div class="module-grid">
+        <article class="module-card">
+          <div class="module-card-top">
+            <div class="module-icon-wrap" aria-hidden="true">🧊</div>
+            <span class="setting-badge">index.html</span>
+          </div>
+          <h3 class="module-card-title">3D Control Room</h3>
+          <p class="module-card-desc">
+            สถานีควบคุมหลักแสดงโมเดลแขนกล 3 มิติแบบเรียลไทม์ พร้อมควบคุมด้วยมือผ่านกล้องหรือสไลเดอร์ทั้ง 4 แกน
+          </p>
+          <ul class="module-feature-list">
+            <li>ควบคุม 4-DOF + MediaPipe Hands (IK 3D / Direct + Split Gripper)</li>
+            <li>ปุ่มหยุดฉุกเฉิน E-Stop (Space), บันทึก/เล่นซ้ำท่าทาง (Record/Play)</li>
+            <li>ส่งออกโมเดล 3 มิติเป็นไฟล์ <code>.GLB</code>, <code>.STL</code> และ <code>.URDF</code></li>
+          </ul>
+          <div class="module-card-actions">
+            <a class="btn primary module-launch-link" href="index.html">เข้าสู่ 3D Control</a>
+            <button type="button" class="btn module-popout-btn" data-popout-url="index.html" data-popout-name="arm4dof_control"
+              aria-label="เปิด 3D Control แยกหน้าต่าง (Multi-Monitor)" title="เปิดแยกจอ Multi-Monitor">↗</button>
+          </div>
+        </article>
+
+        <article class="module-card">
+          <div class="module-card-top">
+            <div class="module-icon-wrap" aria-hidden="true">📊</div>
+            <span class="setting-badge">dashboard.html</span>
+          </div>
+          <h3 class="module-card-title">Factory Dashboard</h3>
+          <p class="module-card-desc">
+            หน้าจอแดชบอร์ดโรงงานรับข้อมูลสดผ่าน BroadcastChannel เพื่อติดตามประสิทธิภาพการผลิตและสัญญาณเตือน
+          </p>
+          <ul class="module-feature-list">
+            <li>ติดตาม KPI, OEE, Cycle Count, Availability และสถานะเครื่องจักร</li>
+            <li>กราฟ Real-Time 4-DOF Telemetry + เกจข้อต่อและพิกัดปลายแขน TCP</li>
+            <li>บันทึก System Event &amp; Alarm Log พร้อมตัวกรองและส่งออก CSV</li>
+          </ul>
+          <div class="module-card-actions">
+            <a class="btn primary module-launch-link" href="dashboard.html">เปิด Factory Dashboard</a>
+            <button type="button" class="btn module-popout-btn" data-popout-url="dashboard.html" data-popout-name="arm4dof_dashboard"
+              aria-label="เปิด Factory Dashboard แยกหน้าต่าง (Multi-Monitor)" title="เปิดแยกจอ Multi-Monitor">↗</button>
+          </div>
+        </article>
+
+        <article class="module-card">
+          <div class="module-card-top">
+            <div class="module-icon-wrap" aria-hidden="true">🔧</div>
+            <span class="setting-badge">diagnostics.html</span>
+          </div>
+          <h3 class="module-card-title">IoT Hardware Diagnostics</h3>
+          <p class="module-card-desc">
+            เครื่องมือตรวจสอบการสื่อสารระดับฮาร์ดแวร์ ขอบเขตความปลอดภัย และผังขาเชื่อมต่อบอร์ดไมโครคอนโทรลเลอร์
+          </p>
+          <ul class="module-feature-list">
+            <li>ดู Live Serial Monitor (<code>115200 baud</code>) พร้อมอัตรา TX และสถานะ Handshake</li>
+            <li>ตาราง Joint Safety Limits เทียบ Soft Limit กับ Hard Mechanical Limit</li>
+            <li>ผังอ้างอิงขา Pin GOOUUU ESP32-S3-CAM และส่งออกรายงาน JSON</li>
+          </ul>
+          <div class="module-card-actions">
+            <a class="btn primary module-launch-link" href="diagnostics.html">ดู IoT Diagnostics</a>
+            <button type="button" class="btn module-popout-btn" data-popout-url="diagnostics.html" data-popout-name="arm4dof_diagnostics"
+              aria-label="เปิด IoT Diagnostics แยกหน้าต่าง (Multi-Monitor)" title="เปิดแยกจอ Multi-Monitor">↗</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- SECTION 3: SYSTEM HIGHLIGHTS & HARDWARE SPEC -->
+    <section class="home-section" aria-labelledby="specs-heading">
+      <div class="section-header">
+        <h2 class="section-title" id="specs-heading">⚙️ System Highlights &amp; Hardware Specification</h2>
+        <span class="section-subtitle">ข้อมูลทางเทคนิคตรงตามเฟิร์มแวร์ arduino_servo_bridge.ino และสถาปัตยกรรมจริง</span>
+      </div>
+
+      <div class="spec-grid">
+        <article class="spec-card">
+          <div class="spec-card-header">
+            <h3 class="spec-card-title">🧠 บอร์ดหลักและไมโครคอนโทรลเลอร์</h3>
+            <span class="hw-badge hw-real">HW BOARD</span>
+          </div>
+          <dl class="spec-dl">
+            <div class="spec-row">
+              <dt>บอร์ดควบคุมหลัก</dt>
+              <dd><strong>GOOUUU ESP32-S3-CAM</strong> (<code>ESP32-S3-WROOM-1 N16R8</code>)</dd>
+            </div>
+            <div class="spec-row">
+              <dt>เฟิร์มแวร์บริดจ์</dt>
+              <dd><code>arduino_servo_bridge/arduino_servo_bridge.ino</code> (รองรับ ESP32-S3 และ Arduino UNO/Nano สำรอง)</dd>
+            </div>
+            <div class="spec-row">
+              <dt>การเชื่อมต่อ PC</dt>
+              <dd>สาย USB-C ช่อง <code>UART</code> ผ่าน WebSerial API (Chrome / Edge)</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="spec-card">
+          <div class="spec-card-header">
+            <h3 class="spec-card-title">🦾 สถาปัตยกรรม Hybrid Digital Twin</h3>
+            <span class="hw-badge hw-sim">3 HW + 2 SIM</span>
+          </div>
+          <dl class="spec-dl">
+            <div class="spec-row">
+              <dt>มอเตอร์จริง 3 Servo (Hardware)</dt>
+              <dd>
+                <strong>1×MG996R</strong> Base Yaw @ <code>GPIO 1</code><br />
+                <strong>2×MG90S</strong> Gripper Left/Right @ <code>GPIO 2, 14</code>
+              </dd>
+            </div>
+            <div class="spec-row">
+              <dt>แกนจำลองบน 3D &amp; Dashboard</dt>
+              <dd>แกน <strong>Shoulder Pitch</strong> และ <strong>Elbow Pitch (4-Bar)</strong> ทำงานแบบ Real-Time Simulation บน 3D และ Telemetry</dd>
+            </div>
+            <div class="spec-row">
+              <dt>แหล่งจ่ายไฟ Servo</dt>
+              <dd>แหล่งจ่ายไฟภายนอก <strong>5V DC 3A–5A</strong> + Capacitor <code>1000µF</code> + <strong>Common GND</strong></dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="spec-card">
+          <div class="spec-card-header">
+            <h3 class="spec-card-title">📡 โปรโตคอล WebSerial &amp; Safety</h3>
+            <span class="setting-badge">115200 8N1</span>
+          </div>
+          <dl class="spec-dl">
+            <div class="spec-row">
+              <dt>รูปแบบแพ็กเก็ตควบคุม (~25 Hz)</dt>
+              <dd><code>BASE,GRIP_L,GRIP_R\n</code> ส่งค่า PWM ที่ผ่านการจำกัดขอบเขตแล้ว</dd>
+            </div>
+            <div class="spec-row">
+              <dt>การตรวจสอบบอร์ด (Handshake)</dt>
+              <dd><code>PING</code> → <code>READY:3SERVO_S3CAM</code> พร้อมซิงก์คำสั่ง <code>LIMIT:...</code> → <code>OK:LIMITS</code></dd>
+            </div>
+            <div class="spec-row">
+              <dt>Safety Limits 2 ชั้น</dt>
+              <dd>Soft Limits ปรับได้บนเว็บ (<code>localStorage</code>) + Hard Mechanical Limits บังคับซ้ำในเฟิร์มแวร์</dd>
+            </div>
+          </dl>
+        </article>
+      </div>
+    </section>
+
+    <!-- SECTION 4: QUICK START GUIDE -->
+    <section class="home-section" aria-labelledby="quickstart-heading">
+      <div class="section-header">
+        <h2 class="section-title" id="quickstart-heading">🧭 Quick Start Guide — เริ่มต้นใช้งานใน 3 ขั้นตอน</h2>
+        <span class="section-subtitle">ทำงานแบบ Offline-Ready ผ่าน Local Server โดยไม่ส่งภาพกล้องออกนอกเครื่อง</span>
+      </div>
+
+      <div class="steps-grid">
+        <article class="step-card">
+          <div class="step-head">
+            <span class="step-num" aria-hidden="true">1</span>
+            <h3 class="step-title">เตรียมฮาร์ดแวร์และเฟิร์มแวร์</h3>
+          </div>
+          <p class="step-body">
+            ต่อแหล่งจ่ายไฟ <strong>5V 3A–5A แยก</strong> เลี้ยงเซอร์โวพร้อมต่อสาย <strong>Common GND</strong> กับบอร์ด
+            GOOUUU ESP32-S3-CAM และอัปโหลดไฟล์ <code>arduino_servo_bridge.ino</code> ลงบอร์ดให้เรียบร้อย
+          </p>
+        </article>
+
+        <article class="step-card">
+          <div class="step-head">
+            <span class="step-num" aria-hidden="true">2</span>
+            <h3 class="step-title">เปิดเว็บเซิร์ฟเวอร์ในเครื่อง</h3>
+          </div>
+          <p class="step-body">
+            ดับเบิลคลิกไฟล์ <code>start_digital_twin.bat</code> เพื่อเปิด Local Server ที่ <code>http://localhost:8080</code>
+            แล้วเปิดใช้งานผ่านเบราว์เซอร์ <strong>Google Chrome</strong> หรือ <strong>Microsoft Edge</strong>
+          </p>
+        </article>
+
+        <article class="step-card">
+          <div class="step-head">
+            <span class="step-num" aria-hidden="true">3</span>
+            <h3 class="step-title">เปิดกล้อง AI หรือเชื่อม USB</h3>
+          </div>
+          <p class="step-body">
+            เข้าสู่หน้า <a class="diagram-open-link" href="index.html">3D Control</a> กดเปิดกล้อง <strong>Hand Tracking</strong>
+            เพื่อควบคุมด้วยมือ หรือกดเชื่อมต่อ <strong>USB WebSerial</strong> เพื่อสั่งงานมอเตอร์จริงแบบเรียลไทม์
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="home-footer" role="contentinfo">
+      <nav class="footer-links" aria-label="ลิงก์เอกสารอ้างอิงและไฟล์โปรเจกต์">
+        <a href="README.md" target="_blank" rel="noopener">📘 README.md</a>
+        <a href="PROJECT_DOCUMENTATION.md" target="_blank" rel="noopener">📄 PROJECT_DOCUMENTATION.md</a>
+        <a href="docs/WIRING_GUIDE.md" target="_blank" rel="noopener">🔌 docs/WIRING_GUIDE.md</a>
+        <a href="docs/4DOF_Control_Room_Overview.pdf" target="_blank" rel="noopener">📑 4DOF_Control_Room_Overview.pdf</a>
+        <a href="models/Robotic_Arm_4DOF.urdf" target="_blank" rel="noopener">🦾 Robotic_Arm_4DOF.urdf</a>
+      </nav>
+      <p class="footer-meta">
+        ISY49303 IoT — Group01_Project • 4-DOF Robotic Arm Digital Twin (Offline-Ready PWA • WCAG 2.1 AA)
+      </p>
+    </footer>
+  </main>
+
+  <script src="js/factory_bus.js"></script>
+  <script src="js/home.js"></script>
+</body>
+
+</html>

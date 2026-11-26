@@ -81,7 +81,7 @@
 
   <!-- 6 -->
   <rect x="1345" y="130" width="200" height="64" rx="10" fill="#d97706" filter="url(#shadow)"/>
-  <text x="1445" y="157" text-anchor="middle" class="font-sans actor-title">6. บอร์ด IoT → 4 Servos</text>
+  <text x="1445" y="157" text-anchor="middle" class="font-sans actor-title">6. บอร์ด IoT → 3 Servos</text>
   <text x="1445" y="177" text-anchor="middle" class="font-mono actor-sub">arduino_servo_bridge.ino</text>
 
   <!-- ===================================================================== -->

@@ -8,15 +8,19 @@
  *              ก่อนประกอบเข้ากับโครงแขนกลและเชื่อมต่อ Dashboard
  * -----------------------------------------------------------------------------
  * @pinout (ตรงกับ arduino_servo_bridge.ino สำหรับ GOOUUU ESP32-S3-CAM)
- *   - Servo 1 (MG996R  — Base Yaw / หมุนฐาน)             : GPIO 1
- *   - Servo 2 (MG90S#1 — Gripper Left Claw / ก้ามหนีบซ้าย) : GPIO 2
- *   - Servo 3 (MG90S#2 — Gripper Right Claw / ก้ามหนีบขวา) : GPIO 41
+ *   - Servo 1 (MG996R  — Base Yaw / หมุนฐาน)             : GPIO 1  [LEDC CH 0]
+ *   - Servo 2 (MG90S#1 — Gripper Left Claw / ก้ามหนีบซ้าย) : GPIO 2  [LEDC CH 1]
+ *   - Servo 3 (MG90S#2 — Gripper Right Claw / ก้ามหนีบขวา) : GPIO 14 [LEDC CH 2]
+ * @pwm_architecture
+ *   - ใช้ Native ESP32 Hardware LEDC (50 Hz, 14-bit) ล็อก Channel แยกอิสระ 0/1/2
+ *     พร้อม gpio_reset_pin() เลี่ยงปัญหาขา JTAG (GPIO 41) และปัญหา ESP32Servo ชน Channel 0
+ *   - รองรับทั้ง Arduino-ESP32 Core v3.x และ v2.x โดยไม่ต้องติดตั้งไลบรารี ESP32Servo
  * @wiring_note
- *   - สายสัญญาณ (ส้ม/เหลือง) -> ขา GPIO 1, GPIO 2, GPIO 41 บนบอร์ด GOOUUU ESP32-S3-CAM
+ *   - สายสัญญาณ (ส้ม/เหลือง) -> ขา GPIO 1, GPIO 2, GPIO 14 บนบอร์ด GOOUUU ESP32-S3-CAM
  *   - สายไฟเลี้ยง (แดง)       -> แหล่งจ่ายไฟ 5V ภายนอก (3A–5A ขึ้นไป) ห้ามดึงจากบอร์ด/USB
  *   - สายกราวด์ (น้ำตาล/ดำ)   -> ต่อเข้า GND ของแหล่งจ่าย 5V และต่อร่วม (Common GND) กับบอร์ด
  * @usage
- *   1. ติดตั้งบอร์ด "esp32" (v3.x) และไลบรารี "ESP32Servo" (v3.0.5+) ใน Arduino IDE
+ *   1. ติดตั้งบอร์ด "esp32" by Espressif Systems (v2.x หรือ v3.x) ใน Arduino IDE
  *   2. เลือก Board = "ESP32S3 Dev Module", Flash = "16MB (128Mb)", PSRAM = "OPI PSRAM"
  *   3. เสียบสาย USB-C ช่อง "UART" อัปโหลดแล้วเปิด Serial Monitor ที่ 115200 baud
  *   4. คำสั่งควบคุมผ่าน Serial Monitor:
@@ -27,44 +31,69 @@
  * =============================================================================
  */
 
-#include <ESP32Servo.h>
+#include <driver/gpio.h>
 
 // -----------------------------------------------------------------------------
-// SECTION 01: กำหนดขา Pin และพารามิเตอร์ของ Servo (GOOUUU ESP32-S3-CAM)
+// SECTION 01: กำหนดขา Pin และพารามิเตอร์ Native LEDC PWM (GOOUUU ESP32-S3-CAM)
 // -----------------------------------------------------------------------------
-const int PIN_BASE_MG996R   = 1;  // Servo 1: MG996R  — Base Yaw (หมุนฐาน)
-const int PIN_GRIP_L_MG90S  = 2;  // Servo 2: MG90S#1 — Gripper Left Claw (ก้ามหนีบซ้าย)
-const int PIN_GRIP_R_MG90S  = 41; // Servo 3: MG90S#2 — Gripper Right Claw (ก้ามหนีบขวา)
+const int PIN_BASE_MG996R   = 1;  // Servo 1: MG996R  — Base Yaw (หมุนฐาน)        [LEDC CH 0]
+const int PIN_GRIP_L_MG90S  = 2;  // Servo 2: MG90S#1 — Gripper Left (ก้ามซ้าย)   [LEDC CH 1]
+const int PIN_GRIP_R_MG90S  = 14; // Servo 3: MG90S#2 — Gripper Right (ก้ามขวา)  [LEDC CH 2]
 
-// ช่วงพัลส์มาตรฐานสำหรับ MG996R และ MG90S (50 Hz, 500..2400 us)
-const int SERVO_MIN_US = 500;
-const int SERVO_MAX_US = 2400;
-const int SERVO_FREQ_HZ = 50;
+// ช่วงพัลส์มาตรฐานสำหรับ MG996R และ MG90S (Native LEDC 50 Hz, 14-bit, 500..2400 us)
+const uint32_t SERVO_FREQ_HZ   = 50;
+const uint8_t  SERVO_PWM_RES   = 14;
+const uint32_t SERVO_PWM_MAX   = (1UL << SERVO_PWM_RES) - 1; // 16383
+const uint32_t SERVO_PERIOD_US = 20000UL;
+const int      SERVO_MIN_US    = 500;
+const int      SERVO_MAX_US    = 2400;
 const unsigned long SERIAL_BAUD = 115200;
 
 // ช่วงปลอดภัยสำหรับทดสอบมือหนีบซ้าย/ขวา (กลับทิศฝั่งขวาเพื่อให้หนีบเข้าหากันแบบสมมาตร)
 const int GRIP_HW_MIN = 20;
 const int GRIP_HW_MAX = 120;
 
-Servo servos[3];
 const int servoPins[3] = { PIN_BASE_MG996R, PIN_GRIP_L_MG90S, PIN_GRIP_R_MG90S };
+const uint8_t servoChannels[3] = { 0, 1, 2 };
 const char* servoNames[3] = {
-  "Servo 1 (MG996R  - Base Yaw      | GPIO 1)",
-  "Servo 2 (MG90S#1 - Gripper Left  | GPIO 2)",
-  "Servo 3 (MG90S#2 - Gripper Right | GPIO 41)"
+  "Servo 1 (MG996R  - Base Yaw      | GPIO 1  | CH 0)",
+  "Servo 2 (MG90S#1 - Gripper Left  | GPIO 2  | CH 1)",
+  "Servo 3 (MG90S#2 - Gripper Right | GPIO 14 | CH 2)"
 };
 
 int currentAngle[3] = { 90, 90, 90 };
 bool autoTestEnabled = true;
 
 // -----------------------------------------------------------------------------
-// SECTION 02: ฟังก์ชันช่วยรับคำสั่งจาก Serial Monitor และควบคุมการเคลื่อนที่
+// SECTION 02: ฟังก์ชันช่วยขับ Native LEDC และรับคำสั่งจาก Serial Monitor
 // -----------------------------------------------------------------------------
+
+bool attachServoChannel(int pin, uint8_t channel) {
+  gpio_reset_pin((gpio_num_t)pin);
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0))
+  return ledcAttachChannel(pin, SERVO_FREQ_HZ, SERVO_PWM_RES, channel);
+#else
+  ledcSetup(channel, SERVO_FREQ_HZ, SERVO_PWM_RES);
+  ledcAttachPin(pin, channel);
+  return true;
+#endif
+}
+
+void writeServoChannel(uint8_t channel, int angleDeg) {
+  angleDeg = constrain(angleDeg, 0, 180);
+  uint32_t pulseUs = (uint32_t)map(angleDeg, 0, 180, SERVO_MIN_US, SERVO_MAX_US);
+  uint32_t duty = (uint32_t)(((uint64_t)pulseUs * SERVO_PWM_MAX + (SERVO_PERIOD_US / 2)) / SERVO_PERIOD_US);
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0))
+  ledcWriteChannel(channel, duty);
+#else
+  ledcWrite(channel, duty);
+#endif
+}
 
 void printHelp() {
   Serial.println("------------------------------------------------------------");
   Serial.println("คำสั่ง Serial Monitor (115200 baud) — GOOUUU ESP32-S3-CAM:");
-  Serial.println("  <1-3> <0-180>  เช่น '1 45' (Base), '2 60' (GripL), '3 120' (GripR)");
+  Serial.println("  <1-3> <0-180>  เช่น '1 45' (Base GPIO1), '2 60' (GripL GPIO2), '3 120' (GripR GPIO14)");
   Serial.println("  grip <0-100>   ทดสอบมือหนีบ 2 ข้างพร้อมกันแบบสมมาตร (0=ปิด, 100=อ้า)");
   Serial.println("  home           สั่ง Servo ทั้ง 3 ตัวไปที่ 90 องศา (กึ่งกลาง)");
   Serial.println("  stop           หยุดโหมดทดสอบอัตโนมัติ");
@@ -75,7 +104,7 @@ void printHelp() {
 void setServoAngle(int index, int angle) {
   if (index < 0 || index >= 3) return;
   angle = constrain(angle, 0, 180);
-  servos[index].write(angle);
+  writeServoChannel(servoChannels[index], angle);
   currentAngle[index] = angle;
 }
 
@@ -227,20 +256,14 @@ void setup() {
   delay(800);
 
   Serial.println("\n============================================================");
-  Serial.println("  GOOUUU ESP32-S3-CAM Servo Test (1x MG996R + 2x MG90S)");
+  Serial.println("  GOOUUU ESP32-S3-CAM Servo Test (Native LEDC CH0/CH1/CH2)");
   Serial.println("============================================================");
   printHelp();
 
-  // จอง PWM Timer 3 ช่องสำหรับขับ Servo จริง 3 ตัวบน ESP32-S3
-  ESP32PWM::allocateTimer(0);
-  ESP32PWM::allocateTimer(1);
-  ESP32PWM::allocateTimer(2);
-
   for (int i = 0; i < 3; i++) {
-    servos[i].setPeriodHertz(SERVO_FREQ_HZ);
-    servos[i].attach(servoPins[i], SERVO_MIN_US, SERVO_MAX_US);
+    bool ok = attachServoChannel(servoPins[i], servoChannels[i]);
     setServoAngle(i, 90);
-    Serial.print("พร้อมใช้งาน: ");
+    Serial.print(ok ? "พร้อมใช้งาน: " : "[ERROR] ผูกขาไม่สำเร็จ: ");
     Serial.println(servoNames[i]);
   }
 

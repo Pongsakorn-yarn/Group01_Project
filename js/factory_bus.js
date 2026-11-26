@@ -23,7 +23,7 @@
     j1: Object.freeze({ min: -90, max: 90, pwmMin: 0, pwmMax: 180, unit: '°', label: 'DOF 1: Base Yaw (MG996R)', shortLabel: 'S1 Base (MG996R)', isHardware: true, hwTag: 'HW · GPIO 1' }),
     j2: Object.freeze({ min: -45, max: 65, pwmMin: 45, pwmMax: 155, unit: '°', label: 'DOF 2: Shoulder Pitch (Sim 3D)', shortLabel: 'Shoulder (Sim)', isHardware: false, hwTag: 'SIM ONLY' }),
     j3: Object.freeze({ min: -55, max: 55, pwmMin: 35, pwmMax: 145, unit: '°', label: 'DOF 3: Elbow Pitch (Sim 3D)', shortLabel: 'Elbow (Sim)', isHardware: false, hwTag: 'SIM ONLY' }),
-    j4: Object.freeze({ min: 0, max: 100, pwmMin: 0, pwmMax: 180, hwMin: 20, hwMax: 120, unit: '%', label: 'DOF 4: Gripper L/R (2×MG90S)', shortLabel: 'S2/S3 Grip L/R', isHardware: true, hwTag: 'HW · GPIO 2/41' })
+    j4: Object.freeze({ min: 0, max: 100, pwmMin: 0, pwmMax: 180, hwMin: 20, hwMax: 120, unit: '%', label: 'DOF 4: Gripper L/R (2×MG90S)', shortLabel: 'S2/S3 Grip L/R', isHardware: true, hwTag: 'HW · GPIO 2/14' })
   });
 
   const PINOUT_SPEC = Object.freeze([
@@ -52,10 +52,10 @@
       servo: 'Servo 3 (MG90S #2)',
       name: 'Gripper Right — ก้ามหนีบขวา',
       arduinoPin: 'D6',
-      esp32Pin: 'GPIO 41',
+      esp32Pin: 'GPIO 14',
       homeCmd: '63° (35%)',
       hardPwm: '0°–180° → HW 20°–120°',
-      note: 'ควบคุมมือหนีบข้างขวา (Invert สมมาตรในเฟิร์มแวร์ • ขาสำรอง GPIO 14)'
+      note: 'ควบคุมมือหนีบข้างขวา (Invert สมมาตร • Native LEDC CH2 เลี่ยงขา JTAG 41)'
     }
   ]);
 

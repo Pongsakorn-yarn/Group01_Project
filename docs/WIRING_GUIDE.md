@@ -25,14 +25,14 @@
 
 ### หมวด A: สายสัญญาณควบคุม PWM (GOOUUU ESP32-S3-CAM → Servo จริง 3 ตัว)
 
-> **ทำไมจึงเลือกขา `GPIO 1`, `GPIO 2`, `GPIO 41`?**  
-> บนบอร์ด **GOOUUU ESP32-S3-CAM** ขา `GPIO 4–13, 15–18` ถูกใช้กับกล้อง, `GPIO 26–32` และ `35–37` ถูกจองให้ Internal Flash / Octal PSRAM (ไม่มีบน Header หรือห้ามใช้), `GPIO 38–40` ใช้กับช่อง MicroSD, `GPIO 19–20` ใช้กับ Native USB, `GPIO 43–44` ใช้กับ UART0 และ `GPIO 0, 3, 45, 46` เป็น Strapping Pins จึงเลือกใช้ **`GPIO 1, 2, 41`** ที่ว่างสะอาด 100% *(ขาสำรองที่ว่างเพิ่มเติม: `GPIO 14`, `GPIO 42`, `GPIO 47`)*
+> **ทำไมจึงเลือกขา `GPIO 1`, `GPIO 2`, `GPIO 14`?**  
+> บนบอร์ด **GOOUUU ESP32-S3-CAM** ขา `GPIO 4–13, 15–18` ถูกใช้กับกล้อง, `GPIO 26–32` และ `35–37` ถูกจองให้ Internal Flash / Octal PSRAM (ไม่มีบน Header หรือห้ามใช้), `GPIO 38–40` ใช้กับช่อง MicroSD, `GPIO 39–42` เป็นกลุ่มขา JTAG (`GPIO 41` คือ `MTDI` ที่อาจเกิดปัญหาสัญญาณซ้ำหรือชน Channel กับ Base ได้), `GPIO 19–20` ใช้กับ Native USB, `GPIO 43–44` ใช้กับ UART0 และ `GPIO 0, 3, 45, 46` เป็น Strapping Pins จึงเลือกใช้ **`GPIO 1, 2, 14`** คู่กับ **Native ESP32 Hardware LEDC** แยก Channel อิสระ (`CH 0, CH 1, CH 2`) ที่ว่างสะอาดและเสถียร 100%
 
 | ต้นทาง (มอเตอร์จริง) | ขาต้นทาง | ปลายทาง (บอร์ด) | ขาปลายทาง | หน้าที่ / หมายเหตุ |
 | :--- | :--- | :--- | :--- | :--- |
-| **Servo 1 — MG996R** (Base Yaw / หมุนฐาน) | สายสัญญาณ (**สีส้ม / เหลือง**) | **GOOUUU ESP32-S3-CAM** | **`GPIO 1`** | รับสัญญาณ PWM 50 Hz (`500–2400 µs`) หมุนฐานซ้าย-ขวา (Home: `90°`) |
-| **Servo 2 — MG90S #1** (Gripper Left / ก้ามหนีบซ้าย) | สายสัญญาณ (**สีส้ม / เหลือง**) | **GOOUUU ESP32-S3-CAM** | **`GPIO 2`** | รับสัญญาณ PWM 50 Hz คุมก้ามหนีบซ้าย (Home cmd: `63°` → HW `20°–120°`) |
-| **Servo 3 — MG90S #2** (Gripper Right / ก้ามหนีบขวา) | สายสัญญาณ (**สีส้ม / เหลือง**) | **GOOUUU ESP32-S3-CAM** | **`GPIO 41`** | รับสัญญาณ PWM 50 Hz คุมก้ามหนีบขวา (Invert สมมาตรในเฟิร์มแวร์ • Home cmd: `63°`) |
+| **Servo 1 — MG996R** (Base Yaw / หมุนฐาน) | สายสัญญาณ (**สีส้ม / เหลือง**) | **GOOUUU ESP32-S3-CAM** | **`GPIO 1`** *(CH 0)* | รับสัญญาณ PWM 50 Hz (`500–2400 µs`) หมุนฐานซ้าย-ขวา (Home: `90°`) |
+| **Servo 2 — MG90S #1** (Gripper Left / ก้ามหนีบซ้าย) | สายสัญญาณ (**สีส้ม / เหลือง**) | **GOOUUU ESP32-S3-CAM** | **`GPIO 2`** *(CH 1)* | รับสัญญาณ PWM 50 Hz คุมก้ามหนีบซ้าย (Home cmd: `63°` → HW `20°–120°`) |
+| **Servo 3 — MG90S #2** (Gripper Right / ก้ามหนีบขวา) | สายสัญญาณ (**สีส้ม / เหลือง**) | **GOOUUU ESP32-S3-CAM** | **`GPIO 14`** *(CH 2)* | รับสัญญาณ PWM 50 Hz คุมก้ามหนีบขวา (Invert สมมาตรในเฟิร์มแวร์ • Home cmd: `63°`) |
 | *(แกน Shoulder & Elbow)* | *(Virtual / Digital Twin Only)* | — | — | คงการทำงานขยับขึ้น-ลงบนโมเดล 3D, Hand Tracking และ Dashboard (ไม่ต่อมอเตอร์) |
 
 ### หมวด B: ระบบไฟเลี้ยง 5V ภายนอก (3A–5A) และกราวด์ร่วม (Power & Common GND)
@@ -62,9 +62,9 @@
 flowchart LR
     PC["💻 คอมพิวเตอร์<br/>Web Digital Twin Dashboard<br/>(Chrome / Edge)"] -- "สาย USB-C Data → ช่อง UART<br/>(115200 baud: BASE,GRIP_L,GRIP_R)" --> ESP["🎛️ GOOUUU ESP32-S3-CAM<br/>arduino_servo_bridge.ino"]
 
-    ESP -- "GPIO 1 (PWM 50Hz)" --> S1["⚙️ Servo 1: MG996R<br/>(Base Yaw หมุนฐาน)"]
-    ESP -- "GPIO 2 (PWM 50Hz)" --> S2["⚙️ Servo 2: MG90S #1<br/>(Gripper Left ซ้าย)"]
-    ESP -- "GPIO 41 (PWM 50Hz)" --> S3["⚙️ Servo 3: MG90S #2<br/>(Gripper Right ขวา)"]
+    ESP -- "GPIO 1 (LEDC CH0 · 50Hz)" --> S1["⚙️ Servo 1: MG996R<br/>(Base Yaw หมุนฐาน)"]
+    ESP -- "GPIO 2 (LEDC CH1 · 50Hz)" --> S2["⚙️ Servo 2: MG90S #1<br/>(Gripper Left ซ้าย)"]
+    ESP -- "GPIO 14 (LEDC CH2 · 50Hz)" --> S3["⚙️ Servo 3: MG90S #2<br/>(Gripper Right ขวา)"]
 
     PSU["🔋 แหล่งจ่ายไฟ 5V ภายนอก<br/>(3A – 5A + C 1000µF)"] -- "+5V (สายสีแดง)" --> S1
     PSU -- "+5V (สายสีแดง)" --> S2
@@ -80,7 +80,7 @@ flowchart LR
 
 ## 4. การตั้งค่า Arduino IDE สำหรับ GOOUUU ESP32-S3-CAM
 
-1. ติดตั้ง Board Package **`esp32` by Espressif Systems (v3.x)** และไลบรารี **`ESP32Servo` (v3.0.5+)**
+1. ติดตั้ง Board Package **`esp32` by Espressif Systems (v2.x หรือ v3.x)** *(เฟิร์มแวร์เวอร์ชันใหม่ใช้ Native ESP32 Hardware LEDC แยก Channel โดยตรง ไม่ต้องติดตั้งไลบรารี `ESP32Servo` เพิ่มเติม)*
 2. เสียบสาย USB-C Data เข้าช่อง **`UART`** ของบอร์ด (ติดตั้งไดรเวอร์ **`CH343`** หากไม่ขึ้นพอร์ต COM)
 3. ตั้งค่าในเมนู **Tools**:
    * **Board:** `ESP32S3 Dev Module`

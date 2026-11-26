@@ -212,6 +212,24 @@
     if (pctEl) pctEl.textContent = `${pct}%`;
   }
 
+  function updateChartLegend(snap) {
+    if (!snap || !snap.joints || !snap.pwm) return;
+    const hw = snap.hwPwm || { base: snap.pwm.s1, gripL: snap.pwm.s4, gripR: snap.pwm.s4 };
+    if (chartMode === 'pwm') {
+      ui.legS1.textContent = `${hw.base}°`;
+      ui.legS2.textContent = `${snap.pwm.s2}° (Sim ${Number(snap.joints.j2).toFixed(1)}°)`;
+      ui.legS3.textContent = `${snap.pwm.s3}° (Sim ${Number(snap.joints.j3).toFixed(1)}°)`;
+      ui.legS4.textContent = `L:${hw.gripL}° R:${hw.gripR}°`;
+    } else {
+      ui.legS1.textContent = `${Number(snap.joints.j1).toFixed(1)}°`;
+      ui.legS2.textContent = `${Number(snap.joints.j2).toFixed(1)}°`;
+      ui.legS3.textContent = `${Number(snap.joints.j3).toFixed(1)}°`;
+      const glPct = typeof snap.joints.j4L === 'number' ? Math.round(snap.joints.j4L) : Math.round(snap.joints.j4);
+      const grPct = typeof snap.joints.j4R === 'number' ? Math.round(snap.joints.j4R) : Math.round(snap.joints.j4);
+      ui.legS4.textContent = `L:${glPct}% R:${grPct}%`;
+    }
+  }
+
   function renderSnapshot(snap, fromLiveBus = false) {
     if (!snap) return;
     lastSnapshot = snap;
@@ -292,20 +310,7 @@
       renderGauge('j2', snap.joints.j2, snap.pwm.s2, lims.j2, safety.limitClamped && safety.limitClamped.j2, hw);
       renderGauge('j3', snap.joints.j3, snap.pwm.s3, lims.j3, safety.limitClamped && safety.limitClamped.j3, hw);
       renderGauge('j4', snap.joints.j4, snap.pwm.s4, lims.j4, safety.limitClamped && safety.limitClamped.j4, hw);
-
-      if (chartMode === 'pwm') {
-        ui.legS1.textContent = `${hw.base}°`;
-        ui.legS2.textContent = `${Number(snap.joints.j2).toFixed(1)}°`;
-        ui.legS3.textContent = `${Number(snap.joints.j3).toFixed(1)}°`;
-        ui.legS4.textContent = `L:${hw.gripL}° R:${hw.gripR}°`;
-      } else {
-        ui.legS1.textContent = `${Number(snap.joints.j1).toFixed(1)}°`;
-        ui.legS2.textContent = `${Number(snap.joints.j2).toFixed(1)}°`;
-        ui.legS3.textContent = `${Number(snap.joints.j3).toFixed(1)}°`;
-        const glPct = typeof snap.joints.j4L === 'number' ? Math.round(snap.joints.j4L) : Math.round(snap.joints.j4);
-        const grPct = typeof snap.joints.j4R === 'number' ? Math.round(snap.joints.j4R) : Math.round(snap.joints.j4);
-        ui.legS4.textContent = `L:${glPct}% R:${grPct}%`;
-      }
+      updateChartLegend(snap);
     }
 
     pushChartSample(snap);
@@ -433,7 +438,7 @@
     const filtered = eventsCache.filter(filterEvent);
     if (ui.logCount) ui.logCount.textContent = String(filtered.length);
     if (!ui.logTbody) return;
-    ui.logTbody.innerHTML = '';
+    ui.logTbody.textContent = '';
 
     if (filtered.length === 0) {
       const tr = document.createElement('tr');
@@ -517,6 +522,7 @@
       chartMode = chartMode === 'pwm' ? 'joint' : 'pwm';
       ui.btnChartMode.textContent = chartMode === 'pwm' ? 'โหมด: PWM (0–180°)' : 'โหมด: Joint (°/%)';
       ui.btnChartMode.setAttribute('aria-pressed', String(chartMode === 'pwm'));
+      updateChartLegend(lastSnapshot);
       drawTelemetryChart();
     });
   }

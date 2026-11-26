@@ -37,7 +37,7 @@ flowchart LR
 | **2** | **ดูตารางสรุปไฟล์ทั้ง 80 ไฟล์, สถาปัตยกรรม, สมการ 4-Bar IK/FK และ Data Flow ระดับฟังก์ชัน** | อ่าน [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md) |
 | **3** | **แก้ไขหน้าตา UI / ปุ่มควบคุม / ธีมสี** | ดู `index.html` คู่กับ `css/style.css` (แบ่งหมวดหมู่ `01`–`05` ตรงกัน) |
 | **4** | **แก้ไขลอจิก 3D, Hand Tracking, Kinematics หรือ WebSerial** | ดู `js/app.js` (มีสารบัญ `SECTION 01`–`12` อยู่ด้านบนสุดของไฟล์) |
-| **5** | **ต่อสายวงจรและทดสอบ Servo 4 ตัวบน ESP32 ก่อนประกอบ** | อ่าน [`docs/WIRING_GUIDE.md`](./docs/WIRING_GUIDE.md) และรัน `servo_test_esp32/servo_test_esp32.ino` |
+| **5** | **ต่อสายวงจรและทดสอบ Servo 3 ตัวบน GOOUUU ESP32-S3-CAM ก่อนประกอบ** | อ่าน [`docs/WIRING_GUIDE.md`](./docs/WIRING_GUIDE.md) และรัน `servo_test_esp32/servo_test_esp32.ino` |
 | **6** | **แก้ไขขา Pin, ค่าปรับเทียบ หรือโปรโตคอลฝั่งไมโครคอนโทรลเลอร์** | ดู `arduino_servo_bridge/arduino_servo_bridge.ino` |
 | **7** | **นำโมเดลไปพิมพ์ 3 มิติ หรือจำลองใน ROS / PyBullet** | ใช้ไฟล์ในโฟลเดอร์ `models/` (`.stl`, `.glb`, `.urdf`, `.sc`) |
 
@@ -61,9 +61,9 @@ flowchart LR
 
 | ช่อง Servo จริง | มอเตอร์ / หน้าที่ | ขา GOOUUU ESP32-S3-CAM | Arduino (สำรอง) | ท่าเริ่มต้น (Home) |
 | :---: | :--- | :---: | :---: | :---: |
-| **Servo 1** | **MG996R** — Base Yaw (หมุนฐานซ้าย-ขวา) | **`GPIO 1`** | `D3` | `90°` |
-| **Servo 2** | **MG90S #1** — Gripper Left (ก้ามหนีบซ้าย) | **`GPIO 2`** | `D5` | `63°` (HW `20°–120°`) |
-| **Servo 3** | **MG90S #2** — Gripper Right (ก้ามหนีบขวา) | **`GPIO 41`** | `D6` | `63°` (Invert สมมาตร • HW `20°–120°`) |
+| **Servo 1** | **MG996R** — Base Yaw (หมุนฐานซ้าย-ขวา) | **`GPIO 1`** *(CH 0)* | `D3` | `90°` |
+| **Servo 2** | **MG90S #1** — Gripper Left (ก้ามหนีบซ้าย) | **`GPIO 2`** *(CH 1)* | `D5` | `63°` (HW `20°–120°`) |
+| **Servo 3** | **MG90S #2** — Gripper Right (ก้ามหนีบขวา) | **`GPIO 14`** *(CH 2)* | `D6` | `63°` (Invert สมมาตร • HW `20°–120°`) |
 
 > ดูรายละเอียดขาที่ห้ามใช้บน GOOUUU ESP32-S3-CAM, การต่อไฟ 5V 3A–5A, Common GND และตั้งค่า Arduino IDE ได้ที่ [`docs/WIRING_GUIDE.md`](./docs/WIRING_GUIDE.md) และใช้ [`servo_test_esp32/servo_test_esp32.ino`](./servo_test_esp32/servo_test_esp32.ino) ทดสอบ Servo ทั้ง 3 ตัวก่อนประกอบจริง
 
