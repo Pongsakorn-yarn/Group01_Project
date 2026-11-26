@@ -92,8 +92,8 @@ const int HOME_CMD_GRIP_R = 63; // j4R = 35% -> round(0.35 * 180) = 63°
 // SECTION 02: ค่าปรับเทียบ, ขอบเขตความปลอดภัย และ Smooth Interpolation
 // -----------------------------------------------------------------------------
 const bool INVERT_SERVO_BASE   = false;
-const bool INVERT_SERVO_GRIP_L = false;
-const bool INVERT_SERVO_GRIP_R = true;
+const bool INVERT_SERVO_GRIP_L = true;
+const bool INVERT_SERVO_GRIP_R = false;
 
 const int OFFSET_SERVO_BASE   = 0;
 const int OFFSET_SERVO_GRIP_L = 0;

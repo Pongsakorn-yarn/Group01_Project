@@ -117,8 +117,8 @@ void setAllServos(int angle) {
 
 void setSymmetricGripPercent(int pct) {
   pct = constrain(pct, 0, 100);
-  int leftDeg = map(pct, 0, 100, GRIP_HW_MIN, GRIP_HW_MAX);
-  int rightDeg = map(100 - pct, 0, 100, GRIP_HW_MIN, GRIP_HW_MAX);
+  int leftDeg = map(100 - pct, 0, 100, GRIP_HW_MIN, GRIP_HW_MAX);
+  int rightDeg = map(pct, 0, 100, GRIP_HW_MIN, GRIP_HW_MAX);
   setServoAngle(1, leftDeg);
   setServoAngle(2, rightDeg);
 }
