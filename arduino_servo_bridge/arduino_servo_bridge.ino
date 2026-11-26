@@ -65,11 +65,18 @@ const int OFFSET_SERVO_2 = 0;
 const int OFFSET_SERVO_3 = 0;
 const int OFFSET_SERVO_4 = 0;
 
-// ขอบเขตองศาปลอดภัยของแต่ละแกน (ป้องกันแขนชนโครงหรือเฟือง SG90 รูด)
-const int MIN_SERVO_1 = 0;   const int MAX_SERVO_1 = 180; // Base Yaw (-90°..+90°)
-const int MIN_SERVO_2 = 45;  const int MAX_SERVO_2 = 155; // Shoulder (-45°..+65°)
-const int MIN_SERVO_3 = 35;  const int MAX_SERVO_3 = 145; // Elbow (-55°..+55°)
-const int MIN_SERVO_4 = 20;  const int MAX_SERVO_4 = 120; // Gripper Safe Range (แมปจากคำสั่ง 0..180)
+// ขอบเขตองศาปลอดภัยขั้นเด็ดขาดทางกลไก (Hard Mechanical Safety Limits — ห้ามเกินเด็ดขาด)
+const int HARD_MIN_SERVO_1 = 0;   const int HARD_MAX_SERVO_1 = 180; // Base Yaw (-90°..+90°)
+const int HARD_MIN_SERVO_2 = 45;  const int HARD_MAX_SERVO_2 = 155; // Shoulder (-45°..+65°)
+const int HARD_MIN_SERVO_3 = 35;  const int HARD_MAX_SERVO_3 = 145; // Elbow (-55°..+55°)
+const int HARD_MIN_SERVO_4 = 0;   const int HARD_MAX_SERVO_4 = 180; // Gripper Command (0..180)
+const int GRIPPER_HW_MIN   = 20;  const int GRIPPER_HW_MAX   = 120; // ช่วงองศาหัวคีบจริงบนฮาร์ดแวร์
+
+// ขอบเขตความปลอดภัยแบบปรับได้จากหน้าเว็บผ่านคำสั่ง "LIMIT:min1,max1,min2,max2,min3,max3,min4,max4\n"
+int softMinServo1 = HARD_MIN_SERVO_1; int softMaxServo1 = HARD_MAX_SERVO_1;
+int softMinServo2 = HARD_MIN_SERVO_2; int softMaxServo2 = HARD_MAX_SERVO_2;
+int softMinServo3 = HARD_MIN_SERVO_3; int softMaxServo3 = HARD_MAX_SERVO_3;
+int softMinServo4 = HARD_MIN_SERVO_4; int softMaxServo4 = HARD_MAX_SERVO_4;
 
 // ออบเจกต์ควบคุมมอเตอร์ Servo ทั้ง 4 แกนอิสระ (4-DOF)
 Servo servo1_BaseYaw;
@@ -77,8 +84,8 @@ Servo servo2_Shoulder;
 Servo servo3_Elbow;
 Servo servo4_Gripper;
 
-// บัฟเฟอร์รับข้อมูล Serial แบบขนาดคงที่ (ไม่ใช้ String เพื่อลด Heap Fragmentation และไม่บล็อกลูป)
-const size_t RX_BUF_SIZE = 32;
+// บัฟเฟอร์รับข้อมูล Serial แบบขนาดคงที่ (64 ไบต์ รองรับทั้ง "S1,S2,S3,S4" และ "LIMIT:..." โดยไม่บล็อกลูป)
+const size_t RX_BUF_SIZE = 64;
 char rxBuf[RX_BUF_SIZE];
 size_t rxLen = 0;
 
@@ -87,33 +94,52 @@ size_t rxLen = 0;
 // -----------------------------------------------------------------------------
 
 /**
- * @brief แปลงคำสั่งองศา (0..180) ด้วยการกลับทิศ, ชดเชยศูนย์ และจำกัดช่วงปลอดภัย
+ * @brief อัปเดตขอบเขตความปลอดภัยแบบซอฟต์แวร์ โดยบังคับให้อยู่ภายใน Hard Mechanical Limits เสมอ
  */
-int computeSafeAngle(int rawDeg, bool invert, int offset, int minDeg, int maxDeg) {
-  int deg = constrain(rawDeg, 0, 180);
+void applySoftLimitPair(int reqMin, int reqMax, int hardMin, int hardMax, int &outMin, int &outMax) {
+  int cMin = constrain(reqMin, hardMin, hardMax - 5);
+  int cMax = constrain(reqMax, hardMin + 5, hardMax);
+  if (cMin > cMax - 5) {
+    cMax = constrain(cMin + 5, hardMin + 5, hardMax);
+    if (cMin > cMax - 5) {
+      cMin = constrain(cMax - 5, hardMin, hardMax - 5);
+    }
+  }
+  outMin = cMin;
+  outMax = cMax;
+}
+
+/**
+ * @brief แปลงคำสั่งองศา (0..180) ด้วยการกลับทิศ, ชดเชยศูนย์ และจำกัดช่วงปลอดภัย (Soft ∩ Hard)
+ */
+int computeSafeAngle(int rawDeg, bool invert, int offset, int softMin, int softMax, int hardMin, int hardMax) {
+  int deg = constrain(rawDeg, softMin, softMax);
   if (invert) {
     deg = 180 - deg;
   }
   deg += offset;
-  return constrain(deg, minDeg, maxDeg);
+  int effMin = max(hardMin, softMin);
+  int effMax = min(hardMax, softMax);
+  return constrain(deg, effMin, effMax);
 }
 
 /**
  * @brief สั่งขับ Servo ทั้ง 4 ตัวจากค่าคำสั่งดิบ (0..180)
- *        หมายเหตุ: Servo 4 (Gripper) จะถูก map จาก 0..180 เข้าสู่ช่วงปลอดภัย MIN_SERVO_4..MAX_SERVO_4
- *        เพื่อให้สไลเดอร์ 0..100% ใช้งานได้เต็มช่วงโดยไม่ชนกลไกหัวคีบ
+ *        หมายเหตุ: Servo 4 (Gripper) จะถูกจำกัดช่วงด้วย softMinServo4..softMaxServo4
+ *        ก่อนแมปเข้าช่วงปลอดภัยฮาร์ดแวร์ GRIPPER_HW_MIN..GRIPPER_HW_MAX
  */
 void writeAllServos(int s1, int s2, int s3, int s4) {
-  int a1 = computeSafeAngle(s1, INVERT_SERVO_1, OFFSET_SERVO_1, MIN_SERVO_1, MAX_SERVO_1);
-  int a2 = computeSafeAngle(s2, INVERT_SERVO_2, OFFSET_SERVO_2, MIN_SERVO_2, MAX_SERVO_2);
-  int a3 = computeSafeAngle(s3, INVERT_SERVO_3, OFFSET_SERVO_3, MIN_SERVO_3, MAX_SERVO_3);
+  int a1 = computeSafeAngle(s1, INVERT_SERVO_1, OFFSET_SERVO_1, softMinServo1, softMaxServo1, HARD_MIN_SERVO_1, HARD_MAX_SERVO_1);
+  int a2 = computeSafeAngle(s2, INVERT_SERVO_2, OFFSET_SERVO_2, softMinServo2, softMaxServo2, HARD_MIN_SERVO_2, HARD_MAX_SERVO_2);
+  int a3 = computeSafeAngle(s3, INVERT_SERVO_3, OFFSET_SERVO_3, softMinServo3, softMaxServo3, HARD_MIN_SERVO_3, HARD_MAX_SERVO_3);
 
-  int s4Clamped = constrain(s4, 0, 180);
+  int s4Clamped = constrain(s4, softMinServo4, softMaxServo4);
+  s4Clamped = constrain(s4Clamped, HARD_MIN_SERVO_4, HARD_MAX_SERVO_4);
   if (INVERT_SERVO_4) {
     s4Clamped = 180 - s4Clamped;
   }
-  int a4 = map(s4Clamped, 0, 180, MIN_SERVO_4, MAX_SERVO_4) + OFFSET_SERVO_4;
-  a4 = constrain(a4, MIN_SERVO_4, MAX_SERVO_4);
+  int a4 = map(s4Clamped, 0, 180, GRIPPER_HW_MIN, GRIPPER_HW_MAX) + OFFSET_SERVO_4;
+  a4 = constrain(a4, GRIPPER_HW_MIN, GRIPPER_HW_MAX);
 
   servo1_BaseYaw.write(a1);
   servo2_Shoulder.write(a2);
@@ -178,9 +204,21 @@ void loop() {
     if (c == '\n') {
       rxBuf[rxLen] = '\0';
       if (rxLen > 0) {
-        int s1, s2, s3, s4;
-        if (sscanf(rxBuf, "%d,%d,%d,%d", &s1, &s2, &s3, &s4) == 4) {
-          writeAllServos(s1, s2, s3, s4);
+        if (strncmp(rxBuf, "LIMIT:", 6) == 0) {
+          int mn1, mx1, mn2, mx2, mn3, mx3, mn4, mx4;
+          if (sscanf(rxBuf + 6, "%d,%d,%d,%d,%d,%d,%d,%d",
+                     &mn1, &mx1, &mn2, &mx2, &mn3, &mx3, &mn4, &mx4) == 8) {
+            applySoftLimitPair(mn1, mx1, HARD_MIN_SERVO_1, HARD_MAX_SERVO_1, softMinServo1, softMaxServo1);
+            applySoftLimitPair(mn2, mx2, HARD_MIN_SERVO_2, HARD_MAX_SERVO_2, softMinServo2, softMaxServo2);
+            applySoftLimitPair(mn3, mx3, HARD_MIN_SERVO_3, HARD_MAX_SERVO_3, softMinServo3, softMaxServo3);
+            applySoftLimitPair(mn4, mx4, HARD_MIN_SERVO_4, HARD_MAX_SERVO_4, softMinServo4, softMaxServo4);
+            Serial.println("OK:LIMITS");
+          }
+        } else {
+          int s1, s2, s3, s4;
+          if (sscanf(rxBuf, "%d,%d,%d,%d", &s1, &s2, &s3, &s4) == 4) {
+            writeAllServos(s1, s2, s3, s4);
+          }
         }
       }
       rxLen = 0;

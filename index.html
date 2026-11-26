@@ -310,34 +310,46 @@
 
         <div class="card-collapse" id="body-joint-control">
           <div class="card-body">
-            <div class="control-group">
+            <div class="control-group" id="ctrl-group-j1">
               <div class="control-label">
                 <label class="control-name" for="slider-j1">DOF 1: Base Yaw (Servo 1 หมุนฐาน)</label>
-                <span class="control-val" id="val-j1">0.0° (PWM 90°)</span>
+                <span class="control-val-wrap">
+                  <span class="limit-pill" id="hud-limit-j1" hidden title="ถูกจำกัดโดยขอบเขตความปลอดภัย Servo">LIMIT</span>
+                  <span class="control-val" id="val-j1">0.0° (PWM 90°)</span>
+                </span>
               </div>
               <input type="range" id="slider-j1" min="-90" max="90" step="0.5" value="0" />
             </div>
 
-            <div class="control-group">
+            <div class="control-group" id="ctrl-group-j2">
               <div class="control-label">
                 <label class="control-name" for="slider-j2">DOF 2: Shoulder Pitch (Servo 2 ไหล่)</label>
-                <span class="control-val" id="val-j2">0.0° (PWM 90°)</span>
+                <span class="control-val-wrap">
+                  <span class="limit-pill" id="hud-limit-j2" hidden title="ถูกจำกัดโดยขอบเขตความปลอดภัย Servo">LIMIT</span>
+                  <span class="control-val" id="val-j2">0.0° (PWM 90°)</span>
+                </span>
               </div>
               <input type="range" id="slider-j2" min="-45" max="65" step="0.5" value="0" />
             </div>
 
-            <div class="control-group">
+            <div class="control-group" id="ctrl-group-j3">
               <div class="control-label">
                 <label class="control-name" for="slider-j3">DOF 3: Elbow Pitch (Servo 3 ศอก 4-Bar)</label>
-                <span class="control-val" id="val-j3">0.0° (PWM 90°)</span>
+                <span class="control-val-wrap">
+                  <span class="limit-pill" id="hud-limit-j3" hidden title="ถูกจำกัดโดยขอบเขตความปลอดภัย Servo">LIMIT</span>
+                  <span class="control-val" id="val-j3">0.0° (PWM 90°)</span>
+                </span>
               </div>
               <input type="range" id="slider-j3" min="-55" max="55" step="0.5" value="0" />
             </div>
 
-            <div class="control-group">
+            <div class="control-group" id="ctrl-group-j4">
               <div class="control-label">
                 <label class="control-name" for="slider-j4">DOF 4: Gripper Claws (Servo 4 มือจับเฟืองคู่)</label>
-                <span class="control-val" id="val-j4">35% Open</span>
+                <span class="control-val-wrap">
+                  <span class="limit-pill" id="hud-limit-j4" hidden title="ถูกจำกัดโดยขอบเขตความปลอดภัย Servo">LIMIT</span>
+                  <span class="control-val" id="val-j4">35% Open</span>
+                </span>
               </div>
               <input type="range" id="slider-j4" min="0" max="100" step="1" value="35" />
             </div>
@@ -460,94 +472,216 @@
     </button>
   </nav>
 
-  <!-- หน้าต่างตั้งค่าการแสดงผลและธีมสี (WAI-ARIA Modal Dialog — ไม่โหลดหน้าใหม่) -->
+  <!-- หน้าต่างตั้งค่าการแสดงผลและขอบเขตความปลอดภัย Servo (WAI-ARIA Modal Dialog — ไม่โหลดหน้าใหม่) -->
   <div class="settings-backdrop" id="settings-backdrop" hidden>
     <div class="settings-dialog" id="settings-modal" role="dialog" aria-modal="true"
       aria-labelledby="settings-modal-title" aria-describedby="settings-modal-desc" tabindex="-1">
       <div class="settings-header">
         <div class="settings-header-text">
-          <h2 class="settings-title" id="settings-modal-title">⚙️ ตั้งค่าการแสดงผลและธีมสี</h2>
-          <p class="settings-desc" id="settings-modal-desc">ปรับแต่งธีมสี แสงฉาก 3 มิติ ความโปร่งใสแผง HUD และขนาด UI แบบเรียลไทม์โดยไม่ตัดการเชื่อมต่อกล้องหรือ USB</p>
+          <h2 class="settings-title" id="settings-modal-title">⚙️ ตั้งค่าระบบ (Display &amp; Servo Limits)</h2>
+          <p class="settings-desc" id="settings-modal-desc">ปรับแต่งธีมสี แสงฉาก 3 มิติ ขนาด UI และขอบเขตองศาความปลอดภัย Servo แบบเรียลไทม์โดยไม่ตัดกล้องหรือ USB</p>
         </div>
         <button type="button" class="btn-modal-close" id="btn-close-settings"
           aria-label="ปิดหน้าต่างตั้งค่า" title="ปิด (Esc)">✕</button>
       </div>
 
+      <!-- แถบแท็บสลับหมวดการตั้งค่า (WAI-ARIA Tabs) -->
+      <div class="settings-tabs" role="tablist" aria-label="หมวดหมู่การตั้งค่า">
+        <button type="button" class="settings-tab active" id="tab-display" role="tab"
+          aria-selected="true" aria-controls="tabpanel-display" data-settings-tab="display">
+          <span aria-hidden="true">🎨</span> การแสดงผล &amp; ธีม
+        </button>
+        <button type="button" class="settings-tab" id="tab-limits" role="tab"
+          aria-selected="false" aria-controls="tabpanel-limits" data-settings-tab="limits">
+          <span aria-hidden="true">🛡️</span> ขอบเขต Servo
+        </button>
+      </div>
+
       <div class="settings-body">
-        <!-- 1. ธีมสี (Theme) -->
-        <div class="setting-section">
-          <div class="setting-label-row">
-            <span class="setting-label" id="label-setting-theme">ธีมสี (Theme &amp; 3D Studio)</span>
-            <span class="setting-badge" id="val-setting-theme">Dark</span>
-          </div>
-          <div class="segmented-control" role="radiogroup" aria-labelledby="label-setting-theme" id="group-setting-theme">
-            <button type="button" class="seg-btn active" role="radio" aria-checked="true" data-theme-value="dark">
-              <span aria-hidden="true">🌙</span> Dark
-            </button>
-            <button type="button" class="seg-btn" role="radio" aria-checked="false" data-theme-value="light">
-              <span aria-hidden="true">☀️</span> Light
-            </button>
-            <button type="button" class="seg-btn" role="radio" aria-checked="false" data-theme-value="auto">
-              <span aria-hidden="true">💻</span> Auto
-            </button>
-          </div>
-        </div>
-
-        <!-- 2. ความสว่างฉาก 3 มิติ -->
-        <div class="setting-section">
-          <div class="control-label">
-            <label class="setting-label" for="slider-scene-brightness">ความสว่างฉาก 3 มิติ (3D Lighting)</label>
-            <span class="control-val" id="val-scene-brightness">100%</span>
-          </div>
-          <input type="range" id="slider-scene-brightness" min="40" max="200" step="5" value="100" />
-          <div class="setting-range-hints" aria-hidden="true">
-            <span>40% (สลัว)</span>
-            <span>100% (มาตรฐาน)</span>
-            <span>200% (สว่างมาก)</span>
-          </div>
-        </div>
-
-        <!-- 3. ความโปร่งใสและเอฟเฟกต์กระจกของแผง HUD -->
-        <div class="setting-section">
-          <div class="control-label">
-            <label class="setting-label" for="slider-panel-opacity">ความทึบของแผงควบคุม (Panel Opacity)</label>
-            <span class="control-val" id="val-panel-opacity">88%</span>
-          </div>
-          <input type="range" id="slider-panel-opacity" min="45" max="100" step="1" value="88" />
-          <div class="setting-range-hints" aria-hidden="true">
-            <span>45% (โปร่งใส)</span>
-            <span>88%</span>
-            <span>100% (ทึบสนิท)</span>
-          </div>
-
-          <div class="setting-switch-row mt-8">
-            <div class="setting-switch-info">
-              <label class="setting-label" for="toggle-glass-blur">เอฟเฟกต์กระจกเบลอ (Glass Backdrop Blur)</label>
-              <span class="helper-text">ปิดเพื่อเพิ่มความลื่นไหลบนอุปกรณ์สเปกประหยัด</span>
+        <!-- TAB 1: การแสดงผลและธีมสี -->
+        <div class="settings-tabpanel" id="tabpanel-display" role="tabpanel" aria-labelledby="tab-display">
+          <!-- 1. ธีมสี (Theme) -->
+          <div class="setting-section">
+            <div class="setting-label-row">
+              <span class="setting-label" id="label-setting-theme">ธีมสี (Theme &amp; 3D Studio)</span>
+              <span class="setting-badge" id="val-setting-theme">Dark</span>
             </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="toggle-glass-blur" checked />
-              <span class="toggle-slider" aria-hidden="true"></span>
-            </label>
+            <div class="segmented-control" role="radiogroup" aria-labelledby="label-setting-theme" id="group-setting-theme">
+              <button type="button" class="seg-btn active" role="radio" aria-checked="true" data-theme-value="dark">
+                <span aria-hidden="true">🌙</span> Dark
+              </button>
+              <button type="button" class="seg-btn" role="radio" aria-checked="false" data-theme-value="light">
+                <span aria-hidden="true">☀️</span> Light
+              </button>
+              <button type="button" class="seg-btn" role="radio" aria-checked="false" data-theme-value="auto">
+                <span aria-hidden="true">💻</span> Auto
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. ความสว่างฉาก 3 มิติ -->
+          <div class="setting-section">
+            <div class="control-label">
+              <label class="setting-label" for="slider-scene-brightness">ความสว่างฉาก 3 มิติ (3D Lighting)</label>
+              <span class="control-val" id="val-scene-brightness">100%</span>
+            </div>
+            <input type="range" id="slider-scene-brightness" min="40" max="200" step="5" value="100" />
+            <div class="setting-range-hints" aria-hidden="true">
+              <span>40% (สลัว)</span>
+              <span>100% (มาตรฐาน)</span>
+              <span>200% (สว่างมาก)</span>
+            </div>
+          </div>
+
+          <!-- 3. ความโปร่งใสและเอฟเฟกต์กระจกของแผง HUD -->
+          <div class="setting-section">
+            <div class="control-label">
+              <label class="setting-label" for="slider-panel-opacity">ความทึบของแผงควบคุม (Panel Opacity)</label>
+              <span class="control-val" id="val-panel-opacity">88%</span>
+            </div>
+            <input type="range" id="slider-panel-opacity" min="45" max="100" step="1" value="88" />
+            <div class="setting-range-hints" aria-hidden="true">
+              <span>45% (โปร่งใส)</span>
+              <span>88%</span>
+              <span>100% (ทึบสนิท)</span>
+            </div>
+
+            <div class="setting-switch-row mt-8">
+              <div class="setting-switch-info">
+                <label class="setting-label" for="toggle-glass-blur">เอฟเฟกต์กระจกเบลอ (Glass Backdrop Blur)</label>
+                <span class="helper-text">ปิดเพื่อเพิ่มความลื่นไหลบนอุปกรณ์สเปกประหยัด</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-glass-blur" checked />
+                <span class="toggle-slider" aria-hidden="true"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 4. ขนาดการแสดงผล UI -->
+          <div class="setting-section">
+            <div class="setting-label-row">
+              <span class="setting-label" id="label-setting-scale">ขนาดการแสดงผล UI (UI Scale)</span>
+              <span class="setting-badge" id="val-setting-scale">ปกติ</span>
+            </div>
+            <div class="segmented-control" role="radiogroup" aria-labelledby="label-setting-scale" id="group-setting-scale">
+              <button type="button" class="seg-btn" role="radio" aria-checked="false" data-scale-value="compact">กะทัดรัด</button>
+              <button type="button" class="seg-btn active" role="radio" aria-checked="true" data-scale-value="normal">ปกติ</button>
+              <button type="button" class="seg-btn" role="radio" aria-checked="false" data-scale-value="large">ใหญ่</button>
+            </div>
           </div>
         </div>
 
-        <!-- 4. ขนาดการแสดงผล UI -->
-        <div class="setting-section">
-          <div class="setting-label-row">
-            <span class="setting-label" id="label-setting-scale">ขนาดการแสดงผล UI (UI Scale)</span>
-            <span class="setting-badge" id="val-setting-scale">ปกติ</span>
+        <!-- TAB 2: ขอบเขตความปลอดภัย Servo (Joint Software Limits) -->
+        <div class="settings-tabpanel" id="tabpanel-limits" role="tabpanel" aria-labelledby="tab-limits" hidden>
+          <div class="limit-info-banner">
+            <strong>🛡️ ป้องกันชิ้นงานชนหรือเฟือง Servo เสียหาย:</strong>
+            กำหนดมุมต่ำสุด–สูงสุดของแขนกลจริง ระบบจะบังคับใช้พร้อมกันทั้งโมเดล 3D, Hand Tracking, IK, Demo และคำสั่ง USB WebSerial (ระยะห่างขั้นต่ำ 5° / 5%)
           </div>
-          <div class="segmented-control" role="radiogroup" aria-labelledby="label-setting-scale" id="group-setting-scale">
-            <button type="button" class="seg-btn" role="radio" aria-checked="false" data-scale-value="compact">กะทัดรัด</button>
-            <button type="button" class="seg-btn active" role="radio" aria-checked="true" data-scale-value="normal">ปกติ</button>
-            <button type="button" class="seg-btn" role="radio" aria-checked="false" data-scale-value="large">ใหญ่</button>
+
+          <div class="limit-validation-msg" id="limit-validation-msg" role="alert" hidden></div>
+
+          <!-- DOF 1 -->
+          <div class="setting-section limit-axis-card" id="limit-card-j1">
+            <div class="setting-label-row">
+              <span class="setting-label">DOF 1: Base Yaw (Servo 1)</span>
+              <span class="limit-badge-group">
+                <span class="limit-pill" id="modal-limit-j1" hidden>LIMIT</span>
+                <span class="setting-badge" id="pwm-range-j1">PWM 0°–180°</span>
+              </span>
+            </div>
+            <div class="limit-input-grid">
+              <div class="limit-field">
+                <label class="limit-field-label" for="limit-j1-min">ต่ำสุด Min (°)</label>
+                <input type="number" class="limit-num-input" id="limit-j1-min" data-limit-axis="j1" data-limit-bound="min"
+                  min="-90" max="85" step="1" value="-90" inputmode="numeric" />
+              </div>
+              <div class="limit-field">
+                <label class="limit-field-label" for="limit-j1-max">สูงสุด Max (°)</label>
+                <input type="number" class="limit-num-input" id="limit-j1-max" data-limit-axis="j1" data-limit-bound="max"
+                  min="-85" max="90" step="1" value="90" inputmode="numeric" />
+              </div>
+            </div>
+            <div class="limit-hard-hint">Hard Limit: -90° ถึง +90° (PWM 0°–180°)</div>
+          </div>
+
+          <!-- DOF 2 -->
+          <div class="setting-section limit-axis-card" id="limit-card-j2">
+            <div class="setting-label-row">
+              <span class="setting-label">DOF 2: Shoulder Pitch (Servo 2)</span>
+              <span class="limit-badge-group">
+                <span class="limit-pill" id="modal-limit-j2" hidden>LIMIT</span>
+                <span class="setting-badge" id="pwm-range-j2">PWM 45°–155°</span>
+              </span>
+            </div>
+            <div class="limit-input-grid">
+              <div class="limit-field">
+                <label class="limit-field-label" for="limit-j2-min">ต่ำสุด Min (°)</label>
+                <input type="number" class="limit-num-input" id="limit-j2-min" data-limit-axis="j2" data-limit-bound="min"
+                  min="-45" max="60" step="1" value="-45" inputmode="numeric" />
+              </div>
+              <div class="limit-field">
+                <label class="limit-field-label" for="limit-j2-max">สูงสุด Max (°)</label>
+                <input type="number" class="limit-num-input" id="limit-j2-max" data-limit-axis="j2" data-limit-bound="max"
+                  min="-40" max="65" step="1" value="65" inputmode="numeric" />
+              </div>
+            </div>
+            <div class="limit-hard-hint">Hard Limit: -45° ถึง +65° (PWM 45°–155°)</div>
+          </div>
+
+          <!-- DOF 3 -->
+          <div class="setting-section limit-axis-card" id="limit-card-j3">
+            <div class="setting-label-row">
+              <span class="setting-label">DOF 3: Elbow Pitch (Servo 3)</span>
+              <span class="limit-badge-group">
+                <span class="limit-pill" id="modal-limit-j3" hidden>LIMIT</span>
+                <span class="setting-badge" id="pwm-range-j3">PWM 35°–145°</span>
+              </span>
+            </div>
+            <div class="limit-input-grid">
+              <div class="limit-field">
+                <label class="limit-field-label" for="limit-j3-min">ต่ำสุด Min (°)</label>
+                <input type="number" class="limit-num-input" id="limit-j3-min" data-limit-axis="j3" data-limit-bound="min"
+                  min="-55" max="50" step="1" value="-55" inputmode="numeric" />
+              </div>
+              <div class="limit-field">
+                <label class="limit-field-label" for="limit-j3-max">สูงสุด Max (°)</label>
+                <input type="number" class="limit-num-input" id="limit-j3-max" data-limit-axis="j3" data-limit-bound="max"
+                  min="-50" max="55" step="1" value="55" inputmode="numeric" />
+              </div>
+            </div>
+            <div class="limit-hard-hint">Hard Limit: -55° ถึง +55° (PWM 35°–145°)</div>
+          </div>
+
+          <!-- DOF 4 -->
+          <div class="setting-section limit-axis-card" id="limit-card-j4">
+            <div class="setting-label-row">
+              <span class="setting-label">DOF 4: Gripper Claws (Servo 4)</span>
+              <span class="limit-badge-group">
+                <span class="limit-pill" id="modal-limit-j4" hidden>LIMIT</span>
+                <span class="setting-badge" id="pwm-range-j4">PWM 0°–180°</span>
+              </span>
+            </div>
+            <div class="limit-input-grid">
+              <div class="limit-field">
+                <label class="limit-field-label" for="limit-j4-min">ปิดสุด Min (%)</label>
+                <input type="number" class="limit-num-input" id="limit-j4-min" data-limit-axis="j4" data-limit-bound="min"
+                  min="0" max="95" step="1" value="0" inputmode="numeric" />
+              </div>
+              <div class="limit-field">
+                <label class="limit-field-label" for="limit-j4-max">อ้าสุด Max (%)</label>
+                <input type="number" class="limit-num-input" id="limit-j4-max" data-limit-axis="j4" data-limit-bound="max"
+                  min="5" max="100" step="1" value="100" inputmode="numeric" />
+              </div>
+            </div>
+            <div class="limit-hard-hint">Hard Limit: 0% ถึง 100% (PWM 0°–180° → บอร์ดแมปเข้าช่วงปลอดภัยหัวคีบ)</div>
           </div>
         </div>
       </div>
 
       <div class="settings-footer">
-        <button type="button" class="btn" id="btn-reset-display-settings">↺ รีเซ็ตค่าเริ่มต้น</button>
+        <button type="button" class="btn" id="btn-reset-display-settings">↺ รีเซ็ตการแสดงผล</button>
+        <button type="button" class="btn" id="btn-reset-joint-limits" hidden>↺ รีเซ็ตขอบเขตค่าเริ่มต้น</button>
         <button type="button" class="btn primary" id="btn-done-settings">เสร็จสิ้น</button>
       </div>
     </div>

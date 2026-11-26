@@ -160,7 +160,49 @@
     sliderPanelOpacity: document.getElementById('slider-panel-opacity'),
     valPanelOpacity: document.getElementById('val-panel-opacity'),
     toggleGlassBlur: document.getElementById('toggle-glass-blur'),
-    valSettingScale: document.getElementById('val-setting-scale')
+    valSettingScale: document.getElementById('val-setting-scale'),
+    tabDisplay: document.getElementById('tab-display'),
+    tabLimits: document.getElementById('tab-limits'),
+    tabpanelDisplay: document.getElementById('tabpanel-display'),
+    tabpanelLimits: document.getElementById('tabpanel-limits'),
+    btnResetJointLimits: document.getElementById('btn-reset-joint-limits'),
+    limitValidationMsg: document.getElementById('limit-validation-msg'),
+    ctrlGroups: {
+      j1: document.getElementById('ctrl-group-j1'),
+      j2: document.getElementById('ctrl-group-j2'),
+      j3: document.getElementById('ctrl-group-j3'),
+      j4: document.getElementById('ctrl-group-j4')
+    },
+    hudLimitPills: {
+      j1: document.getElementById('hud-limit-j1'),
+      j2: document.getElementById('hud-limit-j2'),
+      j3: document.getElementById('hud-limit-j3'),
+      j4: document.getElementById('hud-limit-j4')
+    },
+    modalLimitPills: {
+      j1: document.getElementById('modal-limit-j1'),
+      j2: document.getElementById('modal-limit-j2'),
+      j3: document.getElementById('modal-limit-j3'),
+      j4: document.getElementById('modal-limit-j4')
+    },
+    limitCards: {
+      j1: document.getElementById('limit-card-j1'),
+      j2: document.getElementById('limit-card-j2'),
+      j3: document.getElementById('limit-card-j3'),
+      j4: document.getElementById('limit-card-j4')
+    },
+    pwmRangeBadges: {
+      j1: document.getElementById('pwm-range-j1'),
+      j2: document.getElementById('pwm-range-j2'),
+      j3: document.getElementById('pwm-range-j3'),
+      j4: document.getElementById('pwm-range-j4')
+    },
+    limitInputs: {
+      j1: { min: document.getElementById('limit-j1-min'), max: document.getElementById('limit-j1-max') },
+      j2: { min: document.getElementById('limit-j2-min'), max: document.getElementById('limit-j2-max') },
+      j3: { min: document.getElementById('limit-j3-min'), max: document.getElementById('limit-j3-max') },
+      j4: { min: document.getElementById('limit-j4-min'), max: document.getElementById('limit-j4-max') }
+    }
   };
 
   /**
@@ -202,6 +244,7 @@
     serialReading: false,
     serialSending: false,
     boardReady: false,
+    pendingLimitSync: false,
     lastSerialSend: 0
   };
 
@@ -1124,24 +1167,476 @@
   applyDisplaySettings(displaySettings, false);
 
   /* =========================================================================
-   * SECTION 05: การคลิกเลือกชิ้นส่วนบนฉาก 3 มิติ (Raycasting)
+   * ระบบตั้งค่าขอบเขตความปลอดภัยมอเตอร์ Servo (Joint Software Limits: Min / Max)
+   * Single Source of Truth สำหรับ Manual Slider, Hand Tracking, IK, Demo, Home & WebSerial
+   * ========================================================================= */
+  const JOINT_LIMITS_STORAGE_KEY = 'arm4dof_joint_limits_v1';
+  const JOINT_AXES = Object.freeze(['j1', 'j2', 'j3', 'j4']);
+  const JOINT_HARD_LIMITS = Object.freeze({
+    j1: Object.freeze({ min: -90, max: 90, minSpan: 5, unit: '°', label: 'DOF 1 (Base Yaw)' }),
+    j2: Object.freeze({ min: -45, max: 65, minSpan: 5, unit: '°', label: 'DOF 2 (Shoulder)' }),
+    j3: Object.freeze({ min: -55, max: 55, minSpan: 5, unit: '°', label: 'DOF 3 (Elbow)' }),
+    j4: Object.freeze({ min: 0, max: 100, minSpan: 5, unit: '%', label: 'DOF 4 (Gripper)' })
+  });
+
+  function createDefaultJointLimits() {
+    return {
+      j1: { min: JOINT_HARD_LIMITS.j1.min, max: JOINT_HARD_LIMITS.j1.max },
+      j2: { min: JOINT_HARD_LIMITS.j2.min, max: JOINT_HARD_LIMITS.j2.max },
+      j3: { min: JOINT_HARD_LIMITS.j3.min, max: JOINT_HARD_LIMITS.j3.max },
+      j4: { min: JOINT_HARD_LIMITS.j4.min, max: JOINT_HARD_LIMITS.j4.max }
+    };
+  }
+
+  function sanitizeAxisLimit(axis, rawMin, rawMax, changedBound = null) {
+    const hard = JOINT_HARD_LIMITS[axis];
+    let minVal = Number.isFinite(rawMin) ? Math.round(rawMin) : hard.min;
+    let maxVal = Number.isFinite(rawMax) ? Math.round(rawMax) : hard.max;
+    let notice = '';
+
+    const clampedMin = THREE.MathUtils.clamp(minVal, hard.min, hard.max - hard.minSpan);
+    const clampedMax = THREE.MathUtils.clamp(maxVal, hard.min + hard.minSpan, hard.max);
+    if (clampedMin !== minVal || clampedMax !== maxVal) {
+      notice = `${hard.label} ถูกปรับให้อยู่ใน Hard Limit (${hard.min}${hard.unit} ถึง ${hard.max}${hard.unit})`;
+    }
+    minVal = clampedMin;
+    maxVal = clampedMax;
+
+    if (maxVal - minVal < hard.minSpan) {
+      if (changedBound === 'min') {
+        maxVal = Math.min(hard.max, minVal + hard.minSpan);
+        if (maxVal - minVal < hard.minSpan) {
+          minVal = maxVal - hard.minSpan;
+        }
+      } else {
+        minVal = Math.max(hard.min, maxVal - hard.minSpan);
+        if (maxVal - minVal < hard.minSpan) {
+          maxVal = minVal + hard.minSpan;
+        }
+      }
+      notice = `${hard.label} ต้องมีระยะห่าง Min–Max อย่างน้อย ${hard.minSpan}${hard.unit} (ปรับเป็น ${minVal}${hard.unit}..${maxVal}${hard.unit})`;
+    }
+
+    return { min: minVal, max: maxVal, notice };
+  }
+
+  function loadJointLimits() {
+    const defaults = createDefaultJointLimits();
+    try {
+      const raw = localStorage.getItem(JOINT_LIMITS_STORAGE_KEY);
+      if (!raw) return defaults;
+      const parsed = JSON.parse(raw);
+      JOINT_AXES.forEach((axis) => {
+        if (parsed && parsed[axis]) {
+          const res = sanitizeAxisLimit(axis, Number(parsed[axis].min), Number(parsed[axis].max));
+          defaults[axis] = { min: res.min, max: res.max };
+        }
+      });
+      return defaults;
+    } catch {
+      return defaults;
+    }
+  }
+
+  function saveJointLimits(limits) {
+    try {
+      localStorage.setItem(JOINT_LIMITS_STORAGE_KEY, JSON.stringify(limits));
+    } catch {
+      // ข้ามหากเบราว์เซอร์ปิดการเข้าถึง localStorage
+    }
+  }
+
+  let jointLimits = loadJointLimits();
+  const limitHitState = { j1: false, j2: false, j3: false, j4: false };
+
+  function showLimitValidationNotice(message) {
+    if (!ui.limitValidationMsg) return;
+    if (message) {
+      ui.limitValidationMsg.textContent = message;
+      ui.limitValidationMsg.hidden = false;
+    } else {
+      ui.limitValidationMsg.textContent = '';
+      ui.limitValidationMsg.hidden = true;
+    }
+  }
+
+  /**
+   * ฟังก์ชันกลาง (Single Source of Truth) สำหรับจำกัดองศาเป้าหมายทั้ง 4 แกนให้อยู่ใน Joint Software Limits
+   * และบันทึกสถานะการชนขอบเขต (limitHitState) เพื่อแสดงป้ายเตือนสีอำพัน LIMIT บนหน้าจอ
+   */
+  function clampJointTargets(pose, trackHit = true) {
+    const out = { ...pose };
+    const eps = 0.05;
+    JOINT_AXES.forEach((axis) => {
+      if (typeof out[axis] !== 'number' || Number.isNaN(out[axis])) return;
+      const lim = jointLimits[axis];
+      const hard = JOINT_HARD_LIMITS[axis];
+      const raw = out[axis];
+      const clamped = THREE.MathUtils.clamp(raw, lim.min, lim.max);
+      out[axis] = clamped;
+      if (trackHit) {
+        const isTighterThanHard = lim.min > hard.min || lim.max < hard.max;
+        const exceeded = raw < lim.min - eps || raw > lim.max + eps;
+        const atCustomBoundary = isTighterThanHard &&
+          (Math.abs(clamped - lim.min) <= 0.25 || Math.abs(clamped - lim.max) <= 0.25);
+        limitHitState[axis] = exceeded || atCustomBoundary;
+      }
+    });
+    if (typeof out.wrist === 'number' && !Number.isNaN(out.wrist)) {
+      out.wrist = THREE.MathUtils.clamp(out.wrist, -45, 45);
+    }
+    return out;
+  }
+
+  function updateLimitIndicatorsUI() {
+    JOINT_AXES.forEach((axis) => {
+      const lim = jointLimits[axis];
+      const hard = JOINT_HARD_LIMITS[axis];
+      const isTighterThanHard = lim.min > hard.min || lim.max < hard.max;
+      const nearBoundary = isTighterThanHard &&
+        (state.target[axis] <= lim.min + 0.25 || state.target[axis] >= lim.max - 0.25);
+      const active = Boolean(limitHitState[axis] || nearBoundary);
+
+      const hudPill = ui.hudLimitPills[axis];
+      if (hudPill) hudPill.hidden = !active;
+      const modalPill = ui.modalLimitPills[axis];
+      if (modalPill) modalPill.hidden = !active;
+      const ctrlGroup = ui.ctrlGroups[axis];
+      if (ctrlGroup) ctrlGroup.classList.toggle('is-limited', active);
+      const limitCard = ui.limitCards[axis];
+      if (limitCard) limitCard.classList.toggle('is-limited', active);
+    });
+  }
+
+  function axisValueToPwm(axis, val) {
+    if (axis === 'j4') {
+      return Math.round(THREE.MathUtils.clamp((val / 100) * 180, 0, 180));
+    }
+    return Math.round(THREE.MathUtils.clamp(90 + val, 0, 180));
+  }
+
+  function buildLimitCommandString() {
+    const mn1 = axisValueToPwm('j1', jointLimits.j1.min);
+    const mx1 = axisValueToPwm('j1', jointLimits.j1.max);
+    const mn2 = axisValueToPwm('j2', jointLimits.j2.min);
+    const mx2 = axisValueToPwm('j2', jointLimits.j2.max);
+    const mn3 = axisValueToPwm('j3', jointLimits.j3.min);
+    const mx3 = axisValueToPwm('j3', jointLimits.j3.max);
+    const mn4 = axisValueToPwm('j4', jointLimits.j4.min);
+    const mx4 = axisValueToPwm('j4', jointLimits.j4.max);
+    return `LIMIT:${mn1},${mx1},${mn2},${mx2},${mn3},${mx3},${mn4},${mx4}\n`;
+  }
+
+  function syncJointLimitInputsUI() {
+    JOINT_AXES.forEach((axis) => {
+      const lim = jointLimits[axis];
+      const inputs = ui.limitInputs[axis];
+      if (inputs && inputs.min && inputs.max) {
+        inputs.min.value = String(lim.min);
+        inputs.max.value = String(lim.max);
+      }
+      const badge = ui.pwmRangeBadges[axis];
+      if (badge) {
+        const pwmMin = axisValueToPwm(axis, lim.min);
+        const pwmMax = axisValueToPwm(axis, lim.max);
+        badge.textContent = axis === 'j4'
+          ? `PWM ${pwmMin}°–${pwmMax}° (${lim.min}%–${lim.max}%)`
+          : `PWM ${pwmMin}°–${pwmMax}°`;
+      }
+    });
+  }
+
+  function syncSliderLimitAttributes() {
+    const map = {
+      j1: document.getElementById('slider-j1'),
+      j2: document.getElementById('slider-j2'),
+      j3: document.getElementById('slider-j3'),
+      j4: document.getElementById('slider-j4')
+    };
+    JOINT_AXES.forEach((axis) => {
+      const el = map[axis];
+      if (!el) return;
+      el.min = String(jointLimits[axis].min);
+      el.max = String(jointLimits[axis].max);
+    });
+  }
+
+  function applyJointLimits(nextLimits, persist = true, syncSerial = true) {
+    jointLimits = nextLimits;
+    syncSliderLimitAttributes();
+    syncJointLimitInputsUI();
+
+    // ปรับเฉพาะ state.target ให้อยู่ในช่วงปลอดภัย เพื่อให้ EMA Filter ค่อย ๆ ลู่แขนกลเข้าช่วงอย่างนุ่มนวล (ไม่กระชาก)
+    state.target = clampJointTargets(state.target, true);
+    if (typeof syncSlidersFromState === 'function') {
+      syncSlidersFromState();
+    }
+    updateLimitIndicatorsUI();
+
+    if (persist) saveJointLimits(jointLimits);
+    if (syncSerial && state.serialWriter) {
+      state.pendingLimitSync = true;
+    }
+  }
+
+  // สลับแท็บภายใน Settings Modal (WAI-ARIA Tabs)
+  function setActiveSettingsTab(tabKey) {
+    const isLimits = tabKey === 'limits';
+    if (ui.tabDisplay) {
+      ui.tabDisplay.classList.toggle('active', !isLimits);
+      ui.tabDisplay.setAttribute('aria-selected', String(!isLimits));
+    }
+    if (ui.tabLimits) {
+      ui.tabLimits.classList.toggle('active', isLimits);
+      ui.tabLimits.setAttribute('aria-selected', String(isLimits));
+    }
+    if (ui.tabpanelDisplay) ui.tabpanelDisplay.hidden = isLimits;
+    if (ui.tabpanelLimits) ui.tabpanelLimits.hidden = !isLimits;
+    if (ui.btnResetDisplaySettings) ui.btnResetDisplaySettings.hidden = isLimits;
+    if (ui.btnResetJointLimits) ui.btnResetJointLimits.hidden = !isLimits;
+    if (isLimits) {
+      syncJointLimitInputsUI();
+      updateLimitIndicatorsUI();
+    }
+  }
+
+  document.querySelectorAll('[data-settings-tab]').forEach((tabBtn) => {
+    tabBtn.addEventListener('click', () => {
+      setActiveSettingsTab(tabBtn.dataset.settingsTab);
+    });
+    tabBtn.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const nextTab = tabBtn.dataset.settingsTab === 'display' ? 'limits' : 'display';
+        setActiveSettingsTab(nextTab);
+        const targetEl = nextTab === 'limits' ? ui.tabLimits : ui.tabDisplay;
+        if (targetEl) targetEl.focus();
+      }
+    });
+  });
+
+  // ผูก Event ช่องกรอก Min / Max ของทั้ง 4 แกน
+  document.querySelectorAll('.limit-num-input[data-limit-axis]').forEach((inputEl) => {
+    const commitLimitChange = () => {
+      const axis = inputEl.dataset.limitAxis;
+      const bound = inputEl.dataset.limitBound;
+      const pair = ui.limitInputs[axis];
+      if (!pair || !pair.min || !pair.max) return;
+      const rawMin = parseFloat(pair.min.value);
+      const rawMax = parseFloat(pair.max.value);
+      const res = sanitizeAxisLimit(axis, rawMin, rawMax, bound);
+      showLimitValidationNotice(res.notice);
+      const updated = {
+        ...jointLimits,
+        [axis]: { min: res.min, max: res.max }
+      };
+      applyJointLimits(updated, true, true);
+    };
+
+    inputEl.addEventListener('change', commitLimitChange);
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commitLimitChange();
+      }
+    });
+  });
+
+  if (ui.btnResetJointLimits) {
+    ui.btnResetJointLimits.addEventListener('click', () => {
+      showLimitValidationNotice('');
+      JOINT_AXES.forEach((a) => { limitHitState[a] = false; });
+      applyJointLimits(createDefaultJointLimits(), true, true);
+      showToast('คืนค่าขอบเขตความปลอดภัย Servo ทั้ง 4 แกนเป็นค่าเริ่มต้นแล้ว', 'success', 2800);
+    });
+  }
+
+  // บังคับใช้ขอบเขตความปลอดภัยตั้งแต่ตอนเริ่มต้นระบบ (ให้ท่าเริ่มต้นอยู่ในช่วงปลอดภัยเสมอ)
+  state.target = clampJointTargets(state.target, false);
+  state.current = { ...state.target };
+  syncSliderLimitAttributes();
+  syncJointLimitInputsUI();
+
+  /* =========================================================================
+   * SECTION 05: การคลิกเลือกชิ้นส่วน CAD และลากย้ายกล่องเป้าหมายบนโต๊ะ 3 มิติ (Raycasting)
    * ========================================================================= */
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
+  const cubeDragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -9.0); // ระนาบโต๊ะทำงานที่ความสูงศูนย์กลางกล่อง (world y = 9 / cad z = 9)
+  const tmpDragWorld = new THREE.Vector3();
+  const tmpDragCad = new THREE.Vector3();
+  const cubeDragOffset = new THREE.Vector2(0, 0);
+
   let downPos = { x: 0, y: 0 };
+  let isDraggingCube = false;
+  let isHoveringCube = false;
+  let activeDragPointerId = null;
+
+  /**
+   * จำกัดตำแหน่งกล่องลูกบาศก์ให้อยู่บนพื้นที่โต๊ะทำงาน (รัศมี ≤ 220 mm)
+   * และไม่ทับพื้นที่ฐานแขนกล (กันออกนอกรัศมี 72 mm จากจุดศูนย์กลางฐาน [-22, 0])
+   */
+  function clampCubeTablePos(x, y) {
+    let cx = x;
+    let cy = y;
+
+    // 1. ป้องกันกล่องซ้อนทับฐานแขนกล
+    const baseCx = -22.0;
+    const baseCy = 0.0;
+    const minBaseDist = 72.0;
+    const dxBase = cx - baseCx;
+    const dyBase = cy - baseCy;
+    const distBase = Math.hypot(dxBase, dyBase);
+    if (distBase < minBaseDist) {
+      if (distBase < 1e-4) {
+        cx = baseCx + minBaseDist;
+        cy = baseCy;
+      } else {
+        const push = minBaseDist / distBase;
+        cx = baseCx + dxBase * push;
+        cy = baseCy + dyBase * push;
+      }
+    }
+
+    // 2. จำกัดให้อยู่ในรัศมีโต๊ะทำงานไม่เกิน 220 mm จากจุดศูนย์กลางฉาก
+    const maxRadius = 220.0;
+    const distOrigin = Math.hypot(cx, cy);
+    if (distOrigin > maxRadius) {
+      const scale = maxRadius / distOrigin;
+      cx *= scale;
+      cy *= scale;
+    }
+
+    return { x: cx, y: cy };
+  }
+
+  /**
+   * อัปเดตเคอร์เซอร์เมาส์ (grab / grabbing) และแสงไฮไลต์ emissive ของกล่องเป้าหมาย
+   */
+  function updateCubeVisualState() {
+    if (isDraggingCube) {
+      renderer.domElement.classList.add('cube-grabbing');
+      renderer.domElement.classList.remove('cube-grab');
+      targetCubeMat.emissive.setHex(0xb45309);
+      targetCubeMat.emissiveIntensity = 0.65;
+    } else if (isHoveringCube) {
+      renderer.domElement.classList.add('cube-grab');
+      renderer.domElement.classList.remove('cube-grabbing');
+      targetCubeMat.emissive.setHex(cubeGrabbed ? 0x065f46 : 0x92400e);
+      targetCubeMat.emissiveIntensity = 0.52;
+    } else {
+      renderer.domElement.classList.remove('cube-grab', 'cube-grabbing');
+      targetCubeMat.emissive.setHex(cubeGrabbed ? 0x065f46 : 0x78350f);
+      targetCubeMat.emissiveIntensity = 0.35;
+    }
+  }
+
+  function setPointerFromEvent(e) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return false;
+    pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    return true;
+  }
+
+  function intersectCubeTablePlane() {
+    if (!raycaster.ray.intersectPlane(cubeDragPlane, tmpDragWorld)) return false;
+    tmpDragCad.copy(tmpDragWorld);
+    cadRoot.worldToLocal(tmpDragCad);
+    return true;
+  }
+
+  function finishCubeDrag(pointerId) {
+    if (!isDraggingCube) return;
+    isDraggingCube = false;
+    activeDragPointerId = null;
+    controls.enabled = true;
+    if (typeof pointerId === 'number' && renderer.domElement.hasPointerCapture &&
+        renderer.domElement.hasPointerCapture(pointerId)) {
+      try {
+        renderer.domElement.releasePointerCapture(pointerId);
+      } catch (_) { /* ignore */ }
+    }
+    updateCubeVisualState();
+  }
 
   renderer.domElement.addEventListener('pointerdown', (e) => {
     downPos = { x: e.clientX, y: e.clientY };
+
+    // รองรับเฉพาะปุ่มซ้ายของเมาส์หรือการแตะหน้าจอสัมผัส
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (!setPointerFromEvent(e)) return;
+
+    raycaster.setFromCamera(pointer, camera);
+    const cubeHits = raycaster.intersectObject(targetCube, false);
+    if (cubeHits.length > 0) {
+      isDraggingCube = true;
+      isHoveringCube = true;
+      activeDragPointerId = e.pointerId;
+      controls.enabled = false;
+
+      // หากกล่องกำลังถูกแขนกลคีบอยู่ ให้ปล่อยออกและวางตั้งตรงบนโต๊ะอย่างปลอดภัย
+      if (cubeGrabbed) {
+        cubeGrabbed = false;
+        targetCube.rotation.set(0, 0, 0);
+        targetCube.position.z = 9.0;
+      }
+
+      if (intersectCubeTablePlane()) {
+        cubeDragOffset.set(
+          targetCube.position.x - tmpDragCad.x,
+          targetCube.position.y - tmpDragCad.y
+        );
+      } else {
+        cubeDragOffset.set(0, 0);
+      }
+
+      if (renderer.domElement.setPointerCapture) {
+        try {
+          renderer.domElement.setPointerCapture(e.pointerId);
+        } catch (_) { /* ignore */ }
+      }
+      updateCubeVisualState();
+    }
+  });
+
+  renderer.domElement.addEventListener('pointermove', (e) => {
+    if (!setPointerFromEvent(e)) return;
+    raycaster.setFromCamera(pointer, camera);
+
+    if (isDraggingCube) {
+      if (e.pointerId !== activeDragPointerId) return;
+      if (intersectCubeTablePlane()) {
+        const clamped = clampCubeTablePos(
+          tmpDragCad.x + cubeDragOffset.x,
+          tmpDragCad.y + cubeDragOffset.y
+        );
+        targetCube.position.set(clamped.x, clamped.y, 9.0);
+        targetCube.rotation.set(0, 0, 0);
+      }
+      return;
+    }
+
+    if (e.pointerType === 'mouse') {
+      const hovered = raycaster.intersectObject(targetCube, false).length > 0;
+      if (hovered !== isHoveringCube) {
+        isHoveringCube = hovered;
+        updateCubeVisualState();
+      }
+    }
   });
 
   renderer.domElement.addEventListener('pointerup', (e) => {
+    // หากเป็นการปล่อยจากการลาก targetCube ให้คืนการควบคุมกล้องและไม่รบกวนการเลือกชิ้นส่วน CAD
+    if (isDraggingCube && e.pointerId === activeDragPointerId) {
+      finishCubeDrag(e.pointerId);
+      return;
+    }
+
     // ข้ามหากเป็นการลากเมาส์หรือนิ้วหมุนกล้อง (> 6 px)
     if (Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 6) return;
-    const rect = renderer.domElement.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-    pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    if (!setPointerFromEvent(e)) return;
     raycaster.setFromCamera(pointer, camera);
     const hits = raycaster.intersectObjects(bodyMeshes, false);
     if (hits.length > 0) {
@@ -1151,6 +1646,19 @@
       if (itemEl) itemEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } else if (state.selectedBodyId !== null) {
       selectPart(state.selectedBodyId);
+    }
+  });
+
+  renderer.domElement.addEventListener('pointercancel', (e) => {
+    if (isDraggingCube) {
+      finishCubeDrag(e.pointerId);
+    }
+  });
+
+  renderer.domElement.addEventListener('pointerleave', () => {
+    if (!isDraggingCube && isHoveringCube) {
+      isHoveringCube = false;
+      updateCubeVisualState();
     }
   });
 
@@ -1293,17 +1801,19 @@
     trailGeo.setDrawRange(0, trailCount);
     trailGeo.attributes.position.needsUpdate = true;
 
-    // ฟิสิกส์การหยิบและปล่อยกล่องเป้าหมาย
-    const distToCube = tcpCad.distanceTo(targetCube.position);
-    if (!cubeGrabbed && distToCube < 26.0 && state.current.j4 < 28) {
-      cubeGrabbed = true;
-      targetCubeMat.emissive.setHex(0x065f46);
-    } else if (cubeGrabbed && state.current.j4 > 34) {
-      cubeGrabbed = false;
-      targetCubeMat.emissive.setHex(0x78350f);
-      // วางกล่องกลับลงบนพื้นโต๊ะ (z = 9 mm สำหรับกล่องสูง 18 mm)
-      targetCube.position.z = 9.0;
-      targetCube.rotation.set(0, 0, 0);
+    // ฟิสิกส์การหยิบและปล่อยกล่องเป้าหมาย (ไม่ดึงกล่องกลับขณะผู้ใช้กำลังลากด้วยเมาส์/นิ้ว)
+    if (!isDraggingCube) {
+      const distToCube = tcpCad.distanceTo(targetCube.position);
+      if (!cubeGrabbed && distToCube < 26.0 && state.current.j4 < 28) {
+        cubeGrabbed = true;
+        updateCubeVisualState();
+      } else if (cubeGrabbed && state.current.j4 > 34) {
+        cubeGrabbed = false;
+        updateCubeVisualState();
+        // วางกล่องกลับลงบนพื้นโต๊ะ (z = 9 mm สำหรับกล่องสูง 18 mm)
+        targetCube.position.z = 9.0;
+        targetCube.rotation.set(0, 0, 0);
+      }
     }
 
     if (cubeGrabbed) {
@@ -1335,7 +1845,8 @@
     const dxYaw = tx - PIVOTS.yaw[0];
     const dyYaw = ty - PIVOTS.yaw[1];
     const j1Rad = Math.atan2(dyYaw, dxYaw);
-    const j1Deg = THREE.MathUtils.clamp((j1Rad * 180) / Math.PI, -90, 90);
+    const j1Raw = (j1Rad * 180) / Math.PI;
+    const j1Deg = THREE.MathUtils.clamp(j1Raw, jointLimits.j1.min, jointLimits.j1.max);
 
     // 2. คำนวณระยะเอื้อมในแนวรัศมี หักระยะหัวคีบจากข้อมือถึงปลายแขนกล (~76.6 mm)
     const radialTotal = Math.hypot(dxYaw, dyYaw);
@@ -1360,8 +1871,14 @@
     const fwZ = dz * scale - elZ;
     const alpha2 = Math.atan2(-fwZ, fwR);
 
-    const j2Deg = THREE.MathUtils.clamp(((alpha1 - HOME_ALPHA1) * 180) / Math.PI, -45, 65);
-    const j3Deg = THREE.MathUtils.clamp(((alpha2 - HOME_ALPHA2) * 180) / Math.PI, -55, 55);
+    const j2Raw = ((alpha1 - HOME_ALPHA1) * 180) / Math.PI;
+    const j3Raw = ((alpha2 - HOME_ALPHA2) * 180) / Math.PI;
+    const j2Deg = THREE.MathUtils.clamp(j2Raw, jointLimits.j2.min, jointLimits.j2.max);
+    const j3Deg = THREE.MathUtils.clamp(j3Raw, jointLimits.j3.min, jointLimits.j3.max);
+
+    limitHitState.j1 = j1Raw < jointLimits.j1.min - 0.05 || j1Raw > jointLimits.j1.max + 0.05;
+    limitHitState.j2 = j2Raw < jointLimits.j2.min - 0.05 || j2Raw > jointLimits.j2.max + 0.05;
+    limitHitState.j3 = j3Raw < jointLimits.j3.min - 0.05 || j3Raw > jointLimits.j3.max + 0.05;
 
     return { j1: j1Deg, j2: j2Deg, j3: j3Deg };
   }
@@ -1405,7 +1922,7 @@
         : `${state.current.wrist.toFixed(1)}°`;
   }
 
-  // ผูก Event ของตัวเลื่อนข้อต่อทั้ง 5 ช่องเข้ากับ state.target
+  // ผูก Event ของตัวเลื่อนข้อต่อทั้ง 5 ช่องเข้ากับ state.target (ผ่าน clampJointTargets เสมอ)
   [
     [sliderJ1, 'j1'],
     [sliderJ2, 'j2'],
@@ -1415,16 +1932,18 @@
   ].forEach(([el, key]) => {
     el.addEventListener('input', () => {
       stopAutomation();
-      state.target[key] = parseFloat(el.value);
+      state.target = clampJointTargets({ ...state.target, [key]: parseFloat(el.value) }, true);
+      updateLimitIndicatorsUI();
     });
   });
 
   document.getElementById('btn-reset-home').addEventListener('click', () => {
     stopAutomation();
-    state.target = { ...HOME_POSE };
+    state.target = clampJointTargets(HOME_POSE, true);
     trailCount = 0;
     trailGeo.setDrawRange(0, 0);
     syncSlidersFromState();
+    updateLimitIndicatorsUI();
   });
 
   // ตัวเลื่อนความนุ่มนวล (EMA Smoothing Filter)
@@ -1493,12 +2012,45 @@
    * SECTION 09: โหมดจำลองอัตโนมัติ (Demo), บันทึกท่าทาง (Recorder) & ส่งออก JSON
    * ========================================================================= */
 
+  // ตำแหน่งเป้าหมายของรอบ Pick & Place ปัจจุบัน (คำนวณอัตโนมัติจากตำแหน่งกล่องที่ผู้ใช้ลากวาง)
+  const pickPlan = {
+    pickX: CUBE_HOME.x,
+    pickY: CUBE_HOME.y,
+    placeX: 135.0,
+    placeY: -55.0,
+    cycleIndex: -1
+  };
+
+  function refreshPickAndPlacePlan(cycleIdx) {
+    pickPlan.cycleIndex = cycleIdx;
+    const cx = targetCube.position.x;
+    const cy = targetCube.position.y;
+    const dxYaw = cx - PIVOTS.yaw[0];
+    const dyYaw = cy - PIVOTS.yaw[1];
+    const radialDist = Math.hypot(dxYaw, dyYaw);
+    // ตรวจสอบว่ากล่องอยู่ในระยะเอื้อมด้านหน้าของแขนกลหรือไม่ (หากไกลเกินให้ใช้จุดใกล้สุดในระยะเอื้อม)
+    if (radialDist > 1e-4) {
+      const clampedR = THREE.MathUtils.clamp(radialDist, 102.0, 215.0);
+      const yawAngle = THREE.MathUtils.clamp(Math.atan2(dyYaw, dxYaw), -Math.PI / 2, Math.PI / 2);
+      pickPlan.pickX = PIVOTS.yaw[0] + clampedR * Math.cos(yawAngle);
+      pickPlan.pickY = PIVOTS.yaw[1] + clampedR * Math.sin(yawAngle);
+    } else {
+      pickPlan.pickX = CUBE_HOME.x;
+      pickPlan.pickY = CUBE_HOME.y;
+    }
+    // วางกล่องไปยังฝั่งตรงข้ามของโต๊ะอย่างสมดุล
+    pickPlan.placeX = THREE.MathUtils.clamp(pickPlan.pickX, 115.0, 155.0);
+    pickPlan.placeY = pickPlan.pickY >= 0 ? -55.0 : 55.0;
+  }
+
   ui.btnDemoPick.addEventListener('click', () => {
     const nextMode = state.demoMode === 'pick' ? null : 'pick';
     stopAutomation();
     state.demoMode = nextMode;
     state.demoTime = 0;
+    pickPlan.cycleIndex = -1;
     const isActive = state.demoMode === 'pick';
+    if (isActive) refreshPickAndPlacePlan(0);
     ui.btnDemoPick.classList.toggle('active', isActive);
     ui.btnDemoPick.setAttribute('aria-pressed', String(isActive));
   });
@@ -1517,6 +2069,8 @@
     cubeGrabbed = false;
     targetCube.position.copy(CUBE_HOME);
     targetCube.rotation.set(0, 0, 0);
+    pickPlan.cycleIndex = -1;
+    updateCubeVisualState();
   });
 
   ui.btnRecord.addEventListener('click', () => {
@@ -1629,9 +2183,12 @@
           const trimmed = line.trim();
           if (trimmed.includes('READY:4DOF_BRIDGE')) {
             state.boardReady = true;
+            state.pendingLimitSync = true;
             ui.serialDot.className = 'dot active';
             ui.serialStatusText.textContent = 'IoT Serial: 4DOF Ready';
-            showToast('บอร์ดตอบกลับ READY:4DOF_BRIDGE พร้อมรับคำสั่ง Servo แล้ว', 'success', 3500);
+            showToast('บอร์ดตอบกลับ READY:4DOF_BRIDGE พร้อมซิงก์ขอบเขต Servo และรับคำสั่งแล้ว', 'success', 3500);
+          } else if (trimmed.includes('OK:LIMITS')) {
+            console.info('Board confirmed software joint limits (OK:LIMITS)');
           }
         });
       }
@@ -1682,6 +2239,7 @@
       await port.open({ baudRate: 115200 });
       state.serialPort = port;
       state.serialWriter = port.writable.getWriter();
+      state.pendingLimitSync = true;
       ui.serialDot.className = 'dot active';
       ui.serialStatusText.textContent = 'IoT Serial: 115200 Connected';
       ui.btnSerial.textContent = '🔌 ตัดการเชื่อมต่อ Serial';
@@ -1705,13 +2263,33 @@
    * @returns {Promise<void>}
    */
   async function sendSerialTelemetry(now) {
-    if (state.estop || !state.serialWriter || state.serialSending || now - state.lastSerialSend < 40) return;
+    if (!state.serialWriter || state.serialSending) return;
+
+    // ซิงก์คำสั่งขอบเขตความปลอดภัย LIMIT:... ไปยังบอร์ดแบบไม่ชนกับแพ็กเก็ตองศา (รองรับบอร์ดรุ่นเก่าโดยไม่ Error)
+    if (state.pendingLimitSync) {
+      state.pendingLimitSync = false;
+      state.serialSending = true;
+      try {
+        await state.serialWriter.write(serialEncoder.encode(buildLimitCommandString()));
+      } catch (e) {
+        console.warn('Serial limit sync error, disconnecting:', e);
+        await disconnectSerial();
+      } finally {
+        state.serialSending = false;
+      }
+      return;
+    }
+
+    if (state.estop || now - state.lastSerialSend < 40) return;
     state.lastSerialSend = now;
     state.serialSending = true;
-    const s1 = Math.round(THREE.MathUtils.clamp(90 + state.current.j1, 0, 180));
-    const s2 = Math.round(THREE.MathUtils.clamp(90 + state.current.j2, 0, 180));
-    const s3 = Math.round(THREE.MathUtils.clamp(90 + state.current.j3, 0, 180));
-    const s4 = Math.round(THREE.MathUtils.clamp((state.current.j4 / 100) * 180, 0, 180));
+
+    // Defense-in-Depth: ด่านสุดท้ายก่อนส่งออก USB WebSerial ต้อง Clamp ซ้ำตาม Joint Software Limits และ Hard Limits เสมอ
+    const safePose = clampJointTargets(state.current, false);
+    const s1 = axisValueToPwm('j1', safePose.j1);
+    const s2 = axisValueToPwm('j2', safePose.j2);
+    const s3 = axisValueToPwm('j3', safePose.j3);
+    const s4 = axisValueToPwm('j4', safePose.j4);
     const msg = `${s1},${s2},${s3},${s4}\n`;
     try {
       await state.serialWriter.write(serialEncoder.encode(msg));
@@ -1808,7 +2386,7 @@
       ui.pinchValText.textContent =
         gripperOpenPct < 28 ? `GRAB (${Math.round(gripperOpenPct)}%)` : `${Math.round(gripperOpenPct)}%`;
 
-      // แปลงค่าจากมือเป็นองศาเป้าหมาย 4-DOF
+      // แปลงค่าจากมือเป็นองศาเป้าหมาย 4-DOF (บังคับผ่าน clampJointTargets เสมอ)
       stopAutomation();
       if (state.handMode === 'ik') {
         const targetY = ((0.5 - palmX) / 0.38) * 115.0;
@@ -1816,20 +2394,20 @@
         const targetX = THREE.MathUtils.clamp(95.0 + ((handScale - 0.14) / 0.18) * 95.0, 80.0, 195.0);
 
         const ikSol = solveIK(targetX, targetY, targetZ);
-        state.target.j1 = ikSol.j1;
-        state.target.j2 = ikSol.j2;
-        state.target.j3 = ikSol.j3;
-        state.target.j4 = gripperOpenPct;
+        const clamped = clampJointTargets({ ...state.target, j1: ikSol.j1, j2: ikSol.j2, j3: ikSol.j3, j4: gripperOpenPct }, false);
+        limitHitState.j4 = gripperOpenPct < jointLimits.j4.min - 0.05 || gripperOpenPct > jointLimits.j4.max + 0.05;
+        state.target = clamped;
       } else {
         // โหมดควบคุมข้อต่อโดยตรง (Direct Joint Mapping)
-        state.target.j1 = THREE.MathUtils.clamp((0.5 - palmX) * 190, -90, 90);
-        state.target.j2 = THREE.MathUtils.clamp((palmY - 0.45) * 140, -45, 65);
+        const rawJ1 = (0.5 - palmX) * 190;
+        const rawJ2 = (palmY - 0.45) * 140;
         // คำนวณมุมเอียงสันมือเทียบแนวราบด้วย |dx| เพื่อไม่ให้มุมกระโดด ±180° ไม่ว่าจะใช้มือซ้ายหรือขวา
         const tiltRad = Math.atan2(lm[17].y - lm[5].y, Math.abs(lm[17].x - lm[5].x) + 1e-5);
-        state.target.j3 = THREE.MathUtils.clamp(((tiltRad * 180) / Math.PI) * 1.15, -55, 55);
-        state.target.j4 = gripperOpenPct;
+        const rawJ3 = ((tiltRad * 180) / Math.PI) * 1.15;
+        state.target = clampJointTargets({ ...state.target, j1: rawJ1, j2: rawJ2, j3: rawJ3, j4: gripperOpenPct }, true);
       }
       syncSlidersFromState();
+      updateLimitIndicatorsUI();
     } else {
       ui.handDetectTag.textContent = 'NO HAND';
       ui.handDetectTag.style.borderColor = 'rgba(56, 189, 248, 0.35)';
@@ -1994,32 +2572,48 @@
       state.target = { ...state.current };
     } else if (state.demoMode === 'pick') {
       state.demoTime += dt;
+      const cycleIdx = Math.floor(state.demoTime / 8.0);
       const t = state.demoTime % 8.0;
+      if (cycleIdx !== pickPlan.cycleIndex && !cubeGrabbed && !isDraggingCube) {
+        refreshPickAndPlacePlan(cycleIdx);
+      }
+      // หากผู้ใช้ลากกล่องเปลี่ยนจุดระหว่างช่วงกำลังเข้าหา ให้ตามตำแหน่งล่าสุดทันที
+      if (t < 2.6 && !cubeGrabbed && !isDraggingCube) {
+        refreshPickAndPlacePlan(cycleIdx);
+      }
+
       if (t < 1.5) {
-        const sol = solveIK(135, 45, 65);
-        state.target = { ...sol, j4: 65, wrist: 0 };
+        const sol = solveIK(pickPlan.pickX, pickPlan.pickY, 65);
+        state.target = clampJointTargets({ ...sol, j4: 65, wrist: 0 }, false);
+        limitHitState.j4 = 65 < jointLimits.j4.min || 65 > jointLimits.j4.max;
       } else if (t < 2.8) {
-        const sol = solveIK(135, 45, 16);
-        state.target = { ...sol, j4: 60, wrist: 0 };
+        const sol = solveIK(pickPlan.pickX, pickPlan.pickY, 16);
+        state.target = clampJointTargets({ ...sol, j4: 60, wrist: 0 }, false);
+        limitHitState.j4 = 60 < jointLimits.j4.min || 60 > jointLimits.j4.max;
       } else if (t < 3.6) {
-        const sol = solveIK(135, 45, 16);
-        state.target = { ...sol, j4: 12, wrist: 0 };
+        const sol = solveIK(pickPlan.pickX, pickPlan.pickY, 16);
+        state.target = clampJointTargets({ ...sol, j4: 12, wrist: 0 }, false);
+        limitHitState.j4 = 12 < jointLimits.j4.min || 12 > jointLimits.j4.max;
       } else if (t < 5.2) {
         const frac = (t - 3.6) / 1.6;
-        const y = 45 - frac * 100;
+        const x = pickPlan.pickX + (pickPlan.placeX - pickPlan.pickX) * frac;
+        const y = pickPlan.pickY + (pickPlan.placeY - pickPlan.pickY) * frac;
         const z = 16 + Math.sin(frac * Math.PI) * 75;
-        const sol = solveIK(135, y, z);
-        state.target = { ...sol, j4: 12, wrist: 0 };
+        const sol = solveIK(x, y, z);
+        state.target = clampJointTargets({ ...sol, j4: 12, wrist: 0 }, false);
+        limitHitState.j4 = 12 < jointLimits.j4.min || 12 > jointLimits.j4.max;
       } else if (t < 6.2) {
-        const sol = solveIK(135, -55, 18);
-        state.target = { ...sol, j4: 12, wrist: 0 };
+        const sol = solveIK(pickPlan.placeX, pickPlan.placeY, 18);
+        state.target = clampJointTargets({ ...sol, j4: 12, wrist: 0 }, false);
+        limitHitState.j4 = 12 < jointLimits.j4.min || 12 > jointLimits.j4.max;
       } else if (t < 7.0) {
-        const sol = solveIK(135, -55, 22);
-        state.target = { ...sol, j4: 65, wrist: 0 };
+        const sol = solveIK(pickPlan.placeX, pickPlan.placeY, 22);
+        state.target = clampJointTargets({ ...sol, j4: 65, wrist: 0 }, false);
+        limitHitState.j4 = 65 < jointLimits.j4.min || 65 > jointLimits.j4.max;
       } else {
-        if (!cubeGrabbed) targetCube.position.copy(CUBE_HOME);
         const sol = solveIK(140, 0, 110);
-        state.target = { ...sol, j4: 45, wrist: 0 };
+        state.target = clampJointTargets({ ...sol, j4: 45, wrist: 0 }, false);
+        limitHitState.j4 = 45 < jointLimits.j4.min || 45 > jointLimits.j4.max;
       }
       syncSlidersFromState();
     } else if (state.demoMode === 'circle') {
@@ -2028,10 +2622,9 @@
       const ty = 55 * Math.sin(state.demoTime);
       const tz = 95 + 35 * Math.sin(state.demoTime * 2);
       const sol = solveIK(tx, ty, tz);
-      state.target.j1 = sol.j1;
-      state.target.j2 = sol.j2;
-      state.target.j3 = sol.j3;
-      state.target.j4 = 35 + 25 * Math.sin(state.demoTime * 3);
+      const rawJ4 = 35 + 25 * Math.sin(state.demoTime * 3);
+      state.target = clampJointTargets({ ...state.target, j1: sol.j1, j2: sol.j2, j3: sol.j3, j4: rawJ4 }, false);
+      limitHitState.j4 = rawJ4 < jointLimits.j4.min || rawJ4 > jointLimits.j4.max;
       syncSlidersFromState();
     } else if (state.playing && state.recordedFrames.length > 0) {
       const lastFrame = state.recordedFrames[state.recordedFrames.length - 1];
@@ -2050,7 +2643,7 @@
         state.playIndex = (state.playIndex + 1) % state.recordedFrames.length;
       }
       const f = state.recordedFrames[state.playIndex];
-      state.target = { j1: f.j1, j2: f.j2, j3: f.j3, j4: f.j4, wrist: f.wrist };
+      state.target = clampJointTargets({ j1: f.j1, j2: f.j2, j3: f.j3, j4: f.j4, wrist: f.wrist }, true);
       syncSlidersFromState();
     }
 
@@ -2069,8 +2662,9 @@
     // 5. ตรวจสอบขนาด Canvas เทียบกับ Viewport จริงทุกเฟรม (มาตรฐาน Three.js resizeRendererToDisplaySize)
     syncRendererToDisplaySize();
 
-    // 6. อัปเดต HUD, จลนศาสตร์ 3 มิติ, ส่งคำสั่ง Serial และเรนเดอร์ฉาก
+    // 6. อัปเดต HUD, ป้าย LIMIT, จลนศาสตร์ 3 มิติ, ส่งคำสั่ง Serial และเรนเดอร์ฉาก
     updateJointLabels();
+    updateLimitIndicatorsUI();
     updateArmKinematics();
     sendSerialTelemetry(now);
 
@@ -2222,10 +2816,11 @@
         return;
       }
       stopAutomation();
-      state.target = { ...HOME_POSE };
+      state.target = clampJointTargets(HOME_POSE, true);
       trailCount = 0;
       trailGeo.setDrawRange(0, 0);
       syncSlidersFromState();
+      updateLimitIndicatorsUI();
       showToast('กลับสู่ท่าเริ่มต้น Home Pose (H)', 'info', 1800);
     } else if (e.code === 'BracketLeft') {
       toggleDesktopPanel('left');
@@ -2254,7 +2849,9 @@
     });
   }
 
-  // คำนวณท่าเริ่มต้นครั้งแรกและเริ่มลูปหลัก
+  // ซิงก์ตำแหน่ง Slider ให้ตรงกับท่าเริ่มต้นที่ผ่านการ Clamp ขอบเขตปลอดภัยแล้ว และเริ่มลูปหลัก
+  syncSlidersFromState();
+  updateLimitIndicatorsUI();
   updateArmKinematics();
   requestAnimationFrame(animate);
 })();
