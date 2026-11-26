@@ -3117,6 +3117,15 @@
   }
 
   // ซิงก์ตำแหน่ง Slider ให้ตรงกับท่าเริ่มต้นที่ผ่านการ Clamp ขอบเขตปลอดภัยแล้ว และเริ่มลูปหลัก
+  if (window.ArmFactoryBus && window.ArmFactoryBus.initNavigationDrawer) {
+    window.ArmFactoryBus.initNavigationDrawer({
+      windowName: 'arm4dof_control',
+      isHardwareActive: () => Boolean(state.camRunning || state.serialPort),
+      onAutoPopout: (label) => {
+        showToast(`เปิด ${label} ในแท็บแยกอัตโนมัติเพื่อไม่ให้กล้องหรือ USB WebSerial หลุด`, 'info', 3500);
+      }
+    });
+  }
   syncSlidersFromState();
   updateLimitIndicatorsUI();
   updateArmKinematics();

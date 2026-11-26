@@ -16,6 +16,7 @@
 
   Bus.applySharedDisplaySettings();
   Bus.registerServiceWorker();
+  Bus.initNavigationDrawer({ windowName: 'arm4dof_dashboard' });
 
   const bus = Bus.createBus('dashboard');
 

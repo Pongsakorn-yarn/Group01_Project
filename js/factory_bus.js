@@ -400,6 +400,115 @@
     }
   }
 
+  /**
+   * เปิดหรือสลับโฟกัสไปยังแท็บ/หน้าต่างแบบระบุชื่อ (Named Window Target)
+   * ไม่ใส่ noopener เพื่อให้เบราว์เซอร์สลับไปแท็บเดิมแทนการสร้างแท็บซ้ำซ้อน
+   */
+  function openNamedWindow(url, windowName) {
+    const win = window.open(url, windowName);
+    if (win) {
+      try {
+        win.focus();
+      } catch (_) { /* ignore */ }
+    }
+    return win;
+  }
+
+  /**
+   * ผูกการทำงานของปุ่มเมนู 3 ขีด (Hamburger) และ Navigation Drawer มาตรฐาน WAI-ARIA
+   * รองรับ Single-Tab Switching + Auto Named Target เมื่อกล้อง/USB กำลังทำงานบนหน้าหลัก
+   * และปุ่มไอคอนย่อย ↗ สำหรับเปิดแยกจอ Multi-Monitor โดยไม่สร้างแท็บซ้ำ
+   */
+  function initNavigationDrawer(options = {}) {
+    const pageWindowName = options.windowName || '';
+    if (pageWindowName) {
+      try {
+        window.name = pageWindowName;
+      } catch (_) { /* ignore */ }
+    }
+
+    const btnOpen = document.getElementById('btn-nav-menu');
+    const backdrop = document.getElementById('nav-backdrop');
+    const drawer = document.getElementById('nav-drawer');
+    const btnClose = document.getElementById('btn-close-nav');
+    const isHardwareActive = typeof options.isHardwareActive === 'function' ? options.isHardwareActive : () => false;
+    const onAutoPopout = typeof options.onAutoPopout === 'function' ? options.onAutoPopout : null;
+
+    if (!btnOpen || !backdrop || !drawer) return;
+
+    function isOpen() {
+      return !backdrop.hidden;
+    }
+
+    function openDrawer() {
+      backdrop.hidden = false;
+      btnOpen.setAttribute('aria-expanded', 'true');
+      requestAnimationFrame(() => {
+        const firstFocus = drawer.querySelector('.nav-drawer-link[aria-current="page"], .nav-drawer-link, #btn-close-nav');
+        if (firstFocus) firstFocus.focus();
+      });
+    }
+
+    function closeDrawer(restoreFocus = true) {
+      if (backdrop.hidden) return;
+      backdrop.hidden = true;
+      btnOpen.setAttribute('aria-expanded', 'false');
+      if (restoreFocus) btnOpen.focus();
+    }
+
+    btnOpen.addEventListener('click', () => {
+      if (isOpen()) closeDrawer(true);
+      else openDrawer();
+    });
+
+    if (btnClose) {
+      btnClose.addEventListener('click', () => closeDrawer(true));
+    }
+
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) closeDrawer(true);
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isOpen()) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeDrawer(true);
+      }
+    }, true);
+
+    // 1. คลิกชื่อหน้าหลักในเมนู: สลับในแท็บเดิม ยกเว้นกล้อง/USB ทำงานอยู่บนหน้าหลัก -> ใช้ Named Window
+    drawer.querySelectorAll('.nav-drawer-link').forEach((link) => {
+      link.addEventListener('click', (e) => {
+        if (link.getAttribute('aria-current') === 'page') {
+          e.preventDefault();
+          closeDrawer(true);
+          return;
+        }
+        const targetName = link.dataset.windowName;
+        const href = link.getAttribute('href');
+        if (isHardwareActive() && targetName && href) {
+          e.preventDefault();
+          closeDrawer(false);
+          openNamedWindow(href, targetName);
+          if (onAutoPopout) onAutoPopout(link.dataset.pageLabel || href);
+        }
+      });
+    });
+
+    // 2. คลิกปุ่มไอคอน ↗ (เปิดแยกจอ Multi-Monitor): ใช้ Named Window + .focus() ไม่สร้างแท็บซ้ำ
+    document.querySelectorAll('[data-popout-url][data-popout-name]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const url = btn.dataset.popoutUrl;
+        const winName = btn.dataset.popoutName;
+        if (!url || !winName) return;
+        closeDrawer(false);
+        openNamedWindow(url, winName);
+      });
+    });
+  }
+
   global.ArmFactoryBus = Object.freeze({
     CHANNEL_NAME,
     SNAPSHOT_KEY,
@@ -423,6 +532,8 @@
     formatTime,
     formatDateTime,
     createBus,
-    registerServiceWorker
+    registerServiceWorker,
+    openNamedWindow,
+    initNavigationDrawer
   });
 })(window);

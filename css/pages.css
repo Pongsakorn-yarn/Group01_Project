@@ -68,6 +68,14 @@ body.factory-page {
   min-width: 0;
 }
 
+.standby-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .standby-badge {
   display: inline-flex;
   align-items: center;

@@ -44,6 +44,7 @@
   <script>
     (function () {
       try {
+        window.name = 'arm4dof_control';
         var raw = localStorage.getItem('arm4dof_display_settings_v1');
         var cfg = raw ? JSON.parse(raw) : {};
         var themePref = (cfg.theme === 'light' || cfg.theme === 'dark' || cfg.theme === 'auto') ? cfg.theme : 'dark';
@@ -92,26 +93,15 @@
   <!-- SECTION 02: แถบสถานะด้านบน (Top Navigation & Status Bar — 3 ปุ่มควบคุมหลัก) -->
   <header class="top-bar" id="top-bar" role="banner">
     <div class="brand-group">
+      <button type="button" class="btn-hamburger" id="btn-nav-menu"
+        aria-label="เปิดเมนูนำทาง" aria-expanded="false" aria-controls="nav-drawer" aria-haspopup="dialog"
+        title="เปิดเมนูนำทาง (Navigation)">☰</button>
       <span class="brand-badge">DIGITAL TWIN 4-DOF</span>
       <div class="brand-text">
         <h1 class="brand-title">Robotic_Arm_4DOF_Assembly.sc</h1>
         <span class="brand-subtitle">39 CAD Bodies • 4-Bar Parallel Linkage • Real-Time Hand Tracking</span>
       </div>
     </div>
-
-    <nav class="page-nav" aria-label="สลับหน้าต่างระบบโรงงาน (เปิดแท็บใหม่เพื่อไม่ให้กล้องและ USB หลุด)">
-      <a class="page-nav-link active" href="index.html" aria-current="page" title="หน้าควบคุมแขนกล 3D หลัก">
-        <span aria-hidden="true">🧊</span><span>3D Control</span>
-      </a>
-      <a class="page-nav-link" href="dashboard.html" target="_blank" rel="noopener"
-        title="เปิด Factory Dashboard ในแท็บใหม่ (ไม่ตัดกล้อง/USB)">
-        <span aria-hidden="true">📊</span><span>Factory Dashboard</span>
-      </a>
-      <a class="page-nav-link" href="diagnostics.html" target="_blank" rel="noopener"
-        title="เปิด IoT Diagnostics ในแท็บใหม่ (ไม่ตัดกล้อง/USB)">
-        <span aria-hidden="true">🔧</span><span>IoT Diagnostics</span>
-      </a>
-    </nav>
 
     <div class="top-bar-actions">
       <!-- ป้ายสถานะระบบทั้ง 3 (แสดงตลอดเวลาตามหลัก Visibility of System Status) -->
@@ -160,6 +150,59 @@
       </div>
     </div>
   </header>
+
+  <!-- เมนูนำทางแบบ Drawer (WAI-ARIA Dialog) -->
+  <div class="nav-backdrop" id="nav-backdrop" hidden>
+    <div class="nav-drawer" id="nav-drawer" role="dialog" aria-modal="true" aria-labelledby="nav-drawer-title">
+      <div class="nav-drawer-header">
+        <h2 class="nav-drawer-title" id="nav-drawer-title">☰ เมนูระบบโรงงาน 4-DOF</h2>
+        <button type="button" class="btn-modal-close" id="btn-close-nav" aria-label="ปิดเมนูนำทาง" title="ปิด (Esc)">✕</button>
+      </div>
+      <nav class="nav-drawer-list" aria-label="เมนูนำทางหลักของระบบโรงงาน">
+        <div class="nav-drawer-row">
+          <a class="nav-drawer-link active" href="index.html" aria-current="page"
+            data-window-name="arm4dof_control" data-page-label="3D Control">
+            <span aria-hidden="true">🧊</span>
+            <span class="nav-link-text">
+              <span>3D Control</span>
+              <span class="nav-link-sub">หน้าปัจจุบัน • ควบคุมแขนกล &amp; Hand Tracking</span>
+            </span>
+          </a>
+          <button type="button" class="nav-popout-btn" data-popout-url="index.html" data-popout-name="arm4dof_control"
+            aria-label="เปิด 3D Control แยกหน้าต่าง (Multi-Monitor)" title="เปิดแยกจอ / สลับไปแท็บเดิม (Multi-Monitor)">↗</button>
+        </div>
+
+        <div class="nav-drawer-row">
+          <a class="nav-drawer-link" href="dashboard.html"
+            data-window-name="arm4dof_dashboard" data-page-label="Factory Dashboard">
+            <span aria-hidden="true">📊</span>
+            <span class="nav-link-text">
+              <span>Factory Dashboard</span>
+              <span class="nav-link-sub">KPI, OEE, กราฟ Telemetry &amp; Event Log</span>
+            </span>
+          </a>
+          <button type="button" class="nav-popout-btn" data-popout-url="dashboard.html" data-popout-name="arm4dof_dashboard"
+            aria-label="เปิด Factory Dashboard แยกหน้าต่าง (Multi-Monitor)" title="เปิดแยกจอ / สลับไปแท็บเดิม (Multi-Monitor)">↗</button>
+        </div>
+
+        <div class="nav-drawer-row">
+          <a class="nav-drawer-link" href="diagnostics.html"
+            data-window-name="arm4dof_diagnostics" data-page-label="IoT Diagnostics">
+            <span aria-hidden="true">🔧</span>
+            <span class="nav-link-text">
+              <span>IoT Diagnostics</span>
+              <span class="nav-link-sub">Serial Monitor, Safety Limits &amp; Pinout</span>
+            </span>
+          </a>
+          <button type="button" class="nav-popout-btn" data-popout-url="diagnostics.html" data-popout-name="arm4dof_diagnostics"
+            aria-label="เปิด IoT Diagnostics แยกหน้าต่าง (Multi-Monitor)" title="เปิดแยกจอ / สลับไปแท็บเดิม (Multi-Monitor)">↗</button>
+        </div>
+      </nav>
+      <div class="nav-drawer-footer">
+        คลิกชื่อหน้าเพื่อสลับในแท็บเดิม (หากเปิดกล้องหรือ USB อยู่ ระบบจะเปิดแยกแท็บให้อัตโนมัติเพื่อไม่ให้สัญญาณหลุด) • กด <strong>↗</strong> เพื่อเปิดแยกจอโดยไม่สร้างแท็บซ้ำ
+      </div>
+    </div>
+  </div>
 
   <!-- SECTION 03: แผงซ้าย — กล้อง Hand Tracking, พิกัด TCP และรายการชิ้นส่วน CAD -->
   <aside class="left-panel" id="left-panel" aria-label="แผงกล้อง Hand Tracking และตัวตรวจสอบชิ้นส่วน CAD">

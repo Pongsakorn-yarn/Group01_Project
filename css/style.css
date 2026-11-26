@@ -2005,57 +2005,178 @@ body.hud-hidden .panel-edge-tab-right {
   }
 }
 
-/* แถบเมนูนำทางระหว่างหน้าต่าง (3D Control / Factory Dashboard / IoT Diagnostics) */
-.page-nav {
+/* ปุ่มเมนู 3 ขีด (Hamburger) และ Navigation Drawer มาตรฐาน WAI-ARIA */
+.btn-hamburger {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px;
-  border-radius: 10px;
-  background: var(--surface-subtle);
-  border: 1px solid var(--border-subtle);
-  flex-shrink: 0;
-  max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.page-nav::-webkit-scrollbar {
-  display: none;
-}
-
-.page-nav-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 28px;
-  padding: 4px 9px;
-  border-radius: 7px;
-  font-size: calc(11.5px * var(--ui-scale));
-  font-weight: 600;
-  color: var(--text-label);
-  text-decoration: none;
-  white-space: nowrap;
-  flex-shrink: 0;
-  border: 1px solid transparent;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.page-nav-link:hover {
-  background: var(--surface-hover);
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border-control);
+  background: var(--surface-control);
   color: var(--text-main);
+  font-size: calc(16px * var(--ui-scale));
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.page-nav-link.active,
-.page-nav-link[aria-current="page"] {
+.btn-hamburger:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent-cyan-light);
+}
+
+.btn-hamburger[aria-expanded="true"] {
   background: var(--surface-active-soft);
   border-color: var(--accent-cyan-light);
   color: var(--accent-text);
 }
 
-.page-nav-link:focus-visible {
+.nav-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--modal-backdrop);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: calc(10px + var(--safe-top)) calc(14px + var(--safe-right)) calc(14px + var(--safe-bottom)) calc(14px + var(--safe-left));
+}
+
+.nav-backdrop[hidden] {
+  display: none;
+}
+
+:root.no-glass-blur .nav-backdrop,
+:root.no-glass-blur .nav-drawer {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.nav-drawer {
+  width: min(320px, calc(100vw - 28px));
+  max-height: calc(100dvh - 24px - var(--safe-top) - var(--safe-bottom));
+  background: var(--modal-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-topbar);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.nav-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-divider);
+}
+
+.nav-drawer-title {
+  font-size: calc(13.5px * var(--ui-scale));
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.nav-drawer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.nav-drawer-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.nav-drawer-link {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
+  color: var(--text-main);
+  text-decoration: none;
+  font-size: calc(12.5px * var(--ui-scale));
+  font-weight: 600;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.nav-drawer-link:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent-cyan-light);
+}
+
+.nav-drawer-link.active,
+.nav-drawer-link[aria-current="page"] {
+  background: var(--surface-active-soft);
+  border-color: var(--accent-cyan-light);
+  color: var(--accent-text);
+}
+
+.nav-drawer-link:focus-visible,
+.nav-popout-btn:focus-visible {
   outline: 2px solid var(--accent-cyan-light);
   outline-offset: 2px;
+}
+
+.nav-link-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.nav-link-sub {
+  font-size: calc(10.5px * var(--ui-scale));
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.nav-popout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-control);
+  color: var(--text-label);
+  font-size: calc(14px * var(--ui-scale));
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.nav-popout-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent-cyan-light);
+  color: var(--accent-text);
+}
+
+.nav-drawer-footer {
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--border-divider);
+  font-size: calc(11px * var(--ui-scale));
+  line-height: 1.45;
+  color: var(--text-muted);
 }
 
 /* ลดแอนิเมชันสำหรับผู้ใช้ที่เปิด Reduced Motion ในระบบปฏิบัติการ */

@@ -15,6 +15,7 @@
 
   Bus.applySharedDisplaySettings();
   Bus.registerServiceWorker();
+  Bus.initNavigationDrawer({ windowName: 'arm4dof_diagnostics' });
 
   const bus = Bus.createBus('diagnostics');
 
