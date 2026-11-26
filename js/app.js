@@ -146,6 +146,7 @@
     btnToggleHud: document.getElementById('btn-toggle-hud'),
     btnToggleLeft: document.getElementById('btn-toggle-left'),
     btnToggleRight: document.getElementById('btn-toggle-right'),
+    btnToggleTopbar: document.getElementById('btn-toggle-topbar'),
     edgeTabLeft: document.getElementById('edge-tab-left'),
     edgeTabRight: document.getElementById('edge-tab-right'),
     btnResetCam: document.getElementById('btn-reset-cam'),
@@ -232,6 +233,7 @@
       const prefs = {
         leftCollapsed: document.body.classList.contains('left-collapsed'),
         rightCollapsed: document.body.classList.contains('right-collapsed'),
+        topbarCollapsed: document.body.classList.contains('topbar-collapsed'),
         collapsedCards
       };
       localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(prefs));
@@ -361,6 +363,29 @@
     });
   });
 
+  function setTopbarCollapsed(collapsed, persist = true) {
+    const isCollapsed = Boolean(collapsed);
+    document.body.classList.toggle('topbar-collapsed', isCollapsed);
+    if (ui.btnToggleTopbar) {
+      ui.btnToggleTopbar.setAttribute('aria-expanded', String(!isCollapsed));
+      const chevronEl = ui.btnToggleTopbar.querySelector('.topbar-chevron');
+      const labelEl = ui.btnToggleTopbar.querySelector('.btn-topbar-label');
+      if (chevronEl) chevronEl.textContent = isCollapsed ? '«' : '»';
+      if (labelEl) labelEl.textContent = isCollapsed ? 'เมนู' : 'ซ่อนเมนู';
+    }
+    if (typeof syncLayoutOffsets === 'function') {
+      requestAnimationFrame(() => syncLayoutOffsets());
+    }
+    if (persist) saveLayoutPrefs();
+  }
+
+  // ผูกอีเวนต์ปุ่มพับย่อ/ขยายเมนูแถบด้านบน (เหลือเฉพาะปุ่มสำคัญ E-STOP และรีเซ็ตกล้อง)
+  if (ui.btnToggleTopbar) {
+    ui.btnToggleTopbar.addEventListener('click', () => {
+      setTopbarCollapsed(!document.body.classList.contains('topbar-collapsed'));
+    });
+  }
+
   // ผูกอีเวนต์ปุ่มโฟกัส 3D (ซ่อน/แสดงแผงทั้งสองฝั่งพร้อมกัน)
   if (ui.btnToggleHud) {
     ui.btnToggleHud.addEventListener('click', () => {
@@ -394,11 +419,12 @@
     });
   });
 
-  // คืนค่าสถานะการพับแผงและการ์ดจากครั้งล่าสุดของผู้ใช้
+  // คืนค่าสถานะการพับแผง แถบบน และการ์ดจากครั้งล่าสุดของผู้ใช้
   (function restoreLayoutPrefs() {
     const prefs = loadLayoutPrefs();
     if (prefs.leftCollapsed) document.body.classList.add('left-collapsed');
     if (prefs.rightCollapsed) document.body.classList.add('right-collapsed');
+    if (prefs.topbarCollapsed) setTopbarCollapsed(true, false);
     if (prefs.collapsedCards && typeof prefs.collapsedCards === 'object') {
       document.querySelectorAll('.collapsible-card[data-card-id]').forEach((card) => {
         const saved = prefs.collapsedCards[card.dataset.cardId];
@@ -1909,6 +1935,8 @@
       toggleDesktopPanel('left');
     } else if (e.key === ']') {
       toggleDesktopPanel('right');
+    } else if (e.key === 't' || e.key === 'T') {
+      setTopbarCollapsed(!document.body.classList.contains('topbar-collapsed'));
     } else if (e.key === 'f' || e.key === 'F') {
       if (window.innerWidth >= 1200 && ui.btnToggleHud) {
         ui.btnToggleHud.click();
