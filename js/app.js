@@ -144,6 +144,10 @@
     btnRecord: document.getElementById('btn-record-pose'),
     btnPlay: document.getElementById('btn-play-pose'),
     btnToggleHud: document.getElementById('btn-toggle-hud'),
+    btnToggleLeft: document.getElementById('btn-toggle-left'),
+    btnToggleRight: document.getElementById('btn-toggle-right'),
+    edgeTabLeft: document.getElementById('edge-tab-left'),
+    edgeTabRight: document.getElementById('edge-tab-right'),
     btnResetCam: document.getElementById('btn-reset-cam'),
     btnEstop: document.getElementById('btn-estop')
   };
@@ -204,7 +208,99 @@
     ui.btnPlay.setAttribute('aria-pressed', 'false');
   }
 
-  /* ระบบสลับแผงควบคุมสำหรับ Desktop (ซ่อน/แสดง HUD) และ Tablet/Mobile (Drawer/Bottom Sheet) */
+  /* =========================================================================
+   * ระบบพับเก็บแผงควบคุม (Left/Right Panels) และการ์ดเมนูทุกใบ (WAI-ARIA Disclosure)
+   * รองรับทั้ง Desktop (พับซ้าย/ขวาอิสระ + โฟกัส 3D) และ Tablet/Mobile (Drawer/Bottom Sheet)
+   * ========================================================================= */
+  const LAYOUT_STORAGE_KEY = 'arm4dof_ui_layout_v1';
+
+  function loadLayoutPrefs() {
+    try {
+      const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function saveLayoutPrefs() {
+    try {
+      const collapsedCards = {};
+      document.querySelectorAll('.collapsible-card[data-card-id]').forEach((card) => {
+        collapsedCards[card.dataset.cardId] = card.classList.contains('is-collapsed');
+      });
+      const prefs = {
+        leftCollapsed: document.body.classList.contains('left-collapsed'),
+        rightCollapsed: document.body.classList.contains('right-collapsed'),
+        collapsedCards
+      };
+      localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(prefs));
+    } catch {
+      // ข้ามหากเบราว์เซอร์ปิดการเข้าถึง localStorage (Private Mode)
+    }
+  }
+
+  function syncDesktopPanelButtons() {
+    const leftCollapsed = document.body.classList.contains('left-collapsed');
+    const rightCollapsed = document.body.classList.contains('right-collapsed');
+    const allHidden = leftCollapsed && rightCollapsed;
+    document.body.classList.toggle('hud-hidden', allHidden);
+
+    if (ui.btnToggleLeft) {
+      ui.btnToggleLeft.setAttribute('aria-expanded', String(!leftCollapsed));
+    }
+    if (ui.btnToggleRight) {
+      ui.btnToggleRight.setAttribute('aria-expanded', String(!rightCollapsed));
+    }
+    if (ui.btnToggleHud) {
+      ui.btnToggleHud.setAttribute('aria-pressed', String(allHidden));
+      const labelEl = ui.btnToggleHud.querySelector('.btn-icon-label');
+      if (labelEl) labelEl.textContent = allHidden ? 'แสดงแผง' : 'โฟกัส 3D';
+    }
+  }
+
+  function setDesktopPanelCollapsed(side, collapsed, persist = true) {
+    const cls = side === 'left' ? 'left-collapsed' : 'right-collapsed';
+    document.body.classList.toggle(cls, Boolean(collapsed));
+    syncDesktopPanelButtons();
+    if (persist) saveLayoutPrefs();
+  }
+
+  function toggleDesktopPanel(side) {
+    if (window.innerWidth < 1200) {
+      const currentlyOpen =
+        (side === 'left' && document.body.classList.contains('mobile-panel-left')) ||
+        (side === 'right' && document.body.classList.contains('mobile-panel-right'));
+      setMobilePanel(currentlyOpen ? 'none' : side);
+      return;
+    }
+    const cls = side === 'left' ? 'left-collapsed' : 'right-collapsed';
+    setDesktopPanelCollapsed(side, !document.body.classList.contains(cls));
+  }
+
+  function setCardCollapsed(card, collapsed, persist = true) {
+    if (!card) return;
+    card.classList.toggle('is-collapsed', Boolean(collapsed));
+    const toggleBtn = card.querySelector('.card-toggle');
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-expanded', String(!collapsed));
+    }
+    const parentPanel = card.closest('.left-panel, .right-panel');
+    if (parentPanel) syncPanelCardsToggleBtn(parentPanel.id);
+    if (persist) saveLayoutPrefs();
+  }
+
+  function syncPanelCardsToggleBtn(panelId) {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    const btn = panel.querySelector(`[data-panel-cards-toggle="${panelId}"]`);
+    if (!btn) return;
+    const cards = Array.from(panel.querySelectorAll('.collapsible-card'));
+    const allCollapsed = cards.length > 0 && cards.every((c) => c.classList.contains('is-collapsed'));
+    btn.setAttribute('aria-pressed', String(allCollapsed));
+    btn.textContent = allCollapsed ? 'ขยายทั้งหมด' : 'ย่อทั้งหมด';
+  }
+
   function setMobilePanel(panel) {
     document.body.classList.remove('mobile-panel-left', 'mobile-panel-right');
     if (panel === 'left') {
@@ -219,6 +315,7 @@
     });
   }
 
+  // ผูกอีเวนต์ปุ่มสลับแผงบนแถบนำทางล่าง (Tablet / Mobile)
   document.querySelectorAll('.mobile-nav-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const target = btn.dataset.panel || 'none';
@@ -229,18 +326,91 @@
     });
   });
 
+  // ผูกอีเวนต์แถบจับด้านบนของ Bottom Sheet (รองรับคลิกและคีย์บอร์ด)
   document.querySelectorAll('.drawer-handle').forEach((handle) => {
     handle.addEventListener('click', () => setMobilePanel('none'));
+    handle.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setMobilePanel('none');
+      }
+    });
   });
 
+  // ผูกอีเวนต์ปุ่มพับ/เปิดแผงซ้าย-ขวา (Top Bar, Panel Toolbar, Edge Tabs)
+  if (ui.btnToggleLeft) {
+    ui.btnToggleLeft.addEventListener('click', () => toggleDesktopPanel('left'));
+  }
+  if (ui.btnToggleRight) {
+    ui.btnToggleRight.addEventListener('click', () => toggleDesktopPanel('right'));
+  }
+  if (ui.edgeTabLeft) {
+    ui.edgeTabLeft.addEventListener('click', () => setDesktopPanelCollapsed('left', false));
+  }
+  if (ui.edgeTabRight) {
+    ui.edgeTabRight.addEventListener('click', () => setDesktopPanelCollapsed('right', false));
+  }
+  document.querySelectorAll('[data-panel-collapse]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const side = btn.dataset.panelCollapse;
+      if (window.innerWidth < 1200) {
+        setMobilePanel('none');
+      } else {
+        setDesktopPanelCollapsed(side, true);
+      }
+    });
+  });
+
+  // ผูกอีเวนต์ปุ่มโฟกัส 3D (ซ่อน/แสดงแผงทั้งสองฝั่งพร้อมกัน)
   if (ui.btnToggleHud) {
     ui.btnToggleHud.addEventListener('click', () => {
-      const hidden = document.body.classList.toggle('hud-hidden');
-      ui.btnToggleHud.setAttribute('aria-pressed', String(hidden));
-      const labelEl = ui.btnToggleHud.querySelector('.btn-icon-label');
-      if (labelEl) labelEl.textContent = hidden ? 'แสดงแผง' : 'ซ่อนแผง';
+      const allHidden = document.body.classList.contains('left-collapsed') &&
+        document.body.classList.contains('right-collapsed');
+      setDesktopPanelCollapsed('left', !allHidden, false);
+      setDesktopPanelCollapsed('right', !allHidden, true);
     });
   }
+
+  // ผูกอีเวนต์ปุ่มย่อ/ขยายการ์ดเมนูแต่ละใบ
+  document.querySelectorAll('.collapsible-card').forEach((card) => {
+    const toggleBtn = card.querySelector('.card-toggle');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => {
+        setCardCollapsed(card, !card.classList.contains('is-collapsed'));
+      });
+    }
+  });
+
+  // ผูกอีเวนต์ปุ่มย่อ/ขยายการ์ดทั้งหมดภายในแผง
+  document.querySelectorAll('[data-panel-cards-toggle]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const panelId = btn.dataset.panelCardsToggle;
+      const panel = document.getElementById(panelId);
+      if (!panel) return;
+      const cards = Array.from(panel.querySelectorAll('.collapsible-card'));
+      const shouldCollapse = !cards.every((c) => c.classList.contains('is-collapsed'));
+      cards.forEach((c) => setCardCollapsed(c, shouldCollapse, false));
+      saveLayoutPrefs();
+    });
+  });
+
+  // คืนค่าสถานะการพับแผงและการ์ดจากครั้งล่าสุดของผู้ใช้
+  (function restoreLayoutPrefs() {
+    const prefs = loadLayoutPrefs();
+    if (prefs.leftCollapsed) document.body.classList.add('left-collapsed');
+    if (prefs.rightCollapsed) document.body.classList.add('right-collapsed');
+    if (prefs.collapsedCards && typeof prefs.collapsedCards === 'object') {
+      document.querySelectorAll('.collapsible-card[data-card-id]').forEach((card) => {
+        const saved = prefs.collapsedCards[card.dataset.cardId];
+        if (typeof saved === 'boolean') {
+          setCardCollapsed(card, saved, false);
+        }
+      });
+    }
+    syncDesktopPanelButtons();
+    syncPanelCardsToggleBtn('left-panel');
+    syncPanelCardsToggleBtn('right-panel');
+  })();
 
   /* =========================================================================
    * SECTION 02: ตั้งค่าฉาก 3 มิติ Three.js (Camera, Renderer, Lighting, พื้นโต๊ะ)
@@ -1599,13 +1769,30 @@
     renderer.render(scene, camera);
   }
 
-  const topBarEl = document.querySelector('.top-bar');
+  const topBarEl = document.getElementById('top-bar');
+  const mobileNavEl = document.getElementById('mobile-nav');
+  const bottomHudEl = document.getElementById('bottom-hud');
 
-  function syncTopBarOffset() {
-    if (!topBarEl) return;
-    const rect = topBarEl.getBoundingClientRect();
-    const offset = Math.ceil(rect.bottom + 10);
-    document.documentElement.style.setProperty('--topbar-offset', `${offset}px`);
+  /**
+   * คำนวณระยะปลอดภัยด้านบน (--topbar-offset) และด้านล่าง (--bottom-safe-offset)
+   * จากขนาดจริงของ DOM เพื่อให้แผงควบคุม Toast และ Bottom Sheet ไม่ทับซ้อนกันในทุกการซูม
+   */
+  function syncLayoutOffsets() {
+    if (topBarEl) {
+      const rect = topBarEl.getBoundingClientRect();
+      const topOffset = Math.max(56, Math.ceil(rect.bottom + 10));
+      document.documentElement.style.setProperty('--topbar-offset', `${topOffset}px`);
+    }
+
+    let bottomOffset = 14;
+    if (mobileNavEl && getComputedStyle(mobileNavEl).display !== 'none') {
+      const navRect = mobileNavEl.getBoundingClientRect();
+      bottomOffset = Math.max(bottomOffset, Math.ceil((window.innerHeight - navRect.top) + 10));
+    } else if (bottomHudEl && getComputedStyle(bottomHudEl).display !== 'none') {
+      const hudRect = bottomHudEl.getBoundingClientRect();
+      bottomOffset = Math.max(bottomOffset, Math.ceil((window.innerHeight - hudRect.top) + 10));
+    }
+    document.documentElement.style.setProperty('--bottom-safe-offset', `${bottomOffset}px`);
   }
 
   let lastCanvasW = 0;
@@ -1614,7 +1801,7 @@
 
   /**
    * ซิงก์ขนาด WebGL Drawing Buffer ให้ตรงกับขนาดจริงของ #canvas-container เสมอ
-   * รองรับการซูมเบราว์เซอร์ (33%–400%), ย้ายจอต่าง DPR และการหมุนหน้าจอมือถือโดยไม่เกิดแถบสีดำ
+   * รองรับการซูมเบราว์เซอร์ (25%–400%), ย้ายจอต่าง DPR และการหมุนหน้าจอมือถือโดยไม่เกิดแถบสีดำ
    */
   function syncRendererToDisplaySize() {
     const w = Math.floor(ui.canvasContainer.clientWidth || window.innerWidth);
@@ -1629,7 +1816,7 @@
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      syncTopBarOffset();
+      syncLayoutOffsets();
       if (w >= 1200) {
         setMobilePanel('none');
       }
@@ -1638,16 +1825,18 @@
 
   function handleViewportResize() {
     syncRendererToDisplaySize();
-    syncTopBarOffset();
+    syncLayoutOffsets();
   }
 
-  syncTopBarOffset();
+  syncLayoutOffsets();
   syncRendererToDisplaySize();
 
   if (typeof ResizeObserver !== 'undefined') {
     const ro = new ResizeObserver(() => handleViewportResize());
     ro.observe(ui.canvasContainer);
     if (topBarEl) ro.observe(topBarEl);
+    if (mobileNavEl) ro.observe(mobileNavEl);
+    if (bottomHudEl) ro.observe(bottomHudEl);
   }
 
   if (window.visualViewport) {
@@ -1716,9 +1905,15 @@
       trailGeo.setDrawRange(0, 0);
       syncSlidersFromState();
       showToast('กลับสู่ท่าเริ่มต้น Home Pose (H)', 'info', 1800);
+    } else if (e.key === '[') {
+      toggleDesktopPanel('left');
+    } else if (e.key === ']') {
+      toggleDesktopPanel('right');
     } else if (e.key === 'f' || e.key === 'F') {
-      if (ui.btnToggleHud && window.innerWidth >= 1200) {
+      if (window.innerWidth >= 1200 && ui.btnToggleHud) {
         ui.btnToggleHud.click();
+      } else {
+        setMobilePanel('none');
       }
     } else if (e.key === 'Escape') {
       setMobilePanel('none');

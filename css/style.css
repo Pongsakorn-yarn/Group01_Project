@@ -3,16 +3,17 @@
  * @file        css/style.css
  * @project     ISY49303 IoT — Group01_Project (4-DOF Robotic Arm Digital Twin)
  * @description สไตล์หน้าเว็บธีม Dark-Mode HUD แบบ Glassmorphism รองรับทุกอุปกรณ์
- *              (Desktop ≥1200px, Tablet 768-1199px, Mobile <768px) และมาตรฐาน WCAG 2.1 AA
+ *              และการ Zoom (25%–400%) โดยไม่ทับซ้อนกัน พร้อมระบบย่อ/พับเก็บทุกแผง
+ *              และทุกการ์ดเมนู ตามมาตรฐาน WCAG 2.1 AA (Reflow 1.4.10) และ WAI-ARIA
  * -----------------------------------------------------------------------------
  * @sections (ลำดับหมวดหมู่ตรงกับ index.html)
  *   - SECTION 00 : ตัวแปรธีมสี, Safe Area, Reset และ Utility Classes
  *   - SECTION 01 : ฉากแสดงผล 3 มิติ (#canvas-container, touch-action: none)
- *   - SECTION 02 : แถบสถานะด้านบน (.top-bar, .status-pills, ปุ่มซ่อนแผง)
- *   - SECTION 03 : แผงซ้าย-ขวา และการ์ด HUD (.left-panel, .right-panel, .card)
+ *   - SECTION 02 : แถบสถานะด้านบน (.top-bar, .status-pills, ปุ่มควบคุมแผง)
+ *   - SECTION 03 : แผงซ้าย-ขวาแบบพับเก็บได้ (.left-panel, .right-panel, .panel-toolbar, .collapsible-card)
  *   - SECTION 04 : คอมโพเนนต์ควบคุม (กล้อง, Pinch Bar, ปุ่ม, Slider, Telemetry, Parts)
- *   - SECTION 05 : แถบคำแนะนำ (.bottom-hud), แถบนำทางมือถือ (.mobile-nav) และ Toast
- *   - SECTION 06 : Responsive Breakpoints (Tablet, Mobile, Touch Pointer, Reduced Motion)
+ *   - SECTION 05 : แท็บขอบจอ, แถบคำแนะนำ (.bottom-hud), แถบนำทางมือถือ (.mobile-nav) และ Toast
+ *   - SECTION 06 : Responsive Breakpoints (Laptop, Tablet, Mobile, Short/Zoom, Touch, Motion)
  * =============================================================================
  */
 
@@ -20,6 +21,7 @@
 :root {
   --bg-dark: #090d16;
   --panel-bg: rgba(15, 23, 42, 0.88);
+  --panel-bg-strong: rgba(15, 23, 42, 0.94);
   --panel-border: rgba(56, 189, 248, 0.24);
   --accent-cyan: #0ea5e9;
   --accent-cyan-light: #38bdf8;
@@ -36,8 +38,9 @@
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --topbar-height: 54px;
-  --topbar-offset: calc(78px + var(--safe-top));
-  --mobile-nav-height: 62px;
+  --topbar-offset: calc(76px + var(--safe-top));
+  --bottom-safe-offset: calc(14px + var(--safe-bottom));
+  --mobile-nav-height: 60px;
 }
 
 *,
@@ -71,7 +74,8 @@ button:focus-visible,
 a.btn:focus-visible,
 select:focus-visible,
 input[type="range"]:focus-visible,
-.part-item:focus-visible {
+.part-item:focus-visible,
+.drawer-handle:focus-visible {
   outline: 2px solid var(--accent-cyan-light);
   outline-offset: 2px;
 }
@@ -121,12 +125,12 @@ input[type="range"]:focus-visible,
   touch-action: none;
 }
 
-/* SECTION 02: แถบสถานะด้านบน (Top Header Bar, z-index: 20) */
+/* SECTION 02: แถบสถานะด้านบน (Top Header Bar, z-index: 24) */
 .top-bar {
   position: fixed;
-  top: calc(12px + var(--safe-top));
-  left: calc(16px + var(--safe-left));
-  right: calc(16px + var(--safe-right));
+  top: calc(10px + var(--safe-top));
+  left: calc(14px + var(--safe-left));
+  right: calc(14px + var(--safe-right));
   min-height: var(--topbar-height);
   background: var(--panel-bg);
   backdrop-filter: blur(14px);
@@ -136,9 +140,10 @@ input[type="range"]:focus-visible,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 8px 16px;
-  z-index: 20;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 8px 14px;
+  z-index: 24;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
 }
 
@@ -146,6 +151,7 @@ input[type="range"]:focus-visible,
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: 1 1 200px;
   min-width: 0;
 }
 
@@ -153,8 +159,8 @@ input[type="range"]:focus-visible,
   background: linear-gradient(135deg, #0284c7, #38bdf8);
   color: #fff;
   font-weight: 700;
-  font-size: 11.5px;
-  padding: 5px 10px;
+  font-size: 11px;
+  padding: 4px 9px;
   border-radius: 6px;
   letter-spacing: 0.5px;
   box-shadow: 0 0 14px var(--accent-cyan-glow);
@@ -166,21 +172,22 @@ input[type="range"]:focus-visible,
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 4px 8px;
+  gap: 2px 8px;
   min-width: 0;
 }
 
 .brand-title {
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .brand-subtitle {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -188,28 +195,38 @@ input[type="range"]:focus-visible,
 .top-bar-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .status-pills {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.status-pills::-webkit-scrollbar {
+  display: none;
 }
 
 .pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
+  padding: 4px 9px;
   border-radius: 20px;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
   background: rgba(30, 41, 59, 0.88);
   border: 1px solid rgba(148, 163, 184, 0.22);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .dot {
@@ -243,7 +260,7 @@ input[type="range"]:focus-visible,
   justify-content: center;
   gap: 5px;
   height: 32px;
-  padding: 0 10px;
+  padding: 0 9px;
   border-radius: 8px;
   border: 1px solid rgba(56, 189, 248, 0.3);
   background: rgba(30, 41, 59, 0.9);
@@ -260,10 +277,17 @@ input[type="range"]:focus-visible,
   border-color: var(--accent-cyan-light);
 }
 
-.btn-icon[aria-pressed="true"] {
-  background: rgba(14, 165, 233, 0.28);
+.btn-icon[aria-pressed="true"],
+.btn-icon.btn-panel-toggle[aria-expanded="true"] {
+  background: rgba(14, 165, 233, 0.24);
   border-color: var(--accent-cyan-light);
   color: #bae6fd;
+}
+
+.btn-icon.btn-panel-toggle[aria-expanded="false"] {
+  background: rgba(30, 41, 59, 0.72);
+  border-color: rgba(148, 163, 184, 0.26);
+  color: var(--text-muted);
 }
 
 .btn-icon.btn-estop {
@@ -284,49 +308,124 @@ input[type="range"]:focus-visible,
   box-shadow: 0 0 14px rgba(244, 63, 94, 0.7);
 }
 
-/* SECTION 03: แผงซ้าย-ขวา และการ์ด HUD */
+/* SECTION 03: แผงซ้าย-ขวาแบบพับเก็บได้ และการ์ด HUD แบบย่อ/ขยายได้ */
 .left-panel,
 .right-panel {
   position: fixed;
   top: var(--topbar-offset);
-  bottom: calc(14px + var(--safe-bottom));
+  bottom: var(--bottom-safe-offset);
+  width: clamp(276px, 23.5vw, 344px);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   z-index: 15;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding-right: 2px;
   pointer-events: none;
-  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease;
+  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease, visibility 0.26s ease;
 }
 
 .left-panel {
-  left: calc(16px + var(--safe-left));
-  width: 332px;
+  left: calc(14px + var(--safe-left));
 }
 
 .right-panel {
-  right: calc(16px + var(--safe-right));
-  width: 348px;
+  right: calc(14px + var(--safe-right));
 }
 
-.left-panel > *,
-.right-panel > * {
+/* แถบหัวแผง (Toolbar) สำหรับย่อการ์ดทั้งหมดหรือพับแผงทั้งฝั่ง */
+.panel-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--panel-bg-strong);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  pointer-events: auto;
+  flex-shrink: 0;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.38);
+}
+
+.panel-toolbar-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.panel-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.btn-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(30, 41, 59, 0.85);
+  color: #cbd5e1;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-mini:hover {
+  background: rgba(14, 165, 233, 0.22);
+  border-color: var(--accent-cyan-light);
+  color: #fff;
+}
+
+.btn-mini-close {
+  border-color: rgba(56, 189, 248, 0.32);
+  color: #bae6fd;
+}
+
+/* พื้นที่เลื่อนการ์ดภายในแผง (แยกจาก Toolbar เพื่อให้ปุ่มพับแผงเข้าถึงได้ตลอด) */
+.panel-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 2px;
+  pointer-events: none;
+}
+
+.panel-scroll > * {
   pointer-events: auto;
   flex-shrink: 0;
 }
 
-/* โหมดซ่อนแผงบน Desktop เพื่อดู 3D เต็มจอ */
+/* สถานะพับเก็บแผงอิสระบน Desktop */
+body.left-collapsed .left-panel,
 body.hud-hidden .left-panel {
   transform: translateX(calc(-100% - 28px));
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 
+body.right-collapsed .right-panel,
 body.hud-hidden .right-panel {
   transform: translateX(calc(100% + 28px));
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 
@@ -334,26 +433,25 @@ body.hud-hidden .right-panel {
   display: none;
 }
 
-.left-panel::-webkit-scrollbar,
-.right-panel::-webkit-scrollbar,
+.panel-scroll::-webkit-scrollbar,
 .parts-list::-webkit-scrollbar {
   width: 5px;
 }
 
-.left-panel::-webkit-scrollbar-thumb,
-.right-panel::-webkit-scrollbar-thumb,
+.panel-scroll::-webkit-scrollbar-thumb,
 .parts-list::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.32);
   border-radius: 4px;
 }
 
+/* การ์ดเมนูแบบพับเก็บได้ (WAI-ARIA Disclosure + CSS Grid Transition) */
 .card {
   background: var(--panel-bg);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--panel-border);
   border-radius: 12px;
-  padding: 12px 13px;
+  padding: 10px 12px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.42);
 }
 
@@ -368,21 +466,88 @@ body.hud-hidden .right-panel {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 9px;
-  padding-bottom: 6px;
+  padding-bottom: 7px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  transition: padding-bottom 0.2s ease, border-color 0.2s ease;
 }
 
-.card-title {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.45px;
-  color: var(--accent-cyan-light);
+.collapsible-card.is-collapsed .card-header {
+  padding-bottom: 0;
+  border-bottom-color: transparent;
+}
+
+.card-toggle {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 2px 4px 2px 0;
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: opacity 0.15s ease;
+}
+
+.card-toggle:hover .card-title {
+  color: #7dd3fc;
+}
+
+.card-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 12px;
+  color: var(--accent-cyan-light);
+  flex-shrink: 0;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.collapsible-card.is-collapsed .card-chevron {
+  transform: rotate(-90deg);
+}
+
+.card-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--accent-cyan-light);
+  display: flex;
+  align-items: center;
+  gap: 5px;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.18s ease;
+}
+
+.card-body {
+  overflow: hidden;
+  min-height: 0;
+  padding-top: 9px;
+}
+
+.collapsible-card.is-collapsed .card-collapse {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.collapsible-card.is-collapsed .card-body {
+  padding-top: 0;
 }
 
 .fps-badge {
@@ -397,7 +562,7 @@ body.hud-hidden .right-panel {
   font-size: 10.5px;
   font-weight: 600;
   color: var(--accent-cyan-light);
-  max-width: 150px;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -409,7 +574,7 @@ body.hud-hidden .right-panel {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 10;
-  max-height: 175px;
+  max-height: 170px;
   background: #020617;
   border-radius: 8px;
   overflow: hidden;
@@ -439,16 +604,16 @@ body.hud-hidden .right-panel {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 16px;
+  padding: 12px;
   background: rgba(2, 6, 23, 0.84);
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.45;
-  gap: 10px;
+  gap: 8px;
 }
 
 .camera-overlay-icon {
-  font-size: 26px;
+  font-size: 24px;
 }
 
 .camera-hud-badges {
@@ -458,6 +623,7 @@ body.hud-hidden .right-panel {
   right: 8px;
   display: flex;
   justify-content: space-between;
+  gap: 6px;
   pointer-events: none;
 }
 
@@ -466,9 +632,10 @@ body.hud-hidden .right-panel {
   border: 1px solid rgba(56, 189, 248, 0.35);
   color: #e2e8f0;
   font-family: var(--font-mono);
-  font-size: 10.5px;
-  padding: 3px 7px;
+  font-size: 10px;
+  padding: 3px 6px;
   border-radius: 4px;
+  white-space: nowrap;
 }
 
 /* Pinch meter */
@@ -504,13 +671,13 @@ body.hud-hidden .right-panel {
 /* Buttons */
 .btn-row {
   display: flex;
-  gap: 7px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .btn-row.btn-grid-3 {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
   gap: 6px;
 }
 
@@ -522,8 +689,8 @@ body.hud-hidden .right-panel {
 }
 
 .btn {
-  flex: 1;
-  min-width: 84px;
+  flex: 1 1 100px;
+  min-width: 0;
   min-height: 36px;
   padding: 7px 10px;
   border-radius: 7px;
@@ -555,15 +722,15 @@ body.hud-hidden .right-panel {
 
 .btn-fit {
   flex: 0 0 auto;
-  padding: 8px 16px;
+  padding: 7px 14px;
 }
 
 .btn-compact {
   flex: 0 0 auto;
   min-width: auto;
-  min-height: 28px;
-  padding: 4px 10px;
-  font-size: 11px;
+  min-height: 26px;
+  padding: 3px 9px;
+  font-size: 10.5px;
 }
 
 .btn.primary {
@@ -601,7 +768,8 @@ body.hud-hidden .right-panel {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 2px 8px;
   font-size: 11.5px;
   margin-bottom: 4px;
 }
@@ -609,6 +777,7 @@ body.hud-hidden .right-panel {
 .control-name {
   color: #cbd5e1;
   font-weight: 500;
+  min-width: 0;
 }
 
 .control-val {
@@ -667,17 +836,18 @@ select.select-input {
 /* Telemetry Grid */
 .telemetry-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .stat-cell {
   background: rgba(2, 6, 23, 0.65);
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 6px;
-  padding: 6px 8px;
+  padding: 6px 6px;
   text-align: center;
+  min-width: 0;
 }
 
 .stat-label {
@@ -687,7 +857,7 @@ select.select-input {
 
 .stat-num {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
   color: #e2e8f0;
   margin-top: 2px;
@@ -695,7 +865,7 @@ select.select-input {
 
 /* CAD Parts Inspector */
 .parts-list {
-  height: clamp(160px, 24vh, 240px);
+  height: clamp(140px, 22vh, 230px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -734,12 +904,70 @@ select.select-input {
   flex-shrink: 0;
 }
 
-/* SECTION 05: แถบคำแนะนำด้านล่าง (Desktop), แถบนำทางมือถือ & Toast */
+/* SECTION 05: แท็บขอบจอ (Desktop), แถบคำแนะนำ, แถบนำทางมือถือ & Toast */
+.panel-edge-tab {
+  position: fixed;
+  top: calc(var(--topbar-offset) + 6px);
+  z-index: 16;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 36px;
+  padding: 0 11px;
+  background: var(--panel-bg-strong);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--panel-border);
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.panel-edge-tab:hover {
+  background: rgba(14, 165, 233, 0.28);
+  border-color: var(--accent-cyan-light);
+}
+
+.panel-edge-tab-left {
+  left: calc(14px + var(--safe-left));
+  border-radius: 9px;
+  transform: translateX(-12px);
+}
+
+.panel-edge-tab-right {
+  right: calc(14px + var(--safe-right));
+  border-radius: 9px;
+  transform: translateX(12px);
+}
+
+body.left-collapsed .panel-edge-tab-left,
+body.hud-hidden .panel-edge-tab-left {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+body.right-collapsed .panel-edge-tab-right,
+body.hud-hidden .panel-edge-tab-right {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
 .bottom-hud {
   position: fixed;
-  bottom: calc(14px + var(--safe-bottom));
+  bottom: calc(12px + var(--safe-bottom));
   left: 50%;
   transform: translateX(-50%);
+  max-width: calc(100vw - 28px);
   background: var(--panel-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -751,7 +979,7 @@ select.select-input {
   z-index: 12;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   white-space: nowrap;
   pointer-events: none;
 }
@@ -766,7 +994,7 @@ select.select-input {
   display: none;
 }
 
-/* Non-Blocking Toast Notifications */
+/* Non-Blocking Toast Notifications — อ้างอิง --topbar-offset เสมอ จึงไม่ทับ Top Bar ทุกการซูม */
 .toast-container {
   position: fixed;
   top: var(--topbar-offset);
@@ -823,62 +1051,63 @@ select.select-input {
   }
 }
 
-/* SECTION 06: Responsive Breakpoints (Laptop, Tablet, Mobile, Touch & Motion) */
+/* SECTION 06: Responsive Breakpoints (Laptop, Tablet, Mobile, Short/Zoom, Touch & Motion) */
 
-/* Laptop / จอขนาดกลาง (≤ 1420px): ซ่อน bottom-hud เพื่อไม่ให้ชนแผงซ้าย-ขวา */
-@media (max-width: 1420px) {
+/* Laptop / จอขนาดกลาง (≤ 1440px): ซ่อน subtitle & bottom-hud เพื่อไม่ให้แน่นหรือชนแผงซ้าย-ขวา */
+@media (max-width: 1440px) {
+  .brand-subtitle {
+    display: none;
+  }
+
   .bottom-hud {
     display: none;
   }
 }
 
-/* Laptop จอแคบ (1200px - 1380px): ซ่อน subtitle เพื่อไม่ให้ Top Bar แน่น */
-@media (max-width: 1380px) {
-  .brand-subtitle {
+/* Laptop จอแคบ (1200px - 1340px): ซ่อนข้อความปุ่มรองบน Top Bar เพื่อไม่ให้แถบบนขึ้นหลายบรรทัด */
+@media (max-width: 1340px) {
+  .top-bar-btns .btn-icon-label {
     display: none;
-  }
-  .left-panel {
-    width: 310px;
-  }
-  .right-panel {
-    width: 325px;
   }
 }
 
-/* Tablet & Small Laptop (< 1200px): ใช้ Collapsible Drawer + Bottom Nav ไม่ทับฉาก 3D */
+/* Tablet, Small Laptop & Browser Zoom 150%+ (< 1200px): Drawer เดี่ยว + Bottom Nav ไม่ทับกัน */
 @media (max-width: 1199px) {
   .bottom-hud,
-  #btn-toggle-hud {
-    display: none;
+  .btn-panel-toggle,
+  #btn-toggle-hud,
+  .panel-edge-tab {
+    display: none !important;
   }
 
   .top-bar {
-    top: calc(10px + var(--safe-top));
+    top: calc(8px + var(--safe-top));
     left: calc(10px + var(--safe-left));
     right: calc(10px + var(--safe-right));
-    padding: 8px 12px;
+    padding: 7px 10px;
+    gap: 6px 10px;
   }
 
   .pill {
-    font-size: 11px;
+    font-size: 10.5px;
     padding: 4px 8px;
   }
 
   .mobile-nav {
     position: fixed;
-    left: calc(12px + var(--safe-left));
-    right: calc(12px + var(--safe-right));
-    bottom: calc(10px + var(--safe-bottom));
+    left: calc(10px + var(--safe-left));
+    right: calc(10px + var(--safe-right));
+    bottom: calc(8px + var(--safe-bottom));
     height: var(--mobile-nav-height);
-    background: rgba(15, 23, 42, 0.94);
+    background: var(--panel-bg-strong);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--panel-border);
-    border-radius: 16px;
+    border-radius: 14px;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
-    padding: 6px;
+    padding: 5px;
     z-index: 30;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
   }
@@ -890,17 +1119,18 @@ select.select-input {
     justify-content: center;
     gap: 2px;
     border: 1px solid transparent;
-    border-radius: 11px;
+    border-radius: 10px;
     background: transparent;
     color: var(--text-muted);
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
+    min-width: 0;
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   }
 
   .mobile-nav-icon {
-    font-size: 16px;
+    font-size: 15px;
     line-height: 1;
   }
 
@@ -914,21 +1144,21 @@ select.select-input {
   .left-panel,
   .right-panel {
     top: var(--topbar-offset);
-    bottom: calc(var(--mobile-nav-height) + 20px + var(--safe-bottom));
-    width: min(370px, calc(100vw - 24px));
-    padding-right: 0;
+    bottom: var(--bottom-safe-offset);
+    width: min(370px, calc(100vw - 20px));
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
     z-index: 25;
   }
 
   .left-panel {
-    left: calc(12px + var(--safe-left));
+    left: calc(10px + var(--safe-left));
     transform: translateX(calc(-100% - 24px));
   }
 
   .right-panel {
-    right: calc(12px + var(--safe-right));
+    right: calc(10px + var(--safe-right));
     transform: translateX(calc(100% + 24px));
   }
 
@@ -936,35 +1166,50 @@ select.select-input {
   body.mobile-panel-right .right-panel {
     transform: translateX(0);
     opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  /* ป้องกัน class พับแผงของ Desktop ไปซ่อน Drawer บน Tablet/Mobile */
+  body.left-collapsed.mobile-panel-left .left-panel,
+  body.hud-hidden.mobile-panel-left .left-panel {
+    transform: translateX(0);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  body.right-collapsed.mobile-panel-right .right-panel,
+  body.hud-hidden.mobile-panel-right .right-panel {
+    transform: translateX(0);
+    opacity: 1;
+    visibility: visible;
     pointer-events: auto;
   }
 }
 
-/* Mobile (< 768px): Bottom Sheet เต็มความกว้าง ไม่ซ้อนทับกัน และเหลือพื้นที่ฉาก 3D ด้านบน */
+/* Mobile & Zoom สูง 250%–400% (< 768px): Bottom Sheet คำนวณขอบเขตไม่ให้ทับ Top Bar เด็ดขาด */
 @media (max-width: 767px) {
   .top-bar {
     flex-direction: column;
     align-items: stretch;
     gap: 6px;
-    padding: 8px 10px;
+    padding: 7px 10px;
     min-height: auto;
   }
 
   .brand-group {
+    flex: 0 0 auto;
     justify-content: space-between;
   }
 
   .brand-title {
-    font-size: 13px;
+    font-size: 12.5px;
   }
 
   .top-bar-actions {
     width: 100%;
     justify-content: space-between;
-  }
-
-  .top-bar-btns .btn-icon-label {
-    display: none;
   }
 
   .top-bar-btns .btn-icon {
@@ -973,72 +1218,101 @@ select.select-input {
     font-size: 11px;
   }
 
-  .status-pills {
-    flex: 1;
-    min-width: 0;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    gap: 6px;
-  }
-
-  .status-pills::-webkit-scrollbar {
-    display: none;
-  }
-
-  .pill {
-    font-size: 10.5px;
-    padding: 4px 8px;
-    flex-shrink: 0;
-  }
-
   .left-panel,
   .right-panel {
     top: auto;
     left: calc(8px + var(--safe-left));
     right: calc(8px + var(--safe-right));
-    bottom: calc(var(--mobile-nav-height) + 18px + var(--safe-bottom));
+    bottom: var(--bottom-safe-offset);
     width: auto;
-    max-height: 58dvh;
-    background: rgba(9, 13, 22, 0.94);
+    max-height: min(60dvh, calc(100dvh - var(--topbar-offset) - var(--bottom-safe-offset)));
+    background: rgba(9, 13, 22, 0.95);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
     border: 1px solid var(--panel-border);
     border-radius: 16px;
-    padding: 8px 10px 12px;
+    padding: 6px 8px 10px;
     transform: translateY(calc(100% + 90px));
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.6);
   }
 
   body.mobile-panel-left .left-panel,
-  body.mobile-panel-right .right-panel {
+  body.mobile-panel-right .right-panel,
+  body.left-collapsed.mobile-panel-left .left-panel,
+  body.right-collapsed.mobile-panel-right .right-panel,
+  body.hud-hidden.mobile-panel-left .left-panel,
+  body.hud-hidden.mobile-panel-right .right-panel {
     transform: translateY(0);
     opacity: 1;
+    visibility: visible;
     pointer-events: auto;
   }
 
   .drawer-handle {
     display: flex;
     justify-content: center;
-    padding: 2px 0 6px;
+    padding: 2px 0 4px;
+    cursor: pointer;
+    flex-shrink: 0;
   }
 
   .drawer-handle span {
     width: 40px;
     height: 4px;
     border-radius: 999px;
-    background: rgba(148, 163, 184, 0.45);
+    background: rgba(148, 163, 184, 0.5);
   }
 
-  .card {
+  .panel-toolbar {
     background: rgba(15, 23, 42, 0.72);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    padding: 12px;
+    box-shadow: none;
   }
 
-  .toast-container {
-    top: calc(92px + var(--safe-top));
+  .card {
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    padding: 10px 11px;
+  }
+}
+
+/* หน้าจอเตี้ยมาก (Mobile แนวนอน หรือ Browser Zoom 300%–400%): ลดความสูงหัวและท้ายไม่ให้บีบพื้นที่ 3D */
+@media (max-height: 540px) {
+  .bottom-hud {
+    display: none;
+  }
+
+  .top-bar {
+    padding: 5px 10px;
+    min-height: 42px;
+  }
+
+  .brand-subtitle {
+    display: none;
+  }
+
+  .mobile-nav {
+    height: 48px;
+  }
+
+  .mobile-nav-icon {
+    font-size: 13px;
+  }
+
+  .mobile-nav-btn {
+    flex-direction: row;
+    gap: 5px;
+    font-size: 11px;
+  }
+
+  .camera-box {
+    max-height: 120px;
+  }
+
+  .parts-list {
+    height: 120px;
   }
 }
 
@@ -1051,6 +1325,15 @@ select.select-input {
   }
 
   .btn-compact {
+    min-height: 36px;
+  }
+
+  .btn-mini {
+    min-height: 32px;
+    padding: 4px 10px;
+  }
+
+  .card-toggle {
     min-height: 36px;
   }
 
