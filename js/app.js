@@ -144,9 +144,6 @@
     btnRecord: document.getElementById('btn-record-pose'),
     btnPlay: document.getElementById('btn-play-pose'),
     btnToggleHud: document.getElementById('btn-toggle-hud'),
-    btnToggleLeft: document.getElementById('btn-toggle-left'),
-    btnToggleRight: document.getElementById('btn-toggle-right'),
-    btnToggleTopbar: document.getElementById('btn-toggle-topbar'),
     edgeTabLeft: document.getElementById('edge-tab-left'),
     edgeTabRight: document.getElementById('edge-tab-right'),
     btnResetCam: document.getElementById('btn-reset-cam'),
@@ -233,7 +230,6 @@
       const prefs = {
         leftCollapsed: document.body.classList.contains('left-collapsed'),
         rightCollapsed: document.body.classList.contains('right-collapsed'),
-        topbarCollapsed: document.body.classList.contains('topbar-collapsed'),
         collapsedCards
       };
       localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(prefs));
@@ -248,16 +244,10 @@
     const allHidden = leftCollapsed && rightCollapsed;
     document.body.classList.toggle('hud-hidden', allHidden);
 
-    if (ui.btnToggleLeft) {
-      ui.btnToggleLeft.setAttribute('aria-expanded', String(!leftCollapsed));
-    }
-    if (ui.btnToggleRight) {
-      ui.btnToggleRight.setAttribute('aria-expanded', String(!rightCollapsed));
-    }
     if (ui.btnToggleHud) {
       ui.btnToggleHud.setAttribute('aria-pressed', String(allHidden));
       const labelEl = ui.btnToggleHud.querySelector('.btn-icon-label');
-      if (labelEl) labelEl.textContent = allHidden ? 'แสดงแผง' : 'โฟกัส 3D';
+      if (labelEl) labelEl.textContent = allHidden ? 'แสดงแผง' : 'ซ่อนแผง';
     }
   }
 
@@ -339,13 +329,7 @@
     });
   });
 
-  // ผูกอีเวนต์ปุ่มพับ/เปิดแผงซ้าย-ขวา (Top Bar, Panel Toolbar, Edge Tabs)
-  if (ui.btnToggleLeft) {
-    ui.btnToggleLeft.addEventListener('click', () => toggleDesktopPanel('left'));
-  }
-  if (ui.btnToggleRight) {
-    ui.btnToggleRight.addEventListener('click', () => toggleDesktopPanel('right'));
-  }
+  // ผูกอีเวนต์ปุ่มพับ/เปิดแผงซ้าย-ขวา (Panel Toolbar & Edge Tabs)
   if (ui.edgeTabLeft) {
     ui.edgeTabLeft.addEventListener('click', () => setDesktopPanelCollapsed('left', false));
   }
@@ -363,30 +347,7 @@
     });
   });
 
-  function setTopbarCollapsed(collapsed, persist = true) {
-    const isCollapsed = Boolean(collapsed);
-    document.body.classList.toggle('topbar-collapsed', isCollapsed);
-    if (ui.btnToggleTopbar) {
-      ui.btnToggleTopbar.setAttribute('aria-expanded', String(!isCollapsed));
-      const chevronEl = ui.btnToggleTopbar.querySelector('.topbar-chevron');
-      const labelEl = ui.btnToggleTopbar.querySelector('.btn-topbar-label');
-      if (chevronEl) chevronEl.textContent = isCollapsed ? '«' : '»';
-      if (labelEl) labelEl.textContent = isCollapsed ? 'เมนู' : 'ซ่อนเมนู';
-    }
-    if (typeof syncLayoutOffsets === 'function') {
-      requestAnimationFrame(() => syncLayoutOffsets());
-    }
-    if (persist) saveLayoutPrefs();
-  }
-
-  // ผูกอีเวนต์ปุ่มพับย่อ/ขยายเมนูแถบด้านบน (เหลือเฉพาะปุ่มสำคัญ E-STOP และรีเซ็ตกล้อง)
-  if (ui.btnToggleTopbar) {
-    ui.btnToggleTopbar.addEventListener('click', () => {
-      setTopbarCollapsed(!document.body.classList.contains('topbar-collapsed'));
-    });
-  }
-
-  // ผูกอีเวนต์ปุ่มโฟกัส 3D (ซ่อน/แสดงแผงทั้งสองฝั่งพร้อมกัน)
+  // ผูกอีเวนต์ปุ่มซ่อน/แสดงแผงควบคุมทั้งหมดพร้อมกัน
   if (ui.btnToggleHud) {
     ui.btnToggleHud.addEventListener('click', () => {
       const allHidden = document.body.classList.contains('left-collapsed') &&
@@ -419,12 +380,11 @@
     });
   });
 
-  // คืนค่าสถานะการพับแผง แถบบน และการ์ดจากครั้งล่าสุดของผู้ใช้
+  // คืนค่าสถานะการพับแผงและการ์ดจากครั้งล่าสุดของผู้ใช้
   (function restoreLayoutPrefs() {
     const prefs = loadLayoutPrefs();
     if (prefs.leftCollapsed) document.body.classList.add('left-collapsed');
     if (prefs.rightCollapsed) document.body.classList.add('right-collapsed');
-    if (prefs.topbarCollapsed) setTopbarCollapsed(true, false);
     if (prefs.collapsedCards && typeof prefs.collapsedCards === 'object') {
       document.querySelectorAll('.collapsible-card[data-card-id]').forEach((card) => {
         const saved = prefs.collapsedCards[card.dataset.cardId];
@@ -1913,14 +1873,15 @@
   window.addEventListener('keydown', (e) => {
     const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
 
     if (e.code === 'Space') {
       e.preventDefault();
       toggleEstop();
-    } else if (e.key === 'r' || e.key === 'R') {
+    } else if (e.code === 'KeyR') {
       resetCameraView();
       showToast('รีเซ็ตมุมกล้อง 3D (R)', 'info', 1800);
-    } else if (e.key === 'h' || e.key === 'H') {
+    } else if (e.code === 'KeyH') {
       if (state.estop) {
         showToast('กรุณาปลดล็อก E-STOP ก่อนกลับท่า Home Pose', 'warn', 2500);
         return;
@@ -1931,19 +1892,17 @@
       trailGeo.setDrawRange(0, 0);
       syncSlidersFromState();
       showToast('กลับสู่ท่าเริ่มต้น Home Pose (H)', 'info', 1800);
-    } else if (e.key === '[') {
+    } else if (e.code === 'BracketLeft') {
       toggleDesktopPanel('left');
-    } else if (e.key === ']') {
+    } else if (e.code === 'BracketRight') {
       toggleDesktopPanel('right');
-    } else if (e.key === 't' || e.key === 'T') {
-      setTopbarCollapsed(!document.body.classList.contains('topbar-collapsed'));
-    } else if (e.key === 'f' || e.key === 'F') {
+    } else if (e.code === 'KeyF') {
       if (window.innerWidth >= 1200 && ui.btnToggleHud) {
         ui.btnToggleHud.click();
       } else {
         setMobilePanel('none');
       }
-    } else if (e.key === 'Escape') {
+    } else if (e.code === 'Escape') {
       setMobilePanel('none');
       if (state.selectedBodyId !== null) {
         selectPart(state.selectedBodyId);

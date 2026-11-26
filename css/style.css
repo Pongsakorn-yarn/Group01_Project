@@ -201,22 +201,6 @@ input[type="range"]:focus-visible,
   max-width: 100%;
 }
 
-.topbar-collapsible {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.top-bar-secondary-btns,
-.top-bar-essential-btns {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
 .status-pills {
   display: flex;
   align-items: center;
@@ -263,27 +247,11 @@ input[type="range"]:focus-visible,
   box-shadow: 0 0 8px var(--accent-amber);
 }
 
-.btn-topbar-toggle {
-  border-color: rgba(148, 163, 184, 0.34);
-  background: rgba(30, 41, 59, 0.92);
-  color: #cbd5e1;
-}
-
-.topbar-chevron {
-  display: inline-block;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-/* สถานะพับย่อเฉพาะกลุ่มเมนูทางขวา: แถบบนยังคงเต็มความกว้าง และตรึงปุ่มสำคัญ (E-STOP, รีเซ็ตกล้อง) ไว้มุมขวาบนตลอดเวลา */
-body.topbar-collapsed .topbar-collapsible {
-  display: none !important;
-}
-
-body.topbar-collapsed .btn-topbar-toggle {
-  border-color: rgba(56, 189, 248, 0.42);
-  color: #bae6fd;
+.top-bar-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .btn-icon {
@@ -309,17 +277,10 @@ body.topbar-collapsed .btn-topbar-toggle {
   border-color: var(--accent-cyan-light);
 }
 
-.btn-icon[aria-pressed="true"],
-.btn-icon.btn-panel-toggle[aria-expanded="true"] {
-  background: rgba(14, 165, 233, 0.24);
+.btn-icon[aria-pressed="true"] {
+  background: rgba(14, 165, 233, 0.28);
   border-color: var(--accent-cyan-light);
   color: #bae6fd;
-}
-
-.btn-icon.btn-panel-toggle[aria-expanded="false"] {
-  background: rgba(30, 41, 59, 0.72);
-  border-color: rgba(148, 163, 184, 0.26);
-  color: var(--text-muted);
 }
 
 .btn-icon.btn-estop {
@@ -1098,9 +1059,7 @@ body.hud-hidden .panel-edge-tab-right {
 
 /* Laptop จอแคบ (1200px - 1340px): ซ่อนข้อความปุ่มรองบน Top Bar เพื่อไม่ให้แถบบนขึ้นหลายบรรทัด */
 @media (max-width: 1340px) {
-  .top-bar-secondary-btns .btn-icon-label,
-  .top-bar-essential-btns .btn-icon-label,
-  .btn-topbar-label {
+  .top-bar-btns .btn-icon-label {
     display: none;
   }
 }
@@ -1108,7 +1067,7 @@ body.hud-hidden .panel-edge-tab-right {
 /* Tablet, Small Laptop & Browser Zoom 150%+ (< 1200px): Drawer เดี่ยว + Bottom Nav ไม่ทับกัน */
 @media (max-width: 1199px) {
   .bottom-hud,
-  .top-bar-secondary-btns,
+  #btn-toggle-hud,
   .panel-edge-tab {
     display: none !important;
   }
@@ -1245,30 +1204,10 @@ body.hud-hidden .panel-edge-tab-right {
     justify-content: space-between;
   }
 
-  .top-bar-essential-btns .btn-icon {
+  .top-bar-btns .btn-icon {
     height: 30px;
     padding: 0 8px;
     font-size: 11px;
-  }
-
-  body.topbar-collapsed .top-bar {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  body.topbar-collapsed .brand-group {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  body.topbar-collapsed .brand-badge {
-    display: none;
-  }
-
-  body.topbar-collapsed .top-bar-actions {
-    width: auto;
-    flex-shrink: 0;
   }
 
   .left-panel,

@@ -56,7 +56,7 @@
   <!-- SECTION 01: ฉากแสดงผล 3 มิติ (3D Viewport) -->
   <main id="canvas-container" role="region" aria-label="ฉากแสดงผลแขนกล 3 มิติ (3D Viewport)"></main>
 
-  <!-- SECTION 02: แถบสถานะด้านบน (Top Navigation & Status Bar — พับย่อได้ เหลือเฉพาะปุ่มสำคัญ) -->
+  <!-- SECTION 02: แถบสถานะด้านบน (Top Navigation & Status Bar — 3 ปุ่มควบคุมหลัก) -->
   <header class="top-bar" id="top-bar" role="banner">
     <div class="brand-group">
       <span class="brand-badge">DIGITAL TWIN 4-DOF</span>
@@ -67,56 +67,24 @@
     </div>
 
     <div class="top-bar-actions">
-      <!-- ส่วนที่พับย่อได้: ป้ายสถานะระบบและปุ่มควบคุมแผงรอง -->
-      <div class="topbar-collapsible" id="topbar-collapsible">
-        <div class="status-pills" id="status-pills" aria-live="polite">
-          <div class="pill" title="สถานะการโหลดโมเดล CAD">
-            <span class="dot warn" id="cad-dot" aria-hidden="true"></span>
-            <span id="cad-status-text">CAD Mesh: Loading...</span>
-          </div>
-          <div class="pill" title="สถานะกล้องตรวจจับมือ">
-            <span class="dot" id="cam-dot" aria-hidden="true"></span>
-            <span id="cam-status-text">Camera: Standby</span>
-          </div>
-          <div class="pill" title="สถานะการเชื่อมต่อบอร์ด IoT ผ่าน WebSerial">
-            <span class="dot" id="serial-dot" aria-hidden="true"></span>
-            <span id="serial-status-text">IoT Serial: Disconnected</span>
-          </div>
+      <!-- ป้ายสถานะระบบทั้ง 3 (แสดงตลอดเวลาตามหลัก Visibility of System Status) -->
+      <div class="status-pills" id="status-pills" aria-live="polite">
+        <div class="pill" title="สถานะการโหลดโมเดล CAD">
+          <span class="dot warn" id="cad-dot" aria-hidden="true"></span>
+          <span id="cad-status-text">CAD Mesh: Loading...</span>
         </div>
-
-        <div class="top-bar-secondary-btns" role="group" aria-label="ปุ่มสลับแผงควบคุม">
-          <button type="button" class="btn-icon btn-panel-toggle" id="btn-toggle-left" aria-controls="left-panel"
-            aria-expanded="true" aria-label="พับเก็บหรือเปิดแผงซ้าย กล้องและ CAD (กด [)"
-            title="พับ/เปิดแผงซ้าย ([)">
-            <span aria-hidden="true">🖐️</span>
-            <span class="btn-icon-label">แผงซ้าย</span>
-          </button>
-
-          <button type="button" class="btn-icon btn-panel-toggle" id="btn-toggle-right" aria-controls="right-panel"
-            aria-expanded="true" aria-label="พับเก็บหรือเปิดแผงขวา ควบคุม 4-DOF (กด ])"
-            title="พับ/เปิดแผงขวา (])">
-            <span aria-hidden="true">⚙️</span>
-            <span class="btn-icon-label">แผงขวา</span>
-          </button>
-
-          <button type="button" class="btn-icon" id="btn-toggle-hud" aria-pressed="false"
-            aria-label="ซ่อนหรือแสดงแผงควบคุมทั้งหมดเพื่อดูแขนกล 3 มิติเต็มจอ (กด F)"
-            title="โฟกัสแขนกล 3D — ซ่อน/แสดงแผงทั้งหมด (F)">
-            <span aria-hidden="true">⛶</span>
-            <span class="btn-icon-label">โฟกัส 3D</span>
-          </button>
+        <div class="pill" title="สถานะกล้องตรวจจับมือ">
+          <span class="dot" id="cam-dot" aria-hidden="true"></span>
+          <span id="cam-status-text">Camera: Standby</span>
+        </div>
+        <div class="pill" title="สถานะการเชื่อมต่อบอร์ด IoT ผ่าน WebSerial">
+          <span class="dot" id="serial-dot" aria-hidden="true"></span>
+          <span id="serial-status-text">IoT Serial: Disconnected</span>
         </div>
       </div>
 
-      <!-- ปุ่มสำคัญ (ไม่สามารถพับย่อได้ — ตรึงมุมขวาบน กดใช้งานได้สะดวกตลอดเวลา) -->
-      <div class="top-bar-essential-btns" role="toolbar" aria-label="ปุ่มควบคุมสำคัญ">
-        <button type="button" class="btn-icon btn-topbar-toggle" id="btn-toggle-topbar"
-          aria-controls="topbar-collapsible" aria-expanded="true"
-          aria-label="พับย่อหรือแสดงกลุ่มปุ่มเมนูด้านบน (กด T)" title="ซ่อน/แสดงเมนูด้านบน (T)">
-          <span class="topbar-chevron" aria-hidden="true">»</span>
-          <span class="btn-topbar-label">ซ่อนเมนู</span>
-        </button>
-
+      <!-- ปุ่มควบคุมหลัก 3 ปุ่ม (E-STOP, รีเซ็ตกล้อง, ซ่อนแผง/แสดงแผง) -->
+      <div class="top-bar-btns" role="toolbar" aria-label="ปุ่มควบคุมหลัก">
         <button type="button" class="btn-icon btn-estop" id="btn-estop" aria-pressed="false"
           aria-label="ปุ่มหยุดฉุกเฉิน Emergency Stop (กด Space)" title="หยุดฉุกเฉิน E-Stop (Space)">
           <span aria-hidden="true">🛑</span>
@@ -127,6 +95,13 @@
           aria-label="รีเซ็ตมุมกล้อง 3 มิติ (กด R)" title="รีเซ็ตมุมกล้อง 3D (R)">
           <span aria-hidden="true">🎯</span>
           <span class="btn-icon-label">รีเซ็ตกล้อง</span>
+        </button>
+
+        <button type="button" class="btn-icon" id="btn-toggle-hud" aria-pressed="false"
+          aria-label="ซ่อนหรือแสดงแผงควบคุมทั้งหมดเพื่อดูแขนกล 3 มิติเต็มจอ (กด F)"
+          title="ซ่อน/แสดงแผงควบคุมทั้งหมด (F)">
+          <span aria-hidden="true">⛶</span>
+          <span class="btn-icon-label">ซ่อนแผง</span>
         </button>
       </div>
     </div>
@@ -412,11 +387,9 @@
     <span>•</span>
     <span><span class="key-hint">H:</span> Home</span>
     <span>•</span>
-    <span><span class="key-hint">[ / ]:</span> พับแผงซ้าย/ขวา</span>
+    <span><span class="key-hint">[ และ ]:</span> พับแผงซ้าย/ขวา</span>
     <span>•</span>
-    <span><span class="key-hint">T:</span> ซ่อนเมนูบน</span>
-    <span>•</span>
-    <span><span class="key-hint">F:</span> โฟกัส 3D</span>
+    <span><span class="key-hint">F:</span> ซ่อน/แสดงแผง</span>
     <span>•</span>
     <span><span class="key-hint">Space:</span> E-Stop</span>
   </div>
