@@ -147,7 +147,20 @@
     edgeTabLeft: document.getElementById('edge-tab-left'),
     edgeTabRight: document.getElementById('edge-tab-right'),
     btnResetCam: document.getElementById('btn-reset-cam'),
-    btnEstop: document.getElementById('btn-estop')
+    btnEstop: document.getElementById('btn-estop'),
+    btnOpenSettings: document.getElementById('btn-open-settings'),
+    settingsBackdrop: document.getElementById('settings-backdrop'),
+    settingsModal: document.getElementById('settings-modal'),
+    btnCloseSettings: document.getElementById('btn-close-settings'),
+    btnDoneSettings: document.getElementById('btn-done-settings'),
+    btnResetDisplaySettings: document.getElementById('btn-reset-display-settings'),
+    valSettingTheme: document.getElementById('val-setting-theme'),
+    sliderSceneBrightness: document.getElementById('slider-scene-brightness'),
+    valSceneBrightness: document.getElementById('val-scene-brightness'),
+    sliderPanelOpacity: document.getElementById('slider-panel-opacity'),
+    valPanelOpacity: document.getElementById('val-panel-opacity'),
+    toggleGlassBlur: document.getElementById('toggle-glass-blur'),
+    valSettingScale: document.getElementById('val-setting-scale')
   };
 
   /**
@@ -488,8 +501,8 @@
   rimLight.position.set(-220, 140, -180);
   scene.add(rimLight);
 
-  // เส้นตารางโต๊ะทำงานและพื้นรับเงา
-  const gridHelper = new THREE.GridHelper(500, 25, 0x0ea5e9, 0x1e293b);
+  // เส้นตารางโต๊ะทำงานและพื้นรับเงา (ใช้ let เพื่อให้เปลี่ยนสีตารางตามธีม Dark/Light ได้ทันที)
+  let gridHelper = new THREE.GridHelper(500, 25, 0x0ea5e9, 0x1e293b);
   gridHelper.position.y = -0.2;
   scene.add(gridHelper);
 
@@ -771,7 +784,7 @@
     leftWrap.appendChild(nameSpan);
 
     const triSpan = document.createElement('span');
-    triSpan.style.cssText = 'color:#64748b;font-family:var(--font-mono);font-size:10px;';
+    triSpan.className = 'part-tri-count';
     triSpan.textContent = `${b.tri_count}t`;
 
     item.appendChild(leftWrap);
@@ -804,6 +817,311 @@
       ui.selectedPartBadge.textContent = 'All 39 Parts';
     }
   }
+
+  /* =========================================================================
+   * ระบบตั้งค่าการแสดงผลและธีมสี (Display & Theme Settings — CSS + Three.js Sync)
+   * บันทึกอัตโนมัติลง localStorage และเปิดเป็น Modal โดยไม่กระทบกล้อง/WebSerial
+   * ========================================================================= */
+  const DISPLAY_STORAGE_KEY = 'arm4dof_display_settings_v1';
+  const DISPLAY_DEFAULTS = Object.freeze({
+    theme: 'dark',      // 'dark' | 'light' | 'auto'
+    brightness: 100,    // 40 .. 200 (%)
+    panelOpacity: 88,   // 45 .. 100 (%)
+    glassBlur: true,    // boolean
+    uiScale: 'normal'   // 'compact' | 'normal' | 'large'
+  });
+
+  const THEME_LABELS = Object.freeze({
+    dark: 'Dark',
+    light: 'Light',
+    auto: 'Auto (ระบบ)'
+  });
+
+  const SCALE_LABELS = Object.freeze({
+    compact: 'กะทัดรัด',
+    normal: 'ปกติ',
+    large: 'ใหญ่'
+  });
+
+  const systemColorSchemeMedia = window.matchMedia
+    ? window.matchMedia('(prefers-color-scheme: light)')
+    : null;
+
+  function loadDisplaySettings() {
+    try {
+      const raw = localStorage.getItem(DISPLAY_STORAGE_KEY);
+      if (!raw) return { ...DISPLAY_DEFAULTS };
+      const parsed = JSON.parse(raw);
+      return {
+        theme: ['dark', 'light', 'auto'].includes(parsed.theme) ? parsed.theme : DISPLAY_DEFAULTS.theme,
+        brightness: typeof parsed.brightness === 'number'
+          ? THREE.MathUtils.clamp(Math.round(parsed.brightness), 40, 200)
+          : DISPLAY_DEFAULTS.brightness,
+        panelOpacity: typeof parsed.panelOpacity === 'number'
+          ? THREE.MathUtils.clamp(Math.round(parsed.panelOpacity), 45, 100)
+          : DISPLAY_DEFAULTS.panelOpacity,
+        glassBlur: typeof parsed.glassBlur === 'boolean' ? parsed.glassBlur : DISPLAY_DEFAULTS.glassBlur,
+        uiScale: ['compact', 'normal', 'large'].includes(parsed.uiScale)
+          ? parsed.uiScale
+          : DISPLAY_DEFAULTS.uiScale
+      };
+    } catch {
+      return { ...DISPLAY_DEFAULTS };
+    }
+  }
+
+  function saveDisplaySettings(settings) {
+    try {
+      localStorage.setItem(DISPLAY_STORAGE_KEY, JSON.stringify(settings));
+    } catch {
+      // ข้ามหากเบราว์เซอร์ปิดการเข้าถึง localStorage
+    }
+  }
+
+  let displaySettings = loadDisplaySettings();
+  let lastAppliedSceneTheme = null;
+  let lastFocusedBeforeSettings = null;
+
+  function resolveEffectiveTheme(themePref) {
+    if (themePref === 'auto') {
+      return (systemColorSchemeMedia && systemColorSchemeMedia.matches) ? 'light' : 'dark';
+    }
+    return themePref === 'light' ? 'light' : 'dark';
+  }
+
+  /**
+   * อัปเดตพื้นหลัง 3D, หมอกขอบฟ้า, สีพื้นโต๊ะ, สีเส้นตาราง Grid, แสงสว่าง และเส้นขอบ CAD
+   * ให้กลมกลืนกับธีมสีและระดับความสว่างที่ผู้ใช้เลือก
+   */
+  function syncThreeSceneAppearance(resolvedTheme, brightnessPct) {
+    const isLight = resolvedTheme === 'light';
+    const bFactor = THREE.MathUtils.clamp(brightnessPct / 100, 0.4, 2.0);
+
+    if (lastAppliedSceneTheme !== resolvedTheme) {
+      lastAppliedSceneTheme = resolvedTheme;
+      const bgHex = isLight ? 0xe8eef5 : 0x070b14;
+      const groundHex = isLight ? 0xdce5f0 : 0x0b1220;
+      const gridCenterHex = isLight ? 0x0284c7 : 0x0ea5e9;
+      const gridLineHex = isLight ? 0x94a3b8 : 0x1e293b;
+      const edgeHex = isLight ? 0x1e293b : 0xbae6fd;
+      const edgeOpacity = isLight ? 0.3 : 0.28;
+
+      scene.background.setHex(bgHex);
+      if (scene.fog) scene.fog.color.setHex(bgHex);
+      groundMesh.material.color.setHex(groundHex);
+
+      // สร้าง GridHelper ใหม่ให้สีเส้นตารางตรงธีมและคืนหน่วยความจำของเดิม
+      if (gridHelper) {
+        scene.remove(gridHelper);
+        if (gridHelper.geometry) gridHelper.geometry.dispose();
+        if (Array.isArray(gridHelper.material)) {
+          gridHelper.material.forEach((m) => m.dispose());
+        } else if (gridHelper.material) {
+          gridHelper.material.dispose();
+        }
+      }
+      gridHelper = new THREE.GridHelper(500, 25, gridCenterHex, gridLineHex);
+      gridHelper.position.y = -0.2;
+      scene.add(gridHelper);
+
+      hemiLight.color.setHex(isLight ? 0xffffff : 0xdbeafe);
+      hemiLight.groundColor.setHex(isLight ? 0x94a3b8 : 0x0f172a);
+      rimLight.color.setHex(isLight ? 0x0284c7 : 0x38bdf8);
+      trailLine.material.color.setHex(isLight ? 0x0284c7 : 0x38bdf8);
+
+      edgeLines.forEach((l) => {
+        l.material.color.setHex(edgeHex);
+        l.material.opacity = edgeOpacity;
+      });
+    }
+
+    // ปรับความเข้มแสงส่องโมเดลแขนกลและ Exposure โดยตรง
+    const baseHemi = isLight ? 0.98 : 0.85;
+    hemiLight.intensity = baseHemi * bFactor;
+    dirLight.intensity = 1.15 * bFactor;
+    rimLight.intensity = (isLight ? 0.42 : 0.55) * bFactor;
+    renderer.toneMappingExposure = 0.85 + 0.3 * bFactor;
+  }
+
+  function syncSettingsModalControls() {
+    const resolvedTheme = resolveEffectiveTheme(displaySettings.theme);
+    if (ui.valSettingTheme) {
+      ui.valSettingTheme.textContent = displaySettings.theme === 'auto'
+        ? `Auto (${resolvedTheme === 'light' ? 'Light' : 'Dark'})`
+        : THEME_LABELS[displaySettings.theme];
+    }
+    document.querySelectorAll('[data-theme-value]').forEach((btn) => {
+      const isSelected = btn.dataset.themeValue === displaySettings.theme;
+      btn.classList.toggle('active', isSelected);
+      btn.setAttribute('aria-checked', String(isSelected));
+    });
+
+    if (ui.sliderSceneBrightness) ui.sliderSceneBrightness.value = String(displaySettings.brightness);
+    if (ui.valSceneBrightness) ui.valSceneBrightness.textContent = `${displaySettings.brightness}%`;
+
+    if (ui.sliderPanelOpacity) ui.sliderPanelOpacity.value = String(displaySettings.panelOpacity);
+    if (ui.valPanelOpacity) ui.valPanelOpacity.textContent = `${displaySettings.panelOpacity}%`;
+
+    if (ui.toggleGlassBlur) ui.toggleGlassBlur.checked = displaySettings.glassBlur;
+
+    if (ui.valSettingScale) ui.valSettingScale.textContent = SCALE_LABELS[displaySettings.uiScale] || 'ปกติ';
+    document.querySelectorAll('[data-scale-value]').forEach((btn) => {
+      const isSelected = btn.dataset.scaleValue === displaySettings.uiScale;
+      btn.classList.toggle('active', isSelected);
+      btn.setAttribute('aria-checked', String(isSelected));
+    });
+  }
+
+  function applyDisplaySettings(nextSettings, persist = true) {
+    displaySettings = { ...displaySettings, ...nextSettings };
+    const resolvedTheme = resolveEffectiveTheme(displaySettings.theme);
+    const root = document.documentElement;
+
+    root.dataset.theme = resolvedTheme;
+    root.dataset.uiScale = displaySettings.uiScale;
+
+    const alpha = +(displaySettings.panelOpacity / 100).toFixed(2);
+    const alphaStrong = +Math.min(1, alpha + 0.06).toFixed(2);
+    root.style.setProperty('--panel-alpha', String(alpha));
+    root.style.setProperty('--panel-alpha-strong', String(alphaStrong));
+    root.classList.toggle('no-glass-blur', !displaySettings.glassBlur);
+
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+      metaTheme.setAttribute('content', resolvedTheme === 'light' ? '#e8eef5' : '#090d16');
+    }
+
+    syncThreeSceneAppearance(resolvedTheme, displaySettings.brightness);
+    syncSettingsModalControls();
+
+    if (persist) saveDisplaySettings(displaySettings);
+
+    // คำนวณระยะปลอดภัยของ Top Bar และ Bottom Nav ใหม่หลังเปลี่ยนขนาด UI
+    requestAnimationFrame(() => {
+      if (typeof syncLayoutOffsets === 'function') syncLayoutOffsets();
+    });
+  }
+
+  function isSettingsModalOpen() {
+    return Boolean(ui.settingsBackdrop && !ui.settingsBackdrop.hidden);
+  }
+
+  function openSettingsModal() {
+    if (!ui.settingsBackdrop || !ui.settingsModal) return;
+    lastFocusedBeforeSettings = document.activeElement;
+    syncSettingsModalControls();
+    ui.settingsBackdrop.hidden = false;
+    if (ui.btnOpenSettings) ui.btnOpenSettings.setAttribute('aria-expanded', 'true');
+    requestAnimationFrame(() => {
+      if (ui.btnCloseSettings) {
+        ui.btnCloseSettings.focus();
+      } else {
+        ui.settingsModal.focus();
+      }
+    });
+  }
+
+  function closeSettingsModal() {
+    if (!ui.settingsBackdrop || ui.settingsBackdrop.hidden) return;
+    ui.settingsBackdrop.hidden = true;
+    if (ui.btnOpenSettings) ui.btnOpenSettings.setAttribute('aria-expanded', 'false');
+    if (lastFocusedBeforeSettings && typeof lastFocusedBeforeSettings.focus === 'function') {
+      lastFocusedBeforeSettings.focus();
+    } else if (ui.btnOpenSettings) {
+      ui.btnOpenSettings.focus();
+    }
+  }
+
+  if (ui.btnOpenSettings) {
+    ui.btnOpenSettings.addEventListener('click', () => {
+      if (isSettingsModalOpen()) {
+        closeSettingsModal();
+      } else {
+        openSettingsModal();
+      }
+    });
+  }
+  if (ui.btnCloseSettings) ui.btnCloseSettings.addEventListener('click', closeSettingsModal);
+  if (ui.btnDoneSettings) ui.btnDoneSettings.addEventListener('click', closeSettingsModal);
+  if (ui.settingsBackdrop) {
+    ui.settingsBackdrop.addEventListener('click', (e) => {
+      if (e.target === ui.settingsBackdrop) closeSettingsModal();
+    });
+  }
+
+  // Focus Trap ภายใน Modal ตามมาตรฐาน WAI-ARIA Dialog
+  if (ui.settingsModal) {
+    ui.settingsModal.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const focusables = ui.settingsModal.querySelectorAll(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+  }
+
+  document.querySelectorAll('[data-theme-value]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      applyDisplaySettings({ theme: btn.dataset.themeValue }, true);
+    });
+  });
+
+  if (ui.sliderSceneBrightness) {
+    ui.sliderSceneBrightness.addEventListener('input', () => {
+      applyDisplaySettings({ brightness: parseInt(ui.sliderSceneBrightness.value, 10) }, true);
+    });
+  }
+
+  if (ui.sliderPanelOpacity) {
+    ui.sliderPanelOpacity.addEventListener('input', () => {
+      applyDisplaySettings({ panelOpacity: parseInt(ui.sliderPanelOpacity.value, 10) }, true);
+    });
+  }
+
+  if (ui.toggleGlassBlur) {
+    ui.toggleGlassBlur.addEventListener('change', () => {
+      applyDisplaySettings({ glassBlur: Boolean(ui.toggleGlassBlur.checked) }, true);
+    });
+  }
+
+  document.querySelectorAll('[data-scale-value]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      applyDisplaySettings({ uiScale: btn.dataset.scaleValue }, true);
+    });
+  });
+
+  if (ui.btnResetDisplaySettings) {
+    ui.btnResetDisplaySettings.addEventListener('click', () => {
+      applyDisplaySettings({ ...DISPLAY_DEFAULTS }, true);
+      showToast('คืนค่าการแสดงผลและธีมสีเป็นค่าเริ่มต้นเรียบร้อยแล้ว', 'success', 2600);
+    });
+  }
+
+  // ติดตามการเปลี่ยนธีมของระบบปฏิบัติการแบบ Real-Time เมื่อผู้ใช้เลือก Auto
+  if (systemColorSchemeMedia) {
+    const onSystemThemeChange = () => {
+      if (displaySettings.theme === 'auto') {
+        applyDisplaySettings({}, false);
+      }
+    };
+    if (typeof systemColorSchemeMedia.addEventListener === 'function') {
+      systemColorSchemeMedia.addEventListener('change', onSystemThemeChange);
+    } else if (typeof systemColorSchemeMedia.addListener === 'function') {
+      systemColorSchemeMedia.addListener(onSystemThemeChange);
+    }
+  }
+
+  // นำค่าตั้งค่าการแสดงผลที่บันทึกไว้มาใช้งานทันที
+  applyDisplaySettings(displaySettings, false);
 
   /* =========================================================================
    * SECTION 05: การคลิกเลือกชิ้นส่วนบนฉาก 3 มิติ (Raycasting)
@@ -1880,9 +2198,17 @@
   }
 
   window.addEventListener('keydown', (e) => {
+    // ปิดหน้าต่างตั้งค่าด้วยปุ่ม Esc เสมอ แม้โฟกัสอยู่ใน Slider หรือปุ่มภายใน Modal
+    if (e.code === 'Escape' && isSettingsModalOpen()) {
+      e.preventDefault();
+      closeSettingsModal();
+      return;
+    }
+
     const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (isSettingsModalOpen()) return;
 
     if (e.code === 'Space') {
       e.preventDefault();

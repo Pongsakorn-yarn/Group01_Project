@@ -40,6 +40,39 @@
 
   <link rel="stylesheet" href="css/style.css" />
 
+  <!-- โหลดธีมสีและค่าแสดงผลจาก localStorage ทันทีก่อนเรนเดอร์ เพื่อไม่ให้เกิดการกะพริบ (No-FOUC) -->
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('arm4dof_display_settings_v1');
+        var cfg = raw ? JSON.parse(raw) : {};
+        var themePref = (cfg.theme === 'light' || cfg.theme === 'dark' || cfg.theme === 'auto') ? cfg.theme : 'dark';
+        var resolvedTheme = themePref === 'auto'
+          ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+          : themePref;
+        var root = document.documentElement;
+        root.dataset.theme = resolvedTheme;
+        var scale = (cfg.uiScale === 'compact' || cfg.uiScale === 'normal' || cfg.uiScale === 'large') ? cfg.uiScale : 'normal';
+        root.dataset.uiScale = scale;
+        var opacity = typeof cfg.panelOpacity === 'number' ? Math.min(100, Math.max(45, cfg.panelOpacity)) : 88;
+        var alpha = +(opacity / 100).toFixed(2);
+        var alphaStrong = +Math.min(1, alpha + 0.06).toFixed(2);
+        root.style.setProperty('--panel-alpha', String(alpha));
+        root.style.setProperty('--panel-alpha-strong', String(alphaStrong));
+        if (cfg.glassBlur === false) {
+          root.classList.add('no-glass-blur');
+        }
+        var metaTheme = document.querySelector('meta[name="theme-color"]');
+        if (metaTheme) {
+          metaTheme.setAttribute('content', resolvedTheme === 'light' ? '#e8eef5' : '#090d16');
+        }
+      } catch (_) {
+        document.documentElement.dataset.theme = 'dark';
+        document.documentElement.dataset.uiScale = 'normal';
+      }
+    })();
+  </script>
+
   <!-- Three.js & OrbitControls -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"
     referrerpolicy="no-referrer"></script>
@@ -83,7 +116,7 @@
         </div>
       </div>
 
-      <!-- ปุ่มควบคุมหลัก 3 ปุ่ม (E-STOP, รีเซ็ตกล้อง, ซ่อนแผง/แสดงแผง) -->
+      <!-- ปุ่มควบคุมหลัก (E-STOP, รีเซ็ตกล้อง, ซ่อนแผง/แสดงแผง, ตั้งค่าการแสดงผล) -->
       <div class="top-bar-btns" role="toolbar" aria-label="ปุ่มควบคุมหลัก">
         <button type="button" class="btn-icon btn-estop" id="btn-estop" aria-pressed="false"
           aria-label="ปุ่มหยุดฉุกเฉิน Emergency Stop (กด Space)" title="หยุดฉุกเฉิน E-Stop (Space)">
@@ -102,6 +135,13 @@
           title="ซ่อน/แสดงแผงควบคุมทั้งหมด (F)">
           <span aria-hidden="true">⛶</span>
           <span class="btn-icon-label">ซ่อนแผง</span>
+        </button>
+
+        <button type="button" class="btn-icon" id="btn-open-settings"
+          aria-haspopup="dialog" aria-controls="settings-modal" aria-expanded="false"
+          aria-label="เปิดเมนูตั้งค่าการแสดงผลและธีมสี" title="ตั้งค่าการแสดงผล (Display &amp; Theme)">
+          <span aria-hidden="true">⚙️</span>
+          <span class="btn-icon-label">ตั้งค่า</span>
         </button>
       </div>
     </div>
@@ -419,6 +459,99 @@
       <span>ควบคุม 4-DOF</span>
     </button>
   </nav>
+
+  <!-- หน้าต่างตั้งค่าการแสดงผลและธีมสี (WAI-ARIA Modal Dialog — ไม่โหลดหน้าใหม่) -->
+  <div class="settings-backdrop" id="settings-backdrop" hidden>
+    <div class="settings-dialog" id="settings-modal" role="dialog" aria-modal="true"
+      aria-labelledby="settings-modal-title" aria-describedby="settings-modal-desc" tabindex="-1">
+      <div class="settings-header">
+        <div class="settings-header-text">
+          <h2 class="settings-title" id="settings-modal-title">⚙️ ตั้งค่าการแสดงผลและธีมสี</h2>
+          <p class="settings-desc" id="settings-modal-desc">ปรับแต่งธีมสี แสงฉาก 3 มิติ ความโปร่งใสแผง HUD และขนาด UI แบบเรียลไทม์โดยไม่ตัดการเชื่อมต่อกล้องหรือ USB</p>
+        </div>
+        <button type="button" class="btn-modal-close" id="btn-close-settings"
+          aria-label="ปิดหน้าต่างตั้งค่า" title="ปิด (Esc)">✕</button>
+      </div>
+
+      <div class="settings-body">
+        <!-- 1. ธีมสี (Theme) -->
+        <div class="setting-section">
+          <div class="setting-label-row">
+            <span class="setting-label" id="label-setting-theme">ธีมสี (Theme &amp; 3D Studio)</span>
+            <span class="setting-badge" id="val-setting-theme">Dark</span>
+          </div>
+          <div class="segmented-control" role="radiogroup" aria-labelledby="label-setting-theme" id="group-setting-theme">
+            <button type="button" class="seg-btn active" role="radio" aria-checked="true" data-theme-value="dark">
+              <span aria-hidden="true">🌙</span> Dark
+            </button>
+            <button type="button" class="seg-btn" role="radio" aria-checked="false" data-theme-value="light">
+              <span aria-hidden="true">☀️</span> Light
+            </button>
+            <button type="button" class="seg-btn" role="radio" aria-checked="false" data-theme-value="auto">
+              <span aria-hidden="true">💻</span> Auto
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. ความสว่างฉาก 3 มิติ -->
+        <div class="setting-section">
+          <div class="control-label">
+            <label class="setting-label" for="slider-scene-brightness">ความสว่างฉาก 3 มิติ (3D Lighting)</label>
+            <span class="control-val" id="val-scene-brightness">100%</span>
+          </div>
+          <input type="range" id="slider-scene-brightness" min="40" max="200" step="5" value="100" />
+          <div class="setting-range-hints" aria-hidden="true">
+            <span>40% (สลัว)</span>
+            <span>100% (มาตรฐาน)</span>
+            <span>200% (สว่างมาก)</span>
+          </div>
+        </div>
+
+        <!-- 3. ความโปร่งใสและเอฟเฟกต์กระจกของแผง HUD -->
+        <div class="setting-section">
+          <div class="control-label">
+            <label class="setting-label" for="slider-panel-opacity">ความทึบของแผงควบคุม (Panel Opacity)</label>
+            <span class="control-val" id="val-panel-opacity">88%</span>
+          </div>
+          <input type="range" id="slider-panel-opacity" min="45" max="100" step="1" value="88" />
+          <div class="setting-range-hints" aria-hidden="true">
+            <span>45% (โปร่งใส)</span>
+            <span>88%</span>
+            <span>100% (ทึบสนิท)</span>
+          </div>
+
+          <div class="setting-switch-row mt-8">
+            <div class="setting-switch-info">
+              <label class="setting-label" for="toggle-glass-blur">เอฟเฟกต์กระจกเบลอ (Glass Backdrop Blur)</label>
+              <span class="helper-text">ปิดเพื่อเพิ่มความลื่นไหลบนอุปกรณ์สเปกประหยัด</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-glass-blur" checked />
+              <span class="toggle-slider" aria-hidden="true"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 4. ขนาดการแสดงผล UI -->
+        <div class="setting-section">
+          <div class="setting-label-row">
+            <span class="setting-label" id="label-setting-scale">ขนาดการแสดงผล UI (UI Scale)</span>
+            <span class="setting-badge" id="val-setting-scale">ปกติ</span>
+          </div>
+          <div class="segmented-control" role="radiogroup" aria-labelledby="label-setting-scale" id="group-setting-scale">
+            <button type="button" class="seg-btn" role="radio" aria-checked="false" data-scale-value="compact">กะทัดรัด</button>
+            <button type="button" class="seg-btn active" role="radio" aria-checked="true" data-scale-value="normal">ปกติ</button>
+            <button type="button" class="seg-btn" role="radio" aria-checked="false" data-scale-value="large">ใหญ่</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-footer">
+        <button type="button" class="btn" id="btn-reset-display-settings">↺ รีเซ็ตค่าเริ่มต้น</button>
+        <button type="button" class="btn primary" id="btn-done-settings">เสร็จสิ้น</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ระบบแจ้งเตือนแบบ Non-Blocking Toast แทน alert() -->
   <div class="toast-container" id="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
