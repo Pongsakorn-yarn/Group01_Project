@@ -27,7 +27,7 @@ flowchart LR
 | ลำดับ | หากคุณต้องการ... | ให้เริ่มเปิดไฟล์นี้ |
 | :---: | :--- | :--- |
 | **1** | **ใช้งานระบบให้ได้ทันที (Quick Start)** | อ่านคู่มือด้านล่างใน `README.md` แล้วดับเบิลคลิก `start_digital_twin.bat` |
-| **2** | **เข้าใจสถาปัตยกรรม, สมการ 4-Bar IK/FK และ Data Flow ระดับฟังก์ชัน** | อ่าน [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md) |
+| **2** | **ดูตารางสรุปไฟล์ทั้ง 74 ไฟล์, สถาปัตยกรรม, สมการ 4-Bar IK/FK และ Data Flow ระดับฟังก์ชัน** | อ่าน [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md) |
 | **3** | **แก้ไขหน้าตา UI / ปุ่มควบคุม / ธีมสี** | ดู `index.html` คู่กับ `css/style.css` (แบ่งหมวดหมู่ `01`–`05` ตรงกัน) |
 | **4** | **แก้ไขลอจิก 3D, Hand Tracking, Kinematics หรือ WebSerial** | ดู `js/app.js` (มีสารบัญ `SECTION 01`–`12` อยู่ด้านบนสุดของไฟล์) |
 | **5** | **ต่อสายวงจรและทดสอบ Servo 4 ตัวบน ESP32 ก่อนประกอบ** | อ่าน [`docs/WIRING_GUIDE.md`](./docs/WIRING_GUIDE.md) และรัน `servo_test_esp32/servo_test_esp32.ino` |
@@ -103,5 +103,5 @@ flowchart LR
 
 ## 6. เอกสารอ้างอิงเพิ่มเติม
 
-สำหรับรายละเอียดเชิงเทคนิคทั้งหมด — ตารางโครงสร้างไฟล์ฉบับสมบูรณ์, เส้นทางข้อมูลระดับฟังก์ชัน (Sequence & Data Flow), สมการ 4-Bar Kinematics, พิกัดจุดหมุน, สเปกโปรโตคอล Serial และวิธีแพ็กไฟล์ส่งมอบ — สามารถอ่านต่อได้ที่:
-👉 **[`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md)**
+* **[`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md)** — [ตารางสรุปไฟล์ทั้ง 74 ไฟล์ (5 หมวดมาตรฐานสากล)](./PROJECT_DOCUMENTATION.md#1-ตารางสรุปไฟล์ทั้งหมด-เรียงตามหมวดหมู่มาตรฐานสากล), [สถาปัตยกรรมระบบและเส้นทางข้อมูล](./PROJECT_DOCUMENTATION.md#2-สถาปัตยกรรมภาพรวมและเส้นทางข้อมูลเชิงเทคนิค-system-architecture--data-flow), [จลนศาสตร์ 4-Bar & โปรโตคอล Serial](./PROJECT_DOCUMENTATION.md#3-ระบบพิกัด-จลนศาสตร์-4-bar-และโปรโตคอล-usb-serial) และ [วิธีส่งออกแพ็กเกจส่งงาน](./PROJECT_DOCUMENTATION.md#4-มาตรฐานโค้ดและการส่งออกผลลัพธ์พร้อมใช้งาน)
+* **[`docs/WIRING_GUIDE.md`](./docs/WIRING_GUIDE.md)** — คู่มือการต่อสายวงจรฮาร์ดแวร์, รายการอุปกรณ์ (BOM), ระบบไฟ 5V แยก และ Common GND
