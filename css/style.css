@@ -230,6 +230,13 @@ input[type="range"]:focus-visible,
   box-shadow: 0 0 8px var(--accent-amber);
 }
 
+.top-bar-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .btn-icon {
   display: inline-flex;
   align-items: center;
@@ -245,7 +252,7 @@ input[type="range"]:focus-visible,
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .btn-icon:hover {
@@ -257,6 +264,24 @@ input[type="range"]:focus-visible,
   background: rgba(14, 165, 233, 0.28);
   border-color: var(--accent-cyan-light);
   color: #bae6fd;
+}
+
+.btn-icon.btn-estop {
+  border-color: rgba(244, 63, 94, 0.55);
+  background: rgba(244, 63, 94, 0.16);
+  color: #fecdd3;
+}
+
+.btn-icon.btn-estop:hover {
+  background: rgba(244, 63, 94, 0.3);
+  border-color: var(--accent-rose);
+}
+
+.btn-icon.btn-estop[aria-pressed="true"] {
+  background: #e11d48;
+  border-color: #fda4af;
+  color: #fff;
+  box-shadow: 0 0 14px rgba(244, 63, 94, 0.7);
 }
 
 /* SECTION 03: แผงซ้าย-ขวา และการ์ด HUD */
@@ -937,10 +962,22 @@ select.select-input {
 
   .top-bar-actions {
     width: 100%;
+    justify-content: space-between;
+  }
+
+  .top-bar-btns .btn-icon-label {
+    display: none;
+  }
+
+  .top-bar-btns .btn-icon {
+    height: 30px;
+    padding: 0 8px;
+    font-size: 11px;
   }
 
   .status-pills {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;

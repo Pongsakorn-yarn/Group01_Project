@@ -12,12 +12,16 @@ Group01_Project/
 ├── README.md                                  # คู่มือเริ่มต้นใช้งานตั้งแต่ต้นจนจบ + Pinout + Troubleshooting
 ├── PROJECT_DOCUMENTATION.md                   # เอกสารสถาปัตยกรรมและเส้นทางข้อมูลเชิงเทคนิค (ไฟล์นี้)
 ├── start_digital_twin.bat                     # ตัวเปิด Local HTTP Server (127.0.0.1:8080) บน Windows
-├── index.html                                 # โครงสร้างหน้าเว็บ HUD 5 ส่วน + โหลดไลบรารี CDN
+├── index.html                                 # โครงสร้างหน้าเว็บ Responsive HUD + WCAG 2.1 AA + PWA
+├── manifest.json                              # ไฟล์ตั้งค่า Progressive Web App (PWA)
+├── sw.js                                      # Service Worker แคชไฟล์หลักแบบ Network-First
+├── assets/
+│   └── icon.svg                               # ไอคอนเวกเตอร์สำหรับ Favicon และ PWA App Icon
 ├── css/
-│   └── style.css                              # ธีม Dark-Mode Glassmorphism + จัดลำดับชั้น z-index
+│   └── style.css                              # ธีม Dark-Mode Glassmorphism + Responsive (Desktop/Tablet/Mobile)
 ├── js/
 │   ├── arm_cad_data.js                        # ข้อมูลเรขาคณิต CAD 39 ชิ้น (Base64 Float32Array) [Auto-generated]
-│   └── app.js                                 # สมองหลักของระบบ แบ่งเป็น SECTION 01–12 (JSDoc ภาษาไทย)
+│   └── app.js                                 # สมองหลัก: Three.js, FK/IK, Hand Tracking, E-Stop, คีย์ลัด, 2-Way WebSerial
 ├── arduino_servo_bridge/
 │   └── arduino_servo_bridge.ino               # เฟิร์มแวร์รับค่า CSV ผ่าน USB Serial แล้วขับ Servo 4 ตัว (Non-blocking + Safety Limits)
 ├── servo_test_esp32/
@@ -30,6 +34,7 @@ Group01_Project/
 │   ├── Robotic_Arm_4DOF_Assembly.glb          # โมเดล 3D มาตรฐาน glTF 2.0 Binary
 │   ├── Robotic_Arm_4DOF.urdf                  # ไฟล์อธิบายหุ่นยนต์ XML สำหรับ ROS / PyBullet / Gazebo
 │   └── stl/                                   # ไฟล์ .stl ชิ้นส่วนแยก 39 ชิ้น (00_–38_) + ไฟล์ประกอบเต็ม 1 ชิ้น
+├── .gitattributes                             # มาตรฐาน Line Endings ข้ามแพลตฟอร์ม (LF / CRLF สำหรับ .bat)
 └── .gitignore                                 # กฎยกเว้นไฟล์ระบบ/ไฟล์ขยะไม่ให้นำขึ้น Git
 ```
 

@@ -143,7 +143,9 @@
     btnDemoCircle: document.getElementById('btn-demo-circle'),
     btnRecord: document.getElementById('btn-record-pose'),
     btnPlay: document.getElementById('btn-play-pose'),
-    btnToggleHud: document.getElementById('btn-toggle-hud')
+    btnToggleHud: document.getElementById('btn-toggle-hud'),
+    btnResetCam: document.getElementById('btn-reset-cam'),
+    btnEstop: document.getElementById('btn-estop')
   };
 
   /**
@@ -176,10 +178,15 @@
     recordStartTime: 0,
     playIndex: 0,
     playElapsed: 0,
+    // สถานะความปลอดภัยฉุกเฉิน (Emergency Stop)
+    estop: false,
     // สถานะการเชื่อมต่อพอร์ต USB WebSerial
     serialPort: null,
     serialWriter: null,
+    serialReader: null,
+    serialReading: false,
     serialSending: false,
+    boardReady: false,
     lastSerialSend: 0
   };
 
@@ -246,13 +253,16 @@
   const initWidth = ui.canvasContainer.clientWidth || window.innerWidth;
   const initHeight = ui.canvasContainer.clientHeight || window.innerHeight;
 
+  const DEFAULT_CAM_POS = Object.freeze({ x: 275, y: 225, z: 315 });
+  const DEFAULT_CAM_TARGET = Object.freeze({ x: 45, y: 82, z: 0 });
+
   const camera = new THREE.PerspectiveCamera(
     42,
     initWidth / initHeight,
     1,
     3000
   );
-  camera.position.set(275, 225, 315);
+  camera.position.set(DEFAULT_CAM_POS.x, DEFAULT_CAM_POS.y, DEFAULT_CAM_POS.z);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setSize(initWidth, initHeight);
@@ -274,7 +284,20 @@
   });
 
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
-  controls.target.set(45, 82, 0);
+  controls.target.set(DEFAULT_CAM_TARGET.x, DEFAULT_CAM_TARGET.y, DEFAULT_CAM_TARGET.z);
+
+  function resetCameraView() {
+    camera.position.set(DEFAULT_CAM_POS.x, DEFAULT_CAM_POS.y, DEFAULT_CAM_POS.z);
+    controls.target.set(DEFAULT_CAM_TARGET.x, DEFAULT_CAM_TARGET.y, DEFAULT_CAM_TARGET.z);
+    controls.update();
+  }
+
+  if (ui.btnResetCam) {
+    ui.btnResetCam.addEventListener('click', () => {
+      resetCameraView();
+      showToast('รีเซ็ตมุมกล้อง 3D เรียบร้อยแล้ว', 'info', 2000);
+    });
+  }
   controls.enableDamping = true;
   controls.dampingFactor = 0.06;
   controls.maxPolarAngle = Math.PI / 2 + 0.08;
@@ -1081,18 +1104,68 @@
    * @returns {Promise<void>}
    */
   async function disconnectSerial() {
+    state.serialReading = false;
+    try {
+      if (state.serialReader) {
+        await state.serialReader.cancel();
+        state.serialReader.releaseLock();
+      }
+    } catch (_) { /* ข้ามข้อผิดพลาดหาก Reader ถูกปล่อยไปแล้ว */ }
     try {
       if (state.serialWriter) state.serialWriter.releaseLock();
     } catch (_) { /* ข้ามข้อผิดพลาดหาก Writer ถูกปล่อยไปแล้ว */ }
     try {
       if (state.serialPort) await state.serialPort.close();
     } catch (_) { /* ข้ามข้อผิดพลาดหากพอร์ตถูกถอดสายไปแล้ว */ }
+    state.serialReader = null;
     state.serialWriter = null;
     state.serialPort = null;
     state.serialSending = false;
+    state.boardReady = false;
     ui.serialDot.className = 'dot';
     ui.serialStatusText.textContent = 'IoT Serial: Disconnected';
     ui.btnSerial.textContent = '🔌 เชื่อมต่อ Arduino / ESP32 (WebSerial)';
+  }
+
+  /**
+   * อ่านข้อมูลตอบกลับจากไมโครคอนโทรลเลอร์ (2-Way Handshake) เช่น "READY:4DOF_BRIDGE"
+   * @param {SerialPort} port - พอร์ต WebSerial ที่เปิดเชื่อมต่อแล้ว
+   */
+  async function readSerialLoop(port) {
+    if (!port || !port.readable) return;
+    const decoder = new TextDecoder();
+    let rxLine = '';
+    state.serialReading = true;
+    try {
+      state.serialReader = port.readable.getReader();
+      while (state.serialReading) {
+        const { value, done } = await state.serialReader.read();
+        if (done) break;
+        if (!value) continue;
+        rxLine += decoder.decode(value, { stream: true });
+        const lines = rxLine.split(/\r?\n/);
+        rxLine = lines.pop() || '';
+        lines.forEach((line) => {
+          const trimmed = line.trim();
+          if (trimmed.includes('READY:4DOF_BRIDGE')) {
+            state.boardReady = true;
+            ui.serialDot.className = 'dot active';
+            ui.serialStatusText.textContent = 'IoT Serial: 4DOF Ready';
+            showToast('บอร์ดตอบกลับ READY:4DOF_BRIDGE พร้อมรับคำสั่ง Servo แล้ว', 'success', 3500);
+          }
+        });
+      }
+    } catch (err) {
+      if (state.serialReading) {
+        console.warn('Serial read loop ended:', err);
+      }
+    } finally {
+      try {
+        if (state.serialReader) state.serialReader.releaseLock();
+      } catch (_) { /* ignore */ }
+      state.serialReader = null;
+      state.serialReading = false;
+    }
   }
 
   const serialSupported = 'serial' in navigator;
@@ -1133,6 +1206,7 @@
       ui.serialStatusText.textContent = 'IoT Serial: 115200 Connected';
       ui.btnSerial.textContent = '🔌 ตัดการเชื่อมต่อ Serial';
       showToast('เชื่อมต่อบอร์ด Arduino / ESP32 (115200 baud) สำเร็จ', 'success', 3000);
+      readSerialLoop(port);
     } catch (err) {
       console.warn('WebSerial connection cancelled or failed:', err);
       if (err && err.name !== 'NotFoundError') {
@@ -1151,7 +1225,7 @@
    * @returns {Promise<void>}
    */
   async function sendSerialTelemetry(now) {
-    if (!state.serialWriter || state.serialSending || now - state.lastSerialSend < 40) return;
+    if (state.estop || !state.serialWriter || state.serialSending || now - state.lastSerialSend < 40) return;
     state.lastSerialSend = now;
     state.serialSending = true;
     const s1 = Math.round(THREE.MathUtils.clamp(90 + state.current.j1, 0, 180));
@@ -1435,8 +1509,10 @@
       fpsTimer = now;
     }
 
-    // 2. ประมวลผลโหมดจำลองอัตโนมัติหรือเล่นซ้ำท่าทางที่บันทึกไว้
-    if (state.demoMode === 'pick') {
+    // 2. ประมวลผลโหมดจำลองอัตโนมัติหรือเล่นซ้ำท่าทางที่บันทึกไว้ (หยุดเมื่อเปิด E-Stop)
+    if (state.estop) {
+      state.target = { ...state.current };
+    } else if (state.demoMode === 'pick') {
       state.demoTime += dt;
       const t = state.demoTime % 8.0;
       if (t < 1.5) {
@@ -1551,6 +1627,78 @@
     if (state.camRunning) stopWebcam();
     if (state.serialPort) disconnectSerial();
   });
+
+  // ระบบหยุดฉุกเฉิน (Emergency Stop / E-Stop) และคีย์ลัดมาตรฐาน
+  function toggleEstop(forceState) {
+    const next = typeof forceState === 'boolean' ? forceState : !state.estop;
+    state.estop = next;
+    if (ui.btnEstop) {
+      ui.btnEstop.setAttribute('aria-pressed', String(state.estop));
+      const labelEl = ui.btnEstop.querySelector('.btn-estop-label');
+      if (labelEl) labelEl.textContent = state.estop ? 'RELEASE' : 'E-STOP';
+    }
+    if (state.estop) {
+      stopAutomation();
+      if (state.recording) {
+        state.recording = false;
+        ui.btnRecord.classList.remove('danger');
+        ui.btnRecord.setAttribute('aria-pressed', 'false');
+        ui.btnRecord.textContent = `⏺️ บันทึก (${state.recordedFrames.length}f)`;
+      }
+      if (state.camRunning) stopWebcam('Camera: Stopped (E-Stop)', 'dot warn');
+      state.target = { ...state.current };
+      syncSlidersFromState();
+      showToast('🛑 E-STOP ทำงาน: หยุดการเคลื่อนที่และหยุดส่งคำสั่ง Serial ชั่วคราว (กด Space หรือปุ่ม RELEASE เพื่อปลดล็อก)', 'error', 5500);
+    } else {
+      showToast('ปลดล็อก E-STOP แล้ว สามารถควบคุมแขนกลต่อได้ตามปกติ', 'success', 3000);
+    }
+  }
+
+  if (ui.btnEstop) {
+    ui.btnEstop.addEventListener('click', () => toggleEstop());
+  }
+
+  window.addEventListener('keydown', (e) => {
+    const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+
+    if (e.code === 'Space') {
+      e.preventDefault();
+      toggleEstop();
+    } else if (e.key === 'r' || e.key === 'R') {
+      resetCameraView();
+      showToast('รีเซ็ตมุมกล้อง 3D (R)', 'info', 1800);
+    } else if (e.key === 'h' || e.key === 'H') {
+      if (state.estop) {
+        showToast('กรุณาปลดล็อก E-STOP ก่อนกลับท่า Home Pose', 'warn', 2500);
+        return;
+      }
+      stopAutomation();
+      state.target = { ...HOME_POSE };
+      trailCount = 0;
+      trailGeo.setDrawRange(0, 0);
+      syncSlidersFromState();
+      showToast('กลับสู่ท่าเริ่มต้น Home Pose (H)', 'info', 1800);
+    } else if (e.key === 'f' || e.key === 'F') {
+      if (ui.btnToggleHud && window.innerWidth >= 1200) {
+        ui.btnToggleHud.click();
+      }
+    } else if (e.key === 'Escape') {
+      setMobilePanel('none');
+      if (state.selectedBodyId !== null) {
+        selectPart(state.selectedBodyId);
+      }
+    }
+  });
+
+  // ลงทะเบียน PWA Service Worker (เฉพาะบน HTTP/HTTPS)
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.protocol === 'http:')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch((err) => {
+        console.warn('Service Worker registration skipped:', err);
+      });
+    });
+  }
 
   // คำนวณท่าเริ่มต้นครั้งแรกและเริ่มลูปหลัก
   updateArmKinematics();

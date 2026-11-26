@@ -27,8 +27,8 @@
   <title>4-DOF Robotic Arm Digital Twin — Hand Tracking & CAD Assembly</title>
 
   <link rel="manifest" href="manifest.json" />
-  <link rel="icon"
-    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230ea5e9'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='34' fill='white'>🤖</text></svg>" />
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
+  <link rel="apple-touch-icon" href="assets/icon.svg" />
 
   <!-- Web Fonts (Fallback ไปยัง System Font อัตโนมัติหากใช้งานแบบออฟไลน์) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -40,13 +40,15 @@
   <link rel="stylesheet" href="css/style.css" />
 
   <!-- Three.js & OrbitControls -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"
+    referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"
-    crossorigin="anonymous"></script>
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- MediaPipe Hands -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js"
-    crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/hands.js" crossorigin="anonymous"></script>
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/hands.js" crossorigin="anonymous"
+    referrerpolicy="no-referrer"></script>
 </head>
 
 <body>
@@ -79,11 +81,25 @@
         </div>
       </div>
 
-      <button type="button" class="btn-icon" id="btn-toggle-hud" aria-pressed="false"
-        aria-label="ซ่อนหรือแสดงแผงควบคุมเพื่อดูฉาก 3 มิติเต็มจอ" title="ซ่อน/แสดงแผงควบคุม (HUD)">
-        <span aria-hidden="true">⛶</span>
-        <span class="btn-icon-label">ซ่อนแผง</span>
-      </button>
+      <div class="top-bar-btns">
+        <button type="button" class="btn-icon btn-estop" id="btn-estop" aria-pressed="false"
+          aria-label="ปุ่มหยุดฉุกเฉิน Emergency Stop (กด Space)" title="หยุดฉุกเฉิน E-Stop (Space)">
+          <span aria-hidden="true">🛑</span>
+          <span class="btn-estop-label">E-STOP</span>
+        </button>
+
+        <button type="button" class="btn-icon" id="btn-reset-cam"
+          aria-label="รีเซ็ตมุมกล้อง 3 มิติ (กด R)" title="รีเซ็ตมุมกล้อง 3D (R)">
+          <span aria-hidden="true">🎯</span>
+          <span class="btn-icon-label">รีเซ็ตมุมกล้อง</span>
+        </button>
+
+        <button type="button" class="btn-icon" id="btn-toggle-hud" aria-pressed="false"
+          aria-label="ซ่อนหรือแสดงแผงควบคุมเพื่อดูฉาก 3 มิติเต็มจอ (กด F)" title="ซ่อน/แสดงแผงควบคุม (F)">
+          <span aria-hidden="true">⛶</span>
+          <span class="btn-icon-label">ซ่อนแผง</span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -282,13 +298,15 @@
 
   <!-- SECTION 05: แถบคำแนะนำด้านล่าง (Desktop), แถบนำทาง Tablet/Mobile และ Toast Notification -->
   <div class="bottom-hud" aria-hidden="true">
-    <span><span class="key-hint">คลิกซ้ายลาก:</span> หมุนมุมกล้อง 3D</span>
+    <span><span class="key-hint">ลากซ้าย/ขวา:</span> หมุน/เลื่อนฉาก</span>
     <span>•</span>
-    <span><span class="key-hint">คลิกขวาลาก:</span> เลื่อนฉาก</span>
+    <span><span class="key-hint">R:</span> รีเซ็ตกล้อง</span>
     <span>•</span>
-    <span><span class="key-hint">ลูกกลิ้งเมาส์:</span> ซูมเข้า-ออก</span>
+    <span><span class="key-hint">H:</span> Home</span>
     <span>•</span>
-    <span><span class="key-hint">คลิกที่ชิ้นส่วนแขนกล:</span> ดูข้อมูล CAD Part</span>
+    <span><span class="key-hint">F:</span> ซ่อนแผง</span>
+    <span>•</span>
+    <span><span class="key-hint">Space:</span> E-Stop</span>
   </div>
 
   <!-- แถบนำทางล่างสำหรับ Tablet และ Mobile เพื่อสลับแผงโดยไม่บังฉาก 3D -->

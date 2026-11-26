@@ -3,16 +3,17 @@
   "short_name": "4-DOF Arm Twin",
   "description": "4-DOF Robotic Arm Digital Twin with Real-Time MediaPipe Hand Tracking, 4-Bar Kinematics, and IoT WebSerial Control",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#090d16",
   "theme_color": "#090d16",
   "orientation": "any",
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%230ea5e9'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='104' fill='white'%3E%F0%9F%A4%96%3C/text%3E%3C/svg%3E",
-      "sizes": "192x192",
+      "src": "./assets/icon.svg",
+      "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ]
 }

@@ -1,0 +1,20 @@
+# Standardize line endings across Windows, macOS, and Linux
+* text=auto eol=lf
+
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.ino text eol=lf
+*.urdf text eol=lf
+*.svg text eol=lf
+
+# Windows batch scripts require CRLF
+*.bat text eol=crlf
+
+# Binary 3D models & images
+*.glb binary
+*.stl binary
+*.sc binary
+*.png binary
