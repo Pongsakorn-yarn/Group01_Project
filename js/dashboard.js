@@ -79,6 +79,7 @@
   let lastLiveReceivedAt = 0;
   let lastSnapshot = null;
   let eventsCache = Bus.readEvents();
+  const seenStations = new Map();
 
   const history = {
     s1: [],
@@ -131,15 +132,27 @@
   }
 
   function updateConnectionBanner() {
-    const isLive = lastSnapshot && lastSnapshot.live && (Date.now() - lastLiveReceivedAt <= Bus.LIVE_STALE_MS);
+    const now = Date.now();
+    seenStations.forEach((ts, id) => {
+      if (now - ts > Bus.LIVE_STALE_MS) seenStations.delete(id);
+    });
+    const isLive = lastSnapshot && lastSnapshot.live && (now - lastLiveReceivedAt <= Bus.LIVE_STALE_MS);
     if (isLive) {
-      ui.liveDot.className = 'dot active';
-      ui.liveText.textContent = 'Live Station Connected';
+      ui.liveDot.className = seenStations.size > 1 ? 'dot warn' : 'dot active';
+      ui.liveText.textContent = seenStations.size > 1
+        ? `Live (${seenStations.size} Stations)`
+        : 'Live Station Connected';
       ui.standbyBanner.hidden = true;
     } else {
       ui.liveDot.className = 'dot warn';
       ui.liveText.textContent = 'Standby / Waiting';
       ui.standbyBanner.hidden = false;
+      ui.machineText.textContent = 'STANDBY';
+      ui.machineBadge.className = 'machine-state-badge state-standby';
+      ui.machineDot.className = 'dot';
+      ui.kpiFpsRate.textContent = '0 FPS';
+      ui.kpiTelemetryHz.textContent = '0.0 Hz';
+      ui.kpiSerialHz.textContent = '0.0 Hz';
       if (lastSnapshot && lastSnapshot.timestamp) {
         ui.standbyDetail.textContent = `ยังไม่ได้เชื่อมต่อสถานีสด — แสดงข้อมูล Snapshot ล่าสุดเมื่อ ${Bus.formatDateTime(lastSnapshot.timestamp)}`;
       } else {
@@ -198,6 +211,7 @@
     lastSnapshot = snap;
     if (fromLiveBus && snap.live) {
       lastLiveReceivedAt = Date.now();
+      if (snap.stationId) seenStations.set(snap.stationId, lastLiveReceivedAt);
     }
 
     const isLive = Boolean(snap.live) && (Date.now() - lastLiveReceivedAt <= Bus.LIVE_STALE_MS);
@@ -456,6 +470,14 @@
     });
   }
 
+  function sanitizeCsvCell(val) {
+    let s = String(val ?? '');
+    if (/^[=+\-@\t\r]/.test(s)) {
+      s = `'${s}`;
+    }
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+
   function exportEventsCsv() {
     const rows = [['Timestamp', 'ISO_Time', 'Level', 'Category', 'Message', 'Detail']];
     eventsCache.forEach((ev) => {
@@ -469,7 +491,7 @@
       ]);
     });
     const csvContent = '\uFEFF' + rows
-      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .map((row) => row.map(sanitizeCsvCell).join(','))
       .join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -556,8 +578,9 @@
   }
   window.addEventListener('resize', drawTelemetryChart);
 
-  // ตรวจสอบสถานะ Live/Standby ทุก 1 วินาที
+  // ตรวจสอบสถานะ Live/Standby ทุก 1 วินาที และปิด Bus เมื่อปิดหน้าต่าง
   setInterval(updateConnectionBanner, 1000);
+  window.addEventListener('pagehide', () => bus.close());
 
   // โหลด Snapshot ล่าสุดทันทีตอนเปิดหน้า และขอข้อมูลสดจากสถานีหลัก
   syncThemeButton();

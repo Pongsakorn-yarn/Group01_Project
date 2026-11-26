@@ -15,10 +15,17 @@ flowchart LR
     C["models/Robotic_Arm_4DOF_Assembly.sc<br/>ไฟล์ต้นฉบับ CAD"] -. สกัด Mesh 39 ชิ้น .-> D["js/arm_cad_data.js<br/>ข้อมูลเรขาคณิต Base64"]
     D --> E["3. js/app.js (Core Engine)<br/>MediaPipe Hands → 3D IK → EMA Filter → 4-Bar FK"]
     B <--> E
-    E -- "WebSerial 115200 baud (~25 Hz)<br/>'S1,S2,S3,S4\\n'" --> F["4. arduino_servo_bridge.ino<br/>รับค่า CSV → constrain(0..180) → PWM"]
-    F --> G["5. มอเตอร์ Servo 4 แกน<br/>Base / Shoulder / Elbow / Gripper"]
+    E -- "WebSerial 115200 baud (~25 Hz)<br/>'S1,S2,S3,S4\\n' & 'LIMIT:...'" --> F["4. arduino_servo_bridge.ino<br/>รับค่า CSV → Soft/Hard Limits → PWM"]
+    E -- "BroadcastChannel (~10 Hz)<br/>+ localStorage Snapshot" --> I["5. dashboard.html & diagnostics.html<br/>Factory KPI / Telemetry / Serial Monitor"]
+    F --> G["6. มอเตอร์ Servo 4 แกน<br/>Base / Shoulder / Elbow / Gripper"]
     E -- "ส่งออกเส้นทาง" --> H["robotic_arm_4dof_trajectory.json"]
 ```
+
+### หน้าต่างการทำงานทั้ง 3 หน้า (Multi-Page Control Room)
+* **`index.html` (🧊 3D Control):** หน้าควบคุมหลัก แสดงแขนกล 3D, MediaPipe Hand Tracking, Inverse/Forward Kinematics, ตั้งค่าขอบเขต Servo และเชื่อมต่อ USB WebSerial
+* **`dashboard.html` (📊 Factory Dashboard):** แดชบอร์ดโรงงานแสดง KPI, OEE, Cycle Count, กราฟ Real-Time 4-DOF Servo Telemetry (HTML5 Canvas ล้วน ออฟไลน์ได้), เกจข้อต่อ + พิกัด TCP และ Event/Alarm Log พร้อมส่งออก CSV
+* **`diagnostics.html` (🔧 IoT Diagnostics):** หน้าตรวจสอบฮาร์ดแวร์ แสดง Live Serial & Protocol Monitor, ตาราง Joint Safety Limits เทียบ Hard Limits, ผังขา Pin Arduino/ESP32 และส่งออก Diagnostics JSON
+* **การนำทาง (ปุ่มเมนู `☰` มุมซ้ายบน):** คลิกชื่อหน้าเพื่อสลับในแท็บเดิม (หากกล้องหรือ USB ทำงานอยู่บนหน้าหลัก ระบบจะเปิดแยกแท็บให้อัตโนมัติเพื่อไม่ให้สัญญาณหลุด) หรือกดปุ่ม **`↗`** ด้านขวาเพื่อเปิดแยกจอ Multi-Monitor โดยสลับไปโฟกัสแท็บเดิมไม่สร้างแท็บซ้ำ
 
 ---
 

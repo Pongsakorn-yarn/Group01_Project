@@ -44,6 +44,8 @@
   let streamPaused = false;
   let lastLiveReceivedAt = 0;
   let lastSnapshot = null;
+  let lastLimitsSig = '';
+  let lastPacketsSig = '';
 
   function syncThemeButton() {
     const cfg = Bus.readDisplaySettings();
@@ -72,12 +74,19 @@
 
   function renderPinoutTable() {
     if (!ui.pinoutTbody) return;
-    ui.pinoutTbody.innerHTML = '';
+    ui.pinoutTbody.textContent = '';
     Bus.PINOUT_SPEC.forEach((row) => {
       const tr = document.createElement('tr');
 
       const tdServo = document.createElement('td');
-      tdServo.innerHTML = `<strong>${row.servo}</strong><br /><span class="helper-text">${row.name}</span>`;
+      const strongServo = document.createElement('strong');
+      strongServo.textContent = row.servo;
+      const subServo = document.createElement('span');
+      subServo.className = 'helper-text';
+      subServo.textContent = row.name;
+      tdServo.appendChild(strongServo);
+      tdServo.appendChild(document.createElement('br'));
+      tdServo.appendChild(subServo);
 
       const tdArd = document.createElement('td');
       const ardCode = document.createElement('code');
@@ -90,7 +99,14 @@
       tdEsp.appendChild(espCode);
 
       const tdNote = document.createElement('td');
-      tdNote.innerHTML = `<code>${row.homeCmd}</code><br /><span class="helper-text">${row.note}</span>`;
+      const homeCode = document.createElement('code');
+      homeCode.textContent = row.homeCmd;
+      const subNote = document.createElement('span');
+      subNote.className = 'helper-text';
+      subNote.textContent = row.note;
+      tdNote.appendChild(homeCode);
+      tdNote.appendChild(document.createElement('br'));
+      tdNote.appendChild(subNote);
 
       tr.appendChild(tdServo);
       tr.appendChild(tdArd);
@@ -100,19 +116,22 @@
     });
   }
 
-  function renderSafetyLimitsTable(snap) {
+  function renderSafetyLimitsTable(snap, force = false) {
     if (!ui.limitsTbody) return;
     const limits = (snap && snap.jointLimits) ? snap.jointLimits : Bus.readJointLimits();
     const pwm = (snap && snap.pwm) ? snap.pwm : { s1: 90, s2: 90, s3: 90, s4: 63 };
     const clampedMap = (snap && snap.safety && snap.safety.limitClamped) ? snap.safety.limitClamped : {};
+    const isLiveSrc = Boolean(snap && snap.live && Date.now() - lastLiveReceivedAt <= Bus.LIVE_STALE_MS);
 
     if (ui.limitsSource) {
-      ui.limitsSource.textContent = (snap && snap.live && Date.now() - lastLiveReceivedAt <= Bus.LIVE_STALE_MS)
-        ? 'Source: Live Station'
-        : 'Source: localStorage';
+      ui.limitsSource.textContent = isLiveSrc ? 'Source: Live Station' : 'Source: localStorage';
     }
 
-    ui.limitsTbody.innerHTML = '';
+    const sig = JSON.stringify([limits, pwm, clampedMap]);
+    if (!force && sig === lastLimitsSig) return;
+    lastLimitsSig = sig;
+
+    ui.limitsTbody.textContent = '';
     ['j1', 'j2', 'j3', 'j4'].forEach((axis, idx) => {
       const hard = Bus.HARD_LIMITS[axis];
       const soft = limits[axis] || { min: hard.min, max: hard.max };
@@ -166,19 +185,34 @@
     });
   }
 
-  function renderPacketStream(packets) {
+  function renderPacketStream(packets, force = false) {
     if (streamPaused || !ui.packetTerminal) return;
-    ui.packetTerminal.innerHTML = '';
+    const list = Array.isArray(packets) ? packets : [];
+    const sig = list.length > 0 ? `${list.length}:${list[0].ts}:${list[0].dir}:${list[0].text}` : 'EMPTY';
+    if (!force && sig === lastPacketsSig) return;
+    lastPacketsSig = sig;
 
-    if (!Array.isArray(packets) || packets.length === 0) {
+    ui.packetTerminal.textContent = '';
+
+    if (list.length === 0) {
       const line = document.createElement('div');
       line.className = 'packet-line';
-      line.innerHTML = '<span class="packet-ts">--:--:--</span><span class="packet-dir tx">IDLE</span><span>ยังไม่มีแพ็กเก็ต USB Serial — เชื่อมต่อบอร์ดบนหน้า 3D Control เพื่อดูสตรีมสด</span>';
+      const ts = document.createElement('span');
+      ts.className = 'packet-ts';
+      ts.textContent = '--:--:--';
+      const dir = document.createElement('span');
+      dir.className = 'packet-dir tx';
+      dir.textContent = 'IDLE';
+      const msg = document.createElement('span');
+      msg.textContent = 'ยังไม่มีแพ็กเก็ต USB Serial — เชื่อมต่อบอร์ดบนหน้า 3D Control เพื่อดูสตรีมสด';
+      line.appendChild(ts);
+      line.appendChild(dir);
+      line.appendChild(msg);
       ui.packetTerminal.appendChild(line);
       return;
     }
 
-    packets.forEach((pkt) => {
+    list.forEach((pkt) => {
       const line = document.createElement('div');
       line.className = 'packet-line';
 
@@ -275,7 +309,7 @@
       ui.btnPauseStream.classList.toggle('active', streamPaused);
       ui.btnPauseStream.setAttribute('aria-pressed', String(streamPaused));
       if (!streamPaused && lastSnapshot && lastSnapshot.serial) {
-        renderPacketStream(lastSnapshot.serial.recentPackets || []);
+        renderPacketStream(lastSnapshot.serial.recentPackets || [], true);
       }
     });
   }
@@ -296,6 +330,7 @@
   });
 
   setInterval(updateConnectionBanner, 1000);
+  window.addEventListener('pagehide', () => bus.close());
 
   syncThemeButton();
   renderPinoutTable();

@@ -111,10 +111,15 @@
           const mn = Number(parsed[axis].min);
           const mx = Number(parsed[axis].max);
           if (Number.isFinite(mn) && Number.isFinite(mx)) {
-            out[axis] = {
-              min: clampNum(Math.round(mn), hard.min, hard.max - 5),
-              max: clampNum(Math.round(mx), hard.min + 5, hard.max)
-            };
+            let safeMin = clampNum(Math.round(mn), hard.min, hard.max - 5);
+            let safeMax = clampNum(Math.round(mx), hard.min + 5, hard.max);
+            if (safeMax - safeMin < 5) {
+              safeMax = clampNum(safeMin + 5, hard.min + 5, hard.max);
+              if (safeMax - safeMin < 5) {
+                safeMin = clampNum(safeMax - 5, hard.min, hard.max - 5);
+              }
+            }
+            out[axis] = { min: safeMin, max: safeMax };
           }
         }
       });
@@ -293,6 +298,13 @@
       } else if (e.key === EVENTS_KEY && role !== 'station') {
         if (!e.newValue) {
           emit('eventsCleared', null);
+        } else {
+          try {
+            const arr = JSON.parse(e.newValue);
+            if (Array.isArray(arr) && arr.length > 0) {
+              emit('event', arr[0]);
+            }
+          } catch (_) { /* ignore */ }
         }
       }
     });
@@ -470,10 +482,27 @@
     });
 
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && isOpen()) {
+      if (!isOpen()) return;
+      if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
         closeDrawer(true);
+        return;
+      }
+      if (e.key === 'Tab') {
+        const focusables = drawer.querySelectorAll(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     }, true);
 

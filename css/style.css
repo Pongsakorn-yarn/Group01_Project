@@ -319,7 +319,7 @@ input[type="range"]:focus-visible,
 }
 
 .brand-badge {
-  background: linear-gradient(135deg, #0284c7, #38bdf8);
+  background: linear-gradient(135deg, #075985, #0369a1);
   color: #fff;
   font-weight: 700;
   font-size: 11px;

@@ -78,6 +78,18 @@
     }, duration);
   }
 
+  // ผูกปุ่มเมนู 3 ขีด (Navigation Drawer) ก่อนตรวจสอบ Three.js เพื่อให้สลับหน้าได้แม้เปิดแบบออฟไลน์
+  let isHardwareActiveGuard = () => false;
+  if (window.ArmFactoryBus && window.ArmFactoryBus.initNavigationDrawer) {
+    window.ArmFactoryBus.initNavigationDrawer({
+      windowName: 'arm4dof_control',
+      isHardwareActive: () => isHardwareActiveGuard(),
+      onAutoPopout: (label) => {
+        showToast(`เปิด ${label} ในแท็บแยกอัตโนมัติเพื่อไม่ให้กล้องหรือ USB WebSerial หลุด`, 'info', 3500);
+      }
+    });
+  }
+
   if (typeof THREE === 'undefined') {
     if (cadDotEl) cadDotEl.className = 'dot warn';
     if (cadStatusEl) cadStatusEl.textContent = '3D Engine: CDN Offline';
@@ -1764,6 +1776,7 @@
 
   // ตัวแปรชั่วคราวสำหรับคำนวณพิกัด TCP (จองหน่วยความจำครั้งเดียวเพื่อไม่ให้สร้างออบเจกต์ใหม่ทุกเฟรม)
   const tmpTcpWorld = new THREE.Vector3();
+  const tmpTcpCad = new THREE.Vector3();
   const tmpInvCadMat = new THREE.Matrix4();
 
   /**
@@ -1858,7 +1871,7 @@
     cadRoot.updateMatrixWorld(true);
     tcpMarker.getWorldPosition(tmpTcpWorld);
     tmpInvCadMat.copy(cadRoot.matrixWorld).invert();
-    const tcpCad = tmpTcpWorld.clone().applyMatrix4(tmpInvCadMat);
+    const tcpCad = tmpTcpCad.copy(tmpTcpWorld).applyMatrix4(tmpInvCadMat);
 
     ui.tcpX.textContent = tcpCad.x.toFixed(1);
     ui.tcpY.textContent = tcpCad.y.toFixed(1);
@@ -2388,7 +2401,15 @@
       return;
     }
 
-    if (state.estop || now - state.lastSerialSend < 40) return;
+    if (state.estop) {
+      factoryMetrics.serial.txHz = 0;
+      factoryMetrics.serial.txWindowCount = 0;
+      return;
+    }
+    if (now - state.lastSerialSend > 1200) {
+      factoryMetrics.serial.txHz = 0;
+    }
+    if (now - state.lastSerialSend < 40) return;
     state.lastSerialSend = now;
     state.serialSending = true;
 
@@ -3021,6 +3042,7 @@
     if (state.serialPort) disconnectSerial();
     if (factoryBus) {
       factoryBus.publishTelemetry(buildFactorySnapshot(false), true);
+      factoryBus.close();
     }
   });
 
@@ -3042,6 +3064,8 @@
         ui.btnRecord.textContent = `⏺️ บันทึก (${state.recordedFrames.length}f)`;
       }
       if (state.camRunning) stopWebcam('Camera: Stopped (E-Stop)', 'dot warn');
+      factoryMetrics.serial.txHz = 0;
+      factoryMetrics.serial.txWindowCount = 0;
       state.target = { ...state.current };
       syncSlidersFromState();
       showToast('🛑 E-STOP ทำงาน: หยุดการเคลื่อนที่และหยุดส่งคำสั่ง Serial ชั่วคราว (กด Space หรือปุ่ม RELEASE เพื่อปลดล็อก)', 'error', 5500);
@@ -3070,6 +3094,8 @@
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (isSettingsModalOpen()) return;
+    const navBackdropEl = document.getElementById('nav-backdrop');
+    if (navBackdropEl && !navBackdropEl.hidden) return;
 
     if (e.code === 'Space') {
       e.preventDefault();
@@ -3117,15 +3143,7 @@
   }
 
   // ซิงก์ตำแหน่ง Slider ให้ตรงกับท่าเริ่มต้นที่ผ่านการ Clamp ขอบเขตปลอดภัยแล้ว และเริ่มลูปหลัก
-  if (window.ArmFactoryBus && window.ArmFactoryBus.initNavigationDrawer) {
-    window.ArmFactoryBus.initNavigationDrawer({
-      windowName: 'arm4dof_control',
-      isHardwareActive: () => Boolean(state.camRunning || state.serialPort),
-      onAutoPopout: (label) => {
-        showToast(`เปิด ${label} ในแท็บแยกอัตโนมัติเพื่อไม่ให้กล้องหรือ USB WebSerial หลุด`, 'info', 3500);
-      }
-    });
-  }
+  isHardwareActiveGuard = () => Boolean(state.camRunning || state.serialPort);
   syncSlidersFromState();
   updateLimitIndicatorsUI();
   updateArmKinematics();
