@@ -272,10 +272,15 @@
 
   function setCardCollapsed(card, collapsed, persist = true) {
     if (!card) return;
-    card.classList.toggle('is-collapsed', Boolean(collapsed));
+    const isCollapsed = Boolean(collapsed);
+    card.classList.toggle('is-collapsed', isCollapsed);
     const toggleBtn = card.querySelector('.card-toggle');
     if (toggleBtn) {
-      toggleBtn.setAttribute('aria-expanded', String(!collapsed));
+      toggleBtn.setAttribute('aria-expanded', String(!isCollapsed));
+    }
+    const collapseEl = card.querySelector('.card-collapse');
+    if (collapseEl) {
+      collapseEl.inert = isCollapsed;
     }
     const parentPanel = card.closest('.left-panel, .right-panel');
     if (parentPanel) syncPanelCardsToggleBtn(parentPanel.id);
@@ -1816,6 +1821,10 @@
 
   syncLayoutOffsets();
   syncRendererToDisplaySize();
+
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => syncLayoutOffsets());
+  }
 
   if (typeof ResizeObserver !== 'undefined') {
     const ro = new ResizeObserver(() => handleViewportResize());

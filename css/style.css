@@ -125,7 +125,7 @@ input[type="range"]:focus-visible,
   touch-action: none;
 }
 
-/* SECTION 02: แถบสถานะด้านบน (Top Header Bar, z-index: 24) */
+/* SECTION 02: แถบสถานะด้านบน (Top Header Bar, z-index: 32 — สูงกว่า Drawer & Mobile Nav เพื่อคงปุ่ม E-STOP เสมอ) */
 .top-bar {
   position: fixed;
   top: calc(10px + var(--safe-top));
@@ -143,7 +143,7 @@ input[type="range"]:focus-visible,
   flex-wrap: wrap;
   gap: 8px 12px;
   padding: 8px 14px;
-  z-index: 24;
+  z-index: 32;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
 }
 
@@ -469,8 +469,16 @@ body.hud-hidden .right-panel {
   border-bottom-color: transparent;
 }
 
-.card-toggle {
+.card-heading {
   flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.card-toggle {
+  width: 100%;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -531,6 +539,8 @@ body.hud-hidden .right-panel {
   overflow: hidden;
   min-height: 0;
   padding-top: 9px;
+  visibility: visible;
+  transition: visibility 0.24s ease;
 }
 
 .collapsible-card.is-collapsed .card-collapse {
@@ -541,6 +551,7 @@ body.hud-hidden .right-panel {
 
 .collapsible-card.is-collapsed .card-body {
   padding-top: 0;
+  visibility: hidden;
 }
 
 .fps-badge {
