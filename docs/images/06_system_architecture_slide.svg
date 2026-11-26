@@ -39,7 +39,7 @@
   <rect x="60" y="28" width="1800" height="96" rx="16" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.8"/>
   <rect x="60" y="28" width="12" height="96" rx="6" fill="#1e3a5f"/>
   <text x="98" y="74" class="sans main-title">SYSTEM ARCHITECTURE</text>
-  <text x="98" y="108" class="sans main-sub">ภาพรวมระบบ Digital Twin แขนกล 4-DOF (3D CAD → Web AI → ESP32 → Servos)</text>
+  <text x="98" y="108" class="sans main-sub">ภาพรวมระบบ Digital Twin แขนกล 4-DOF (3D CAD → Web AI → GOOUUU ESP32-S3-CAM → 3 Servos)</text>
 
   <rect x="1556" y="52" width="276" height="48" rx="24" fill="#1e3a5f"/>
   <text x="1694" y="76" class="sans badge-txt">ISY49303 IoT • GROUP 01</text>
@@ -137,7 +137,7 @@
     <!-- CARD 3: ESP32 Controller -->
     <rect x="992" y="502" width="394" height="498" rx="18" fill="#ffffff" stroke="#ea580c" stroke-width="2.6"/>
     <path d="M 992 520 Q 992 502 1010 502 L 1368 502 Q 1386 502 1386 520 L 1386 578 L 992 578 Z" fill="#ea580c"/>
-    <text x="1189" y="540" class="sans card-hdr">3. ESP32 Controller</text>
+    <text x="1189" y="540" class="sans card-hdr">3. GOOUUU ESP32-S3-CAM</text>
 
     <!-- Microchip Icon -->
     <circle cx="1189" cy="662" r="52" fill="#fff7ed" stroke="#fed7aa" stroke-width="2"/>

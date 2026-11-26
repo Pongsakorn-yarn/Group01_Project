@@ -14,7 +14,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description"
-    content="IoT Hardware Diagnostics & Pinout Reference สำหรับตรวจสอบแพ็กเก็ต WebSerial, ขอบเขตความปลอดภัย Servo และผังการต่อสาย Arduino / ESP32" />
+    content="IoT Hardware Diagnostics & Pinout Reference สำหรับตรวจสอบแพ็กเก็ต WebSerial (3 Servo), ขอบเขตความปลอดภัย และผังการต่อสาย GOOUUU ESP32-S3-CAM" />
   <meta name="theme-color" content="#090d16" />
   <title>IoT Diagnostics &amp; Pinout — 4-DOF Robotic Arm Digital Twin</title>
 
@@ -69,7 +69,7 @@
       <span class="brand-badge">IOT DIAGNOSTICS</span>
       <div class="brand-text">
         <h1 class="brand-title">Hardware Diagnostics &amp; Pinout Reference</h1>
-        <span class="brand-subtitle">WebSerial 115200 8N1 • Safety Limits • Arduino UNO/Nano &amp; ESP32</span>
+        <span class="brand-subtitle">WebSerial 115200 8N1 • GOOUUU ESP32-S3-CAM (1×MG996R + 2×MG90S)</span>
       </div>
     </div>
 
@@ -186,12 +186,12 @@
           <div class="proto-stat-val" id="diag-handshake">Waiting</div>
         </div>
         <div class="proto-stat">
-          <div class="proto-stat-label">คำสั่ง Servo ล่าสุด (S1..S4)</div>
-          <div class="proto-stat-val selectable" id="diag-last-packet">90,90,90,63</div>
+          <div class="proto-stat-label">คำสั่ง Servo จริงล่าสุด (Base,GripL,GripR)</div>
+          <div class="proto-stat-val selectable" id="diag-last-packet">90,63,63</div>
         </div>
         <div class="proto-stat">
           <div class="proto-stat-label">คำสั่งซิงก์ขอบเขต (LIMIT)</div>
-          <div class="proto-stat-val selectable" id="diag-last-limit">LIMIT:0,180,45,155,35,145,0,180</div>
+          <div class="proto-stat-val selectable" id="diag-last-limit">LIMIT:0,180,0,180,0,180</div>
         </div>
       </div>
 
@@ -233,9 +233,9 @@
         </p>
       </section>
 
-      <section class="panel-card" aria-label="ผังอ้างอิงการต่อสายฮาร์ดแวร์ Arduino UNO/Nano และ ESP32">
+      <section class="panel-card" aria-label="ผังอ้างอิงการต่อสายฮาร์ดแวร์ GOOUUU ESP32-S3-CAM">
         <div class="panel-card-header">
-          <h2 class="panel-card-title">🔌 Hardware Pinout &amp; Wiring Guide</h2>
+          <h2 class="panel-card-title">🔌 Hardware Pinout — GOOUUU ESP32-S3-CAM (3 Servo จริง)</h2>
           <span class="setting-badge">arduino_servo_bridge.ino</span>
         </div>
 
@@ -243,9 +243,9 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th scope="col">Servo / หน้าที่</th>
-                <th scope="col">Arduino UNO/Nano</th>
-                <th scope="col">ESP32</th>
+                <th scope="col">Servo จริง / หน้าที่</th>
+                <th scope="col">Arduino (สำรอง)</th>
+                <th scope="col">GOOUUU ESP32-S3-CAM</th>
                 <th scope="col">Home / หมายเหตุ</th>
               </tr>
             </thead>
@@ -254,11 +254,11 @@
         </div>
 
         <div class="power-warning-box" role="note" aria-label="ข้อควรระวังด้านแหล่งจ่ายไฟและการต่อสายกราวด์ร่วม">
-          <strong>⚠️ ข้อควรระวังสำคัญด้านแหล่งจ่ายไฟ (Power &amp; Grounding):</strong>
+          <strong>⚠️ ข้อควรระวังสำคัญสำหรับ GOOUUU ESP32-S3-CAM + MG996R + 2×MG90S:</strong>
           <ul>
-            <li>ใช้แหล่งจ่ายไฟ <strong>5V ภายนอก (2A ขึ้นไป)</strong> เลี้ยงมอเตอร์ Servo ทั้ง 4 ตัวโดยตรง ห้ามดึงไฟจากขา 5V ของบอร์ดผ่านสาย USB เพราะจะทำให้บอร์ดรีเซ็ตหรือพอร์ต USB ตัดการเชื่อมต่อ</li>
-            <li>ต้องต่อสายกราวด์ร่วม (<strong>Common GND</strong>) ระหว่างแหล่งจ่ายไฟ 5V ภายนอก กับขา <code>GND</code> ของบอร์ด Arduino / ESP32 ทุกครั้ง เพื่อให้สัญญาณ PWM ทำงานถูกต้อง</li>
-            <li>สำหรับ ESP32 เฟิร์มแวร์ตั้งค่า PWM ที่ <code>50 Hz</code> (พัลส์ <code>500–2400 µs</code>) และย้าย Servo 2 ไปใช้ <code>GPIO 26</code> เพื่อเลี่ยงขา Strapping Pin (<code>GPIO 12</code>)</li>
+            <li>ใช้แหล่งจ่ายไฟ <strong>5V DC ภายนอก (3A–5A ขึ้นไป)</strong> + ตัวเก็บประจุ <code>1000µF</code> เลี้ยง MG996R และ 2×MG90S โดยตรง ห้ามดึงไฟจากพอร์ต USB ของบอร์ด</li>
+            <li>ต้องต่อสายกราวด์ร่วม (<strong>Common GND</strong>) ระหว่างแหล่งจ่ายไฟ 5V ภายนอก กับขา <code>GND</code> ของบอร์ด GOOUUU ESP32-S3-CAM ทุกครั้ง</li>
+            <li>ใช้ขา <code>GPIO 1, 2, 41</code> (เลี่ยงขากล้อง <code>4–18</code>, Internal Flash/PSRAM <code>26–37</code>, SD <code>38–40</code> และ Strapping <code>0/3/45/46</code>) และแนะนำให้เสียบสาย USB-C ที่ช่อง <strong><code>UART</code></strong> (ส่วนแกน Shoulder / Elbow ทำงานแบบ Sim 3D)</li>
           </ul>
         </div>
       </section>

@@ -42,7 +42,7 @@
   <rect x="44" y="42" width="165" height="28" rx="6" fill="#0284c7"/>
   <text x="126.5" y="61" text-anchor="middle" class="font-sans stage-badge">ISY49303 IoT • GROUP 01</text>
   <text x="224" y="63" class="font-sans title">แผนภาพที่ 1: ภาพรวมสถาปัตยกรรมและเส้นทางข้อมูลระดับไฟล์ (System Data Flow)</text>
-  <text x="44" y="92" class="font-sans subtitle">4-DOF Robotic Arm Digital Twin — แสดงลำดับการเชื่อมโยงไฟล์ตั้งแต่ต้นฉบับ CAD, เว็บเบราว์เซอร์ (Three.js + MediaPipe) จนถึงบอร์ด Arduino / ESP32</text>
+  <text x="44" y="92" class="font-sans subtitle">4-DOF Robotic Arm Hybrid Digital Twin — แสดงลำดับการเชื่อมโยงไฟล์ตั้งแต่ต้นฉบับ CAD, เว็บเบราว์เซอร์ (Three.js + MediaPipe) จนถึงบอร์ด GOOUUU ESP32-S3-CAM</text>
   <line x1="44" y1="108" x2="1556" y2="108" stroke="#e2e8f0" stroke-width="1.5"/>
 
   <!-- ===================================================================== -->
@@ -165,7 +165,7 @@
   <rect x="1196" y="366" width="338" height="170" rx="10" fill="#ffffff" stroke="#d97706" stroke-width="2" filter="url(#shadow)"/>
   <rect x="1196" y="366" width="338" height="30" rx="10" fill="#d97706"/>
   <rect x="1196" y="384" width="338" height="12" fill="#d97706"/>
-  <text x="1365" y="386" text-anchor="middle" class="font-sans stage-badge">ขั้นที่ 4: เฟิร์มแวร์ IoT (Arduino / ESP32)</text>
+  <text x="1365" y="386" text-anchor="middle" class="font-sans stage-badge">ขั้นที่ 4: GOOUUU ESP32-S3-CAM</text>
   <text x="1210" y="419" class="font-mono box-file" style="fill:#b45309;">arduino_servo_bridge.ino</text>
   <text x="1210" y="443" class="font-sans box-desc">• loop(): Serial.readStringUntil('\n')</text>
   <text x="1210" y="463" class="font-sans box-desc">• แยกค่า 4 แกนด้วย sscanf("%d,%d,%d,%d")</text>
@@ -179,12 +179,12 @@
 
   <!-- กล่องมอเตอร์ Servo จริง -->
   <rect x="1196" y="586" width="338" height="145" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2" filter="url(#shadow)"/>
-  <text x="1212" y="610" class="font-sans box-title" style="fill:#92400e;">ขั้นที่ 5: ฮาร์ดแวร์แขนกลจริง (4-DOF Servos)</text>
-  <text x="1212" y="634" class="font-sans box-desc">• Servo 1 (Base Yaw)      : Arduino D3 | ESP32 G13</text>
-  <text x="1212" y="655" class="font-sans box-desc">• Servo 2 (Shoulder)      : Arduino D5 | ESP32 G12</text>
-  <text x="1212" y="676" class="font-sans box-desc">• Servo 3 (Elbow 4-Bar)  : Arduino D6 | ESP32 G14</text>
-  <text x="1212" y="697" class="font-sans box-desc">• Servo 4 (Gripper)       : Arduino D9 | ESP32 G27</text>
-  <text x="1212" y="719" class="font-sans box-small" style="fill:#92400e;">ท่าเริ่มต้น (Home Pose): 90°, 90°, 90°, 60°</text>
+  <text x="1212" y="610" class="font-sans box-title" style="fill:#92400e;">ขั้นที่ 5: ฮาร์ดแวร์จริง (3 Servos + Sim 3D)</text>
+  <text x="1212" y="634" class="font-sans box-desc">• S1 Base (MG996R)        : S3-CAM GPIO 1</text>
+  <text x="1212" y="655" class="font-sans box-desc">• S2 Gripper L (MG90S #1) : S3-CAM GPIO 2</text>
+  <text x="1212" y="676" class="font-sans box-desc">• S3 Gripper R (MG90S #2) : S3-CAM GPIO 41</text>
+  <text x="1212" y="697" class="font-sans box-desc">• Shoulder / Elbow        : Virtual 3D Sim</text>
+  <text x="1212" y="719" class="font-sans box-small" style="fill:#92400e;">Home (Base, GripL, GripR): 90°, 63°, 63°</text>
 
   <!-- กล่องส่งออก Trajectory JSON ด้านล่าง js/app.js -->
   <line x1="909" y1="621" x2="909" y2="658" stroke="#059669" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrow-emerald)"/>

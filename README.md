@@ -1,7 +1,7 @@
 # 4-DOF Robotic Arm Digital Twin (Hand Tracking & IoT WebSerial)
 
 > **รายวิชา:** ISY49303 IoT | **กลุ่ม:** Group 01 (`Group01_Project`)
-> **ประเภทงาน:** ระบบแขนกล 4 แกน (4-Bar Parallel Linkage) แบบ Digital Twin บนเว็บ ควบคุมด้วยมือผ่านกล้องเว็บแคม (MediaPipe Hands) และส่งคำสั่งควบคุมฮาร์ดแวร์จริงแบบ Real-Time ผ่าน USB WebSerial ไปยังบอร์ด Arduino / ESP32
+> **ประเภทงาน:** ระบบแขนกล 4 แกน (4-Bar Parallel Linkage) แบบ Hybrid Digital Twin บนเว็บ ควบคุมด้วยมือผ่านกล้องเว็บแคม (MediaPipe Hands) และส่งคำสั่งควบคุมฮาร์ดแวร์จริง **3 Servo (`1×MG996R` ฐาน + `2×MG90S` มือหนีบแยกซ้าย/ขวา)** ผ่าน USB WebSerial ไปยังบอร์ด **GOOUUU ESP32-S3-CAM** (พร้อมคงการจำลองขยับขึ้น-ลงของ Shoulder/Elbow บน 3D และ Dashboard ครบถ้วน)
 
 ---
 
@@ -15,9 +15,9 @@ flowchart LR
     C["models/Robotic_Arm_4DOF_Assembly.sc<br/>ไฟล์ต้นฉบับ CAD"] -. สกัด Mesh 39 ชิ้น .-> D["js/arm_cad_data.js<br/>ข้อมูลเรขาคณิต Base64"]
     D --> E["3. js/app.js (Core Engine)<br/>MediaPipe Hands → 3D IK → EMA Filter → 4-Bar FK"]
     B <--> E
-    E -- "WebSerial 115200 baud (~25 Hz)<br/>'S1,S2,S3,S4\\n' & 'LIMIT:...'" --> F["4. arduino_servo_bridge.ino<br/>รับค่า CSV → Soft/Hard Limits → PWM"]
+    E -- "WebSerial 115200 baud (~25 Hz)<br/>'BASE,GRIP_L,GRIP_R\\n' & 'LIMIT:...'" --> F["4. arduino_servo_bridge.ino<br/>GOOUUU ESP32-S3-CAM → PWM 3 ช่อง"]
     E -- "BroadcastChannel (~10 Hz)<br/>+ localStorage Snapshot" --> I["5. dashboard.html & diagnostics.html<br/>Factory KPI / Telemetry / Serial Monitor"]
-    F --> G["6. มอเตอร์ Servo 4 แกน<br/>Base / Shoulder / Elbow / Gripper"]
+    F --> G["6. มอเตอร์ Servo จริง 3 ตัว<br/>MG996R (Base) + 2×MG90S (Gripper L/R)"]
     E -- "ส่งออกเส้นทาง" --> H["robotic_arm_4dof_trajectory.json"]
 ```
 
@@ -47,8 +47,8 @@ flowchart LR
 
 * **เบราว์เซอร์:** Google Chrome หรือ Microsoft Edge เวอร์ชันล่าสุด *(จำเป็นสำหรับ WebSerial API)*
 * **รันบนเครื่อง (Local):** Python 3 (สำหรับรัน `start_digital_twin.bat`)
-* **ฝั่งฮาร์ดแวร์ (ถ้าต่อแขนกลจริง):** บอร์ด Arduino Uno/Nano หรือ ESP32, มอเตอร์ Servo 4 ตัว, สาย USB Data และ **แหล่งจ่ายไฟ 5V ภายนอก (2A ขึ้นไป) สำหรับเลี้ยง Servo โดยต่อกราวด์ร่วม (Common GND) กับบอร์ด**
-  * *หมายเหตุสำหรับ ESP32:* ติดตั้งไลบรารี `ESP32Servo` ผ่าน Arduino Library Manager ก่อนอัปโหลด
+* **ฝั่งฮาร์ดแวร์ (ถ้าต่อแขนกลจริง):** บอร์ด **GOOUUU ESP32-S3-CAM** (`N16R8`), มอเตอร์ **1× MG996R** (ฐาน) + **2× MG90S** (มือหนีบซ้าย/ขวา), สาย USB-C Data (เสียบช่อง **`UART`**) และ **แหล่งจ่ายไฟ 5V ภายนอก (3A–5A ขึ้นไป) + C `1000µF` โดยต่อกราวด์ร่วม (Common GND) กับบอร์ด**
+  * *หมายเหตุสำหรับ Arduino IDE:* ใช้ Board Package `esp32` (v3.x) เลือก **`ESP32S3 Dev Module`** (`16MB Flash`, `OPI PSRAM`) และติดตั้งไลบรารี **`ESP32Servo` (v3.0.5+)** ก่อนอัปโหลด
 
 ---
 
@@ -57,18 +57,17 @@ flowchart LR
 ### ขั้นที่ 1: อัปโหลดเฟิร์มแวร์และต่อวงจร (ข้ามได้หากทดสอบเฉพาะ 3D บนเว็บ)
 1. เปิดไฟล์ `arduino_servo_bridge/arduino_servo_bridge.ino` ด้วย Arduino IDE
 2. เลือกบอร์ดและพอร์ต COM ที่ถูกต้อง แล้วกด **Upload**
-3. ต่อสายสัญญาณ Servo ทั้ง 4 แกนตามตารางด้านล่าง:
+3. ต่อสายสัญญาณ Servo จริงทั้ง 3 ตัวบนบอร์ด **GOOUUU ESP32-S3-CAM** ตามตารางด้านล่าง *(ส่วนแกน Shoulder และ Elbow ทำงานจำลองขึ้น-ลงบน 3D Model & Dashboard)*:
 
-| ช่อง Servo | หน้าที่ข้อต่อ (DOF) | ขา Arduino (Uno/Nano) | ขา ESP32 | ท่าเริ่มต้น (Home) |
+| ช่อง Servo จริง | มอเตอร์ / หน้าที่ | ขา GOOUUU ESP32-S3-CAM | Arduino (สำรอง) | ท่าเริ่มต้น (Home) |
 | :---: | :--- | :---: | :---: | :---: |
-| **Servo 1** | Base Yaw (หมุนฐานซ้าย-ขวา) | `D3` | `GPIO 13` | `90°` |
-| **Servo 2** | Shoulder Pitch (ยก-ก้มแขนท่อนบน) | `D5` | `GPIO 26` | `90°` |
-| **Servo 3** | Elbow Pitch (ศอกกลไก 4-Bar) | `D6` | `GPIO 14` | `90°` |
-| **Servo 4** | Gripper Claws (หัวคีบเฟืองคู่) | `D9` | `GPIO 27` | `63°` (แมปช่วงปลอดภัย `20°–120°`) |
+| **Servo 1** | **MG996R** — Base Yaw (หมุนฐานซ้าย-ขวา) | **`GPIO 1`** | `D3` | `90°` |
+| **Servo 2** | **MG90S #1** — Gripper Left (ก้ามหนีบซ้าย) | **`GPIO 2`** | `D5` | `63°` (HW `20°–120°`) |
+| **Servo 3** | **MG90S #2** — Gripper Right (ก้ามหนีบขวา) | **`GPIO 41`** | `D6` | `63°` (Invert สมมาตร • HW `20°–120°`) |
 
-> ดูรายละเอียดการต่อสายไฟ 5V แยก, Common GND และตัวเก็บประจุได้ที่ [`docs/WIRING_GUIDE.md`](./docs/WIRING_GUIDE.md) และใช้ [`servo_test_esp32/servo_test_esp32.ino`](./servo_test_esp32/servo_test_esp32.ino) ทดสอบ Servo ก่อนประกอบแขนกลจริง
+> ดูรายละเอียดขาที่ห้ามใช้บน GOOUUU ESP32-S3-CAM, การต่อไฟ 5V 3A–5A, Common GND และตั้งค่า Arduino IDE ได้ที่ [`docs/WIRING_GUIDE.md`](./docs/WIRING_GUIDE.md) และใช้ [`servo_test_esp32/servo_test_esp32.ino`](./servo_test_esp32/servo_test_esp32.ino) ทดสอบ Servo ทั้ง 3 ตัวก่อนประกอบจริง
 
-> **ข้อควรระวังด้านไฟฟ้า:** ห้ามดึงไฟ 5V จากขาบอร์ด Arduino/ESP32 มาเลี้ยง Servo พร้อมกันทั้ง 4 ตัว เพราะจะทำให้บอร์ดรีเซ็ตหรือพอร์ต USB ตัดการเชื่อมต่อ ให้ใช้แหล่งจ่าย 5V แยกและเชื่อมสาย `GND` เข้าด้วยกัน
+> **ข้อควรระวังด้านไฟฟ้า:** ห้ามดึงไฟ 5V จากบอร์ด GOOUUU ESP32-S3-CAM หรือพอร์ต USB มาเลี้ยง `MG996R` + `2×MG90S` เพราะกระแสพีคสูงจะทำให้บอร์ดรีเซ็ต ให้ใช้แหล่งจ่าย 5V 3A–5A แยกและเชื่อมสาย `GND` เข้าด้วยกัน
 
 ### ขั้นที่ 2: เปิดระบบ Digital Twin
 เลือกวิธีใดวิธีหนึ่ง:
@@ -89,7 +88,7 @@ flowchart LR
    * `Direct Joint Mapping`: คุมองศา Servo 1–4 โดยตรงจากตำแหน่งและการเอียงมือ
 3. **ควบคุมด้วยตัวเลื่อน & คีย์ลัด:** ปรับค่า DOF 1–4 และ Wrist Trim ที่แผงด้านขวา หรือใช้คีย์ลัด `H` (Home Pose), `R` (รีเซ็ตมุมกล้อง), `F` (ซ่อน/แสดงแผง), `Space` (หยุดฉุกเฉิน E-Stop), `Esc` (ปิดแผง/ยกเลิกเลือกชิ้นส่วน)
 4. **โหมดจำลองอัตโนมัติ & บันทึกท่าทาง:** ทดลองกด **Pick & Place**, **วาดวงกลม IK**, หรือใช้ปุ่ม **Record / Play / ส่งออก JSON** เพื่อบันทึกเส้นทางเคลื่อนที่
-5. **เชื่อมต่อบอร์ดจริง (WebSerial 2-Way):** ปิด Serial Monitor ใน Arduino IDE ก่อน จากนั้นกด **เชื่อมต่อ Arduino / ESP32 (WebSerial)** แล้วเลือกพอร์ต COM ของบอร์ด *(ระบบรองรับการอ่านสัญญาณ `READY:4DOF_BRIDGE` ตอบกลับจากบอร์ดเพื่อยืนยันสถานะพร้อมทำงาน)*
+5. **เชื่อมต่อบอร์ดจริง (WebSerial 2-Way):** ปิด Serial Monitor ใน Arduino IDE ก่อน เสียบสาย USB-C ช่อง **`UART`** จากนั้นกด **เชื่อมต่อ GOOUUU ESP32-S3-CAM (WebSerial)** แล้วเลือกพอร์ต COM ของบอร์ด *(ระบบส่ง `PING` และรับสัญญาณ `READY:3SERVO_S3CAM` เพื่อยืนยันสถานะพร้อมทำงาน)*
 
 ### ขั้นที่ 4: การตรวจสอบและส่งออกไฟล์ 3D
 * บนแผงด้านซ้ายสามารถใช้ **Exploded View**, **X-Ray**, **เส้นขอบ CAD** และคลิกที่ชิ้นส่วนใดก็ได้บนโมเดล 3D เพื่อดูข้อมูลชิ้นส่วน (39 ชิ้น)

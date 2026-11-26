@@ -142,25 +142,40 @@
       const isRestricted = soft.min > hard.min || soft.max < hard.max;
 
       const tr = document.createElement('tr');
+      const hw = (snap && snap.hwPwm) ? snap.hwPwm : { base: pwm.s1, gripL: pwm.s4, gripR: pwm.s4 };
 
       const tdAxis = document.createElement('td');
-      tdAxis.textContent = hard.label;
+      tdAxis.textContent = `${hard.label} `;
+      const hwBadge = document.createElement('span');
+      hwBadge.className = hard.isHardware ? 'hw-badge hw-real' : 'hw-badge hw-sim';
+      hwBadge.textContent = hard.hwTag || (hard.isHardware ? 'HW' : 'SIM');
+      tdAxis.appendChild(hwBadge);
 
       const tdSoft = document.createElement('td');
       const softCode = document.createElement('code');
-      softCode.textContent = `${soft.min}${hard.unit} .. ${soft.max}${hard.unit} (PWM ${softPwmMin}°–${softPwmMax}°)`;
+      softCode.textContent = hard.isHardware
+        ? `${soft.min}${hard.unit} .. ${soft.max}${hard.unit} (PWM ${softPwmMin}°–${softPwmMax}°)`
+        : `${soft.min}${hard.unit} .. ${soft.max}${hard.unit} (Sim 3D)`;
       tdSoft.appendChild(softCode);
 
       const tdHard = document.createElement('td');
       const hardCode = document.createElement('code');
       hardCode.textContent = axis === 'j4'
         ? `${hard.min}%..${hard.max}% (HW ${hard.hwMin}°–${hard.hwMax}°)`
-        : `${hard.min}°..+${hard.max}° (PWM ${hard.pwmMin}°–${hard.pwmMax}°)`;
+        : (hard.isHardware
+          ? `${hard.min}°..+${hard.max}° (PWM ${hard.pwmMin}°–${hard.pwmMax}°)`
+          : `${hard.min}°..+${hard.max}° (Sim 3D)`);
       tdHard.appendChild(hardCode);
 
       const tdPwm = document.createElement('td');
       tdPwm.className = 'mono-text';
-      tdPwm.textContent = `${curPwm}°`;
+      if (axis === 'j4') {
+        tdPwm.textContent = `L:${hw.gripL}° R:${hw.gripR}°`;
+      } else if (hard.isHardware) {
+        tdPwm.textContent = `${hw.base}°`;
+      } else {
+        tdPwm.textContent = 'Sim Only';
+      }
 
       const tdStatus = document.createElement('td');
       const badge = document.createElement('span');
@@ -262,14 +277,14 @@
 
     const ser = snap.serial || {};
     ui.serialStatus.textContent = ser.connected
-      ? (ser.boardReady ? 'Connected • READY:4DOF_BRIDGE' : 'Connected • 115200')
+      ? (ser.boardReady ? 'Connected • READY:3SERVO_S3CAM' : 'Connected • 115200')
       : 'Disconnected';
     ui.txHz.textContent = `${Number(ser.txHz || 0).toFixed(1)} Hz`;
     ui.txCount.textContent = String(ser.txCount || 0);
     ui.handshake.textContent = ser.limitsAcked
-      ? 'READY:4DOF_BRIDGE / OK:LIMITS'
+      ? 'READY:3SERVO_S3CAM / OK:LIMITS'
       : (ser.lastHandshake || 'Waiting');
-    ui.lastPacket.textContent = ser.lastPacket || '90,90,90,63';
+    ui.lastPacket.textContent = ser.lastPacket || '90,63,63';
     ui.lastLimit.textContent = ser.lastLimitCmd || Bus.buildLimitCommandFromLimits(snap.jointLimits);
 
     renderPacketStream(ser.recentPackets || []);

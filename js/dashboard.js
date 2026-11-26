@@ -176,7 +176,7 @@
     });
   }
 
-  function renderGauge(axis, val, pwmVal, lim, clamped) {
+  function renderGauge(axis, val, pwmVal, lim, clamped, hwPwm) {
     const hard = Bus.HARD_LIMITS[axis];
     const min = lim && typeof lim.min === 'number' ? lim.min : hard.min;
     const max = lim && typeof lim.max === 'number' ? lim.max : hard.max;
@@ -195,9 +195,15 @@
     if (card) card.classList.toggle('is-limited', Boolean(clamped));
     if (pill) pill.hidden = !clamped;
     if (valEl) {
-      valEl.textContent = axis === 'j4'
-        ? `${Math.round(val)}% (PWM ${pwmVal}°)`
-        : `${Number(val).toFixed(1)}° (PWM ${pwmVal}°)`;
+      if (axis === 'j4') {
+        const gl = hwPwm && typeof hwPwm.gripL === 'number' ? hwPwm.gripL : pwmVal;
+        const gr = hwPwm && typeof hwPwm.gripR === 'number' ? hwPwm.gripR : pwmVal;
+        valEl.textContent = `${Math.round(val)}% (L:${gl}° R:${gr}°)`;
+      } else if (axis === 'j1') {
+        valEl.textContent = `${Number(val).toFixed(1)}° (PWM ${pwmVal}°)`;
+      } else {
+        valEl.textContent = `${Number(val).toFixed(1)}° (Sim 3D)`;
+      }
     }
     if (track) track.setAttribute('aria-valuenow', String(pct));
     if (fill) fill.style.width = `${pct}%`;
@@ -241,7 +247,7 @@
 
     ui.metaActiveMode.textContent = prod.activeMode || 'Manual / Standby';
     ui.metaCamState.textContent = cam.running ? (cam.handDetected ? 'Live (Hand Locked)' : 'Live (No Hand)') : 'Standby';
-    ui.metaSerialState.textContent = ser.connected ? (ser.boardReady ? '4DOF Ready (115200)' : 'Connected (115200)') : 'Disconnected';
+    ui.metaSerialState.textContent = ser.connected ? (ser.boardReady ? 'S3-CAM Ready (3 Servo)' : 'Connected (115200)') : 'Disconnected';
     ui.metaLastUpdate.textContent = snap.timestamp ? Bus.formatTime(snap.timestamp) : '-';
 
     ui.kpiCycleCount.textContent = String(prod.cycleCount || 0);
@@ -281,21 +287,24 @@
     }
 
     if (snap.joints && snap.pwm) {
-      renderGauge('j1', snap.joints.j1, snap.pwm.s1, lims.j1, safety.limitClamped && safety.limitClamped.j1);
-      renderGauge('j2', snap.joints.j2, snap.pwm.s2, lims.j2, safety.limitClamped && safety.limitClamped.j2);
-      renderGauge('j3', snap.joints.j3, snap.pwm.s3, lims.j3, safety.limitClamped && safety.limitClamped.j3);
-      renderGauge('j4', snap.joints.j4, snap.pwm.s4, lims.j4, safety.limitClamped && safety.limitClamped.j4);
+      const hw = snap.hwPwm || { base: snap.pwm.s1, gripL: snap.pwm.s4, gripR: snap.pwm.s4 };
+      renderGauge('j1', snap.joints.j1, hw.base, lims.j1, safety.limitClamped && safety.limitClamped.j1, hw);
+      renderGauge('j2', snap.joints.j2, snap.pwm.s2, lims.j2, safety.limitClamped && safety.limitClamped.j2, hw);
+      renderGauge('j3', snap.joints.j3, snap.pwm.s3, lims.j3, safety.limitClamped && safety.limitClamped.j3, hw);
+      renderGauge('j4', snap.joints.j4, snap.pwm.s4, lims.j4, safety.limitClamped && safety.limitClamped.j4, hw);
 
       if (chartMode === 'pwm') {
-        ui.legS1.textContent = `${snap.pwm.s1}°`;
-        ui.legS2.textContent = `${snap.pwm.s2}°`;
-        ui.legS3.textContent = `${snap.pwm.s3}°`;
-        ui.legS4.textContent = `${snap.pwm.s4}°`;
+        ui.legS1.textContent = `${hw.base}°`;
+        ui.legS2.textContent = `${Number(snap.joints.j2).toFixed(1)}°`;
+        ui.legS3.textContent = `${Number(snap.joints.j3).toFixed(1)}°`;
+        ui.legS4.textContent = `L:${hw.gripL}° R:${hw.gripR}°`;
       } else {
         ui.legS1.textContent = `${Number(snap.joints.j1).toFixed(1)}°`;
         ui.legS2.textContent = `${Number(snap.joints.j2).toFixed(1)}°`;
         ui.legS3.textContent = `${Number(snap.joints.j3).toFixed(1)}°`;
-        ui.legS4.textContent = `${Math.round(snap.joints.j4)}%`;
+        const glPct = typeof snap.joints.j4L === 'number' ? Math.round(snap.joints.j4L) : Math.round(snap.joints.j4);
+        const grPct = typeof snap.joints.j4R === 'number' ? Math.round(snap.joints.j4R) : Math.round(snap.joints.j4);
+        ui.legS4.textContent = `L:${glPct}% R:${grPct}%`;
       }
     }
 

@@ -198,6 +198,10 @@
     valJ2: document.getElementById('val-j2'),
     valJ3: document.getElementById('val-j3'),
     valJ4: document.getElementById('val-j4'),
+    valJ4L: document.getElementById('val-j4l'),
+    valJ4R: document.getElementById('val-j4r'),
+    btnToggleSplitGrip: document.getElementById('btn-toggle-split-grip'),
+    splitGripPanel: document.getElementById('split-grip-panel'),
     valWrist: document.getElementById('val-wrist'),
     fpsBadge: document.getElementById('fps-badge'),
     pinchBar: document.getElementById('pinch-bar'),
@@ -288,6 +292,9 @@
   const state = {
     target: { ...HOME_POSE },
     current: { ...HOME_POSE },
+    splitGripper: false,
+    targetGrip: { left: HOME_POSE.j4, right: HOME_POSE.j4 },
+    currentGrip: { left: HOME_POSE.j4, right: HOME_POSE.j4 },
     smoothing: 0.22,
     explodeFactor: 0,
     showEdges: true,
@@ -1406,15 +1413,11 @@
   }
 
   function buildLimitCommandString() {
-    const mn1 = axisValueToPwm('j1', jointLimits.j1.min);
-    const mx1 = axisValueToPwm('j1', jointLimits.j1.max);
-    const mn2 = axisValueToPwm('j2', jointLimits.j2.min);
-    const mx2 = axisValueToPwm('j2', jointLimits.j2.max);
-    const mn3 = axisValueToPwm('j3', jointLimits.j3.min);
-    const mx3 = axisValueToPwm('j3', jointLimits.j3.max);
-    const mn4 = axisValueToPwm('j4', jointLimits.j4.min);
-    const mx4 = axisValueToPwm('j4', jointLimits.j4.max);
-    return `LIMIT:${mn1},${mx1},${mn2},${mx2},${mn3},${mx3},${mn4},${mx4}\n`;
+    const mnB = axisValueToPwm('j1', jointLimits.j1.min);
+    const mxB = axisValueToPwm('j1', jointLimits.j1.max);
+    const mnG = axisValueToPwm('j4', jointLimits.j4.min);
+    const mxG = axisValueToPwm('j4', jointLimits.j4.max);
+    return `LIMIT:${mnB},${mxB},${mnG},${mxG},${mnG},${mxG}\n`;
   }
 
   function syncJointLimitInputsUI() {
@@ -1807,8 +1810,10 @@
     const th2 = state.current.j2 * deg2rad;
     const th3 = state.current.j3 * deg2rad;
     const wristTrim = state.current.wrist * deg2rad;
-    // แปลงเปอร์เซ็นต์การอ้าหัวคีบ (0..100%) เป็นมุมหมุนก้ามหนีบ (-0.05..+0.57 rad)
-    const clawAngle = -0.05 + (state.current.j4 / 100) * 0.62;
+    // แปลงเปอร์เซ็นต์การอ้าหัวคีบซ้าย-ขวา (0..100%) เป็นมุมหมุนก้ามหนีบแต่ละข้าง (-0.05..+0.57 rad)
+    const clawAngleLeft = -0.05 + (state.currentGrip.left / 100) * 0.62;
+    const clawAngleRight = -0.05 + (state.currentGrip.right / 100) * 0.62;
+    const avgGripPct = (state.currentGrip.left + state.currentGrip.right) * 0.5;
 
     // 1. หมุนฐาน (Base Yaw) รอบแกน Z ที่จุด [-28, 0, 29]
     turntableNode.pivot.rotation.z = th1;
@@ -1862,10 +1867,10 @@
     gripperMountNode.pivot.position.set(wristCur.x, wristCur.y, wristCur.z);
     gripperMountNode.pivot.rotation.y = wristTrim;
 
-    // 10. ก้ามหนีบเฟืองคู่ซ้าย-ขวาและก้านขับหัวคีบ
-    clawLeftNode.pivot.rotation.z = clawAngle;
-    clawRightNode.pivot.rotation.z = -clawAngle;
-    driveLinkNode.pivot.rotation.z = -clawAngle * 0.55;
+    // 10. ก้ามหนีบแยกซ้าย-ขวา (2x MG90S) และก้านขับหัวคีบ
+    clawLeftNode.pivot.rotation.z = clawAngleLeft;
+    clawRightNode.pivot.rotation.z = -clawAngleRight;
+    driveLinkNode.pivot.rotation.z = -((clawAngleLeft + clawAngleRight) * 0.5) * 0.55;
 
     // อัปเดตพิกัดปลายแขนกล (TCP) กลับเป็นระบบพิกัด CAD (mm)
     cadRoot.updateMatrixWorld(true);
@@ -1898,11 +1903,11 @@
     // ฟิสิกส์การหยิบและปล่อยกล่องเป้าหมาย (ไม่ดึงกล่องกลับขณะผู้ใช้กำลังลากด้วยเมาส์/นิ้ว)
     if (!isDraggingCube) {
       const distToCube = tcpCad.distanceTo(targetCube.position);
-      if (!cubeGrabbed && distToCube < 26.0 && state.current.j4 < 28) {
+      if (!cubeGrabbed && distToCube < 26.0 && avgGripPct < 28) {
         cubeGrabbed = true;
         updateCubeVisualState();
         logFactoryEvent('info', 'PRODUCTION', 'หัวคีบจับชิ้นงาน (Cube Grabbed)', `TCP (${tcpCad.x.toFixed(0)}, ${tcpCad.y.toFixed(0)}, ${tcpCad.z.toFixed(0)}) mm`);
-      } else if (cubeGrabbed && state.current.j4 > 34) {
+      } else if (cubeGrabbed && avgGripPct > 34) {
         cubeGrabbed = false;
         factoryMetrics.cycleCount += 1;
         updateCubeVisualState();
@@ -1993,6 +1998,8 @@
   const sliderJ2 = document.getElementById('slider-j2');
   const sliderJ3 = document.getElementById('slider-j3');
   const sliderJ4 = document.getElementById('slider-j4');
+  const sliderJ4L = document.getElementById('slider-j4l');
+  const sliderJ4R = document.getElementById('slider-j4r');
   const sliderWrist = document.getElementById('slider-wrist');
 
   /**
@@ -2003,21 +2010,29 @@
     sliderJ2.value = state.target.j2;
     sliderJ3.value = state.target.j3;
     sliderJ4.value = state.target.j4;
+    if (!state.splitGripper) {
+      state.targetGrip.left = state.target.j4;
+      state.targetGrip.right = state.target.j4;
+    }
+    if (sliderJ4L) sliderJ4L.value = state.targetGrip.left;
+    if (sliderJ4R) sliderJ4R.value = state.targetGrip.right;
     sliderWrist.value = state.target.wrist;
     updateJointLabels();
   }
 
   /**
-   * อัปเดตป้ายตัวเลของศาข้อต่อและค่า PWM (0..180°) บนแผงควบคุมด้านขวา
+   * อัปเดตป้ายตัวเลของศาข้อต่อและค่า PWM จริงของ Servo 3 ตัว (Base MG996R + Gripper L/R MG90S)
    */
   function updateJointLabels() {
-    const pwm1 = Math.round(90 + state.current.j1);
-    const pwm2 = Math.round(90 + state.current.j2);
-    const pwm3 = Math.round(90 + state.current.j3);
-    ui.valJ1.textContent = `${state.current.j1.toFixed(1)}° (PWM ${pwm1}°)`;
-    ui.valJ2.textContent = `${state.current.j2.toFixed(1)}° (PWM ${pwm2}°)`;
-    ui.valJ3.textContent = `${state.current.j3.toFixed(1)}° (PWM ${pwm3}°)`;
-    ui.valJ4.textContent = `${Math.round(state.current.j4)}% Open`;
+    const pwmBase = axisValueToPwm('j1', state.current.j1);
+    const pwmGripL = axisValueToPwm('j4', state.currentGrip.left);
+    const pwmGripR = axisValueToPwm('j4', state.currentGrip.right);
+    ui.valJ1.textContent = `${state.current.j1.toFixed(1)}° (PWM ${pwmBase}°)`;
+    ui.valJ2.textContent = `${state.current.j2.toFixed(1)}° (Sim)`;
+    ui.valJ3.textContent = `${state.current.j3.toFixed(1)}° (Sim)`;
+    ui.valJ4.textContent = `${Math.round(state.current.j4)}% (L:${pwmGripL}° R:${pwmGripR}°)`;
+    if (ui.valJ4L) ui.valJ4L.textContent = `${Math.round(state.currentGrip.left)}% (PWM ${pwmGripL}°)`;
+    if (ui.valJ4R) ui.valJ4R.textContent = `${Math.round(state.currentGrip.right)}% (PWM ${pwmGripR}°)`;
     ui.valWrist.textContent =
       Math.abs(state.current.wrist) < 0.3
         ? '0.0° (4-Bar Level)'
@@ -2035,6 +2050,50 @@
     el.addEventListener('input', () => {
       stopAutomation();
       state.target = clampJointTargets({ ...state.target, [key]: parseFloat(el.value) }, true);
+      if (key === 'j4') {
+        state.targetGrip.left = state.target.j4;
+        state.targetGrip.right = state.target.j4;
+        if (sliderJ4L) sliderJ4L.value = state.targetGrip.left;
+        if (sliderJ4R) sliderJ4R.value = state.targetGrip.right;
+      }
+      updateLimitIndicatorsUI();
+    });
+  });
+
+  // ปุ่มสลับโหมดควบคุมมือหนีบ: Sync (สมมาตรพร้อมกัน) ↔ Split (แยกนิ้วซ้าย-ขวาอิสระ 2x MG90S)
+  if (ui.btnToggleSplitGrip && ui.splitGripPanel) {
+    ui.btnToggleSplitGrip.addEventListener('click', () => {
+      state.splitGripper = !state.splitGripper;
+      ui.splitGripPanel.hidden = !state.splitGripper;
+      ui.btnToggleSplitGrip.classList.toggle('active', state.splitGripper);
+      ui.btnToggleSplitGrip.setAttribute('aria-pressed', String(state.splitGripper));
+      ui.btnToggleSplitGrip.textContent = state.splitGripper
+        ? '🔀 แยกนิ้วซ้าย/ขวา: เปิด (Split)'
+        : '🔀 แยกนิ้วซ้าย/ขวา: ปิด (Sync)';
+      if (!state.splitGripper) {
+        state.targetGrip.left = state.target.j4;
+        state.targetGrip.right = state.target.j4;
+        if (sliderJ4L) sliderJ4L.value = state.targetGrip.left;
+        if (sliderJ4R) sliderJ4R.value = state.targetGrip.right;
+      }
+      logFactoryEvent('info', 'GRIPPER', state.splitGripper ? 'เปิดโหมดควบคุมมือหนีบแยกนิ้วซ้าย-ขวา (Split)' : 'กลับสู่โหมดมือหนีบสมมาตร (Sync)');
+    });
+  }
+
+  // ตัวเลื่อนควบคุมก้ามหนีบซ้าย-ขวาแยกอิสระ (จำกัดช่วงตาม jointLimits.j4 เสมอ)
+  [
+    [sliderJ4L, 'left'],
+    [sliderJ4R, 'right']
+  ].forEach(([el, side]) => {
+    if (!el) return;
+    el.addEventListener('input', () => {
+      stopAutomation();
+      const rawVal = parseFloat(el.value);
+      const clamped = THREE.MathUtils.clamp(rawVal, jointLimits.j4.min, jointLimits.j4.max);
+      state.targetGrip[side] = clamped;
+      el.value = clamped;
+      state.target.j4 = (state.targetGrip.left + state.targetGrip.right) * 0.5;
+      sliderJ4.value = state.target.j4;
       updateLimitIndicatorsUI();
     });
   });
@@ -2042,6 +2101,8 @@
   document.getElementById('btn-reset-home').addEventListener('click', () => {
     stopAutomation();
     state.target = clampJointTargets(HOME_POSE, true);
+    state.targetGrip.left = state.target.j4;
+    state.targetGrip.right = state.target.j4;
     trailCount = 0;
     trailGeo.setDrawRange(0, 0);
     syncSlidersFromState();
@@ -2263,7 +2324,7 @@
     factoryMetrics.serial.limitsAcked = false;
     ui.serialDot.className = 'dot';
     ui.serialStatusText.textContent = 'IoT Serial: Disconnected';
-    ui.btnSerial.textContent = '🔌 เชื่อมต่อ Arduino / ESP32 (WebSerial)';
+    ui.btnSerial.textContent = '🔌 เชื่อมต่อ GOOUUU ESP32-S3-CAM (WebSerial)';
     logFactoryEvent('info', 'SERIAL', 'ตัดการเชื่อมต่อ USB WebSerial แล้ว');
   }
 
@@ -2287,15 +2348,16 @@
         rxLine = lines.pop() || '';
         lines.forEach((line) => {
           const trimmed = line.trim();
-          if (trimmed.includes('READY:4DOF_BRIDGE')) {
+          if (trimmed.includes('READY:3SERVO_S3CAM') || trimmed.includes('READY:4DOF_BRIDGE')) {
+            const readyTag = trimmed.includes('READY:3SERVO_S3CAM') ? 'READY:3SERVO_S3CAM' : 'READY:4DOF_BRIDGE';
             state.boardReady = true;
             state.pendingLimitSync = true;
-            factoryMetrics.serial.lastHandshake = 'READY:4DOF_BRIDGE';
+            factoryMetrics.serial.lastHandshake = readyTag;
             recordSerialPacket('RX', trimmed);
             ui.serialDot.className = 'dot active';
-            ui.serialStatusText.textContent = 'IoT Serial: 4DOF Ready';
-            showToast('บอร์ดตอบกลับ READY:4DOF_BRIDGE พร้อมซิงก์ขอบเขต Servo และรับคำสั่งแล้ว', 'success', 3500);
-            logFactoryEvent('success', 'SERIAL', 'บอร์ดตอบกลับ Handshake READY:4DOF_BRIDGE');
+            ui.serialStatusText.textContent = 'IoT Serial: S3-CAM Ready (3 Servo)';
+            showToast(`บอร์ด GOOUUU ESP32-S3-CAM ตอบกลับ ${readyTag} พร้อมรับคำสั่ง 3 Servo แล้ว`, 'success', 3500);
+            logFactoryEvent('success', 'SERIAL', `บอร์ดตอบกลับ Handshake ${readyTag}`);
           } else if (trimmed.includes('OK:LIMITS')) {
             factoryMetrics.serial.limitsAcked = true;
             factoryMetrics.serial.lastHandshake = 'OK:LIMITS';
@@ -2350,17 +2412,30 @@
       }
       const port = await navigator.serial.requestPort();
       await port.open({ baudRate: 115200 });
+      try {
+        if (typeof port.setSignals === 'function') {
+          await port.setSignals({ dataTerminalReady: true, requestToSend: false });
+        }
+      } catch (_) { /* ข้ามหากไดรเวอร์ไม่รองรับ setSignals */ }
       state.serialPort = port;
       state.serialWriter = port.writable.getWriter();
       state.pendingLimitSync = true;
       ui.serialDot.className = 'dot active';
-      ui.serialStatusText.textContent = 'IoT Serial: 115200 Connected';
+      ui.serialStatusText.textContent = 'IoT Serial: S3-CAM Connected';
       ui.btnSerial.textContent = '🔌 ตัดการเชื่อมต่อ Serial';
-      factoryMetrics.serial.lastHandshake = 'Connected (Waiting READY)';
+      factoryMetrics.serial.lastHandshake = 'Connected (Sending PING...)';
       factoryMetrics.serial.limitsAcked = false;
-      showToast('เชื่อมต่อบอร์ด Arduino / ESP32 (115200 baud) สำเร็จ', 'success', 3000);
-      logFactoryEvent('success', 'SERIAL', 'เชื่อมต่อ USB WebSerial (115200 baud) สำเร็จ');
+      showToast('เชื่อมต่อบอร์ด GOOUUU ESP32-S3-CAM (115200 baud) สำเร็จ', 'success', 3000);
+      logFactoryEvent('success', 'SERIAL', 'เชื่อมต่อ GOOUUU ESP32-S3-CAM ผ่าน USB WebSerial (115200 baud) สำเร็จ');
       readSerialLoop(port);
+      // ส่ง PING เพื่อขอ Handshake กรณีบอร์ด ESP32-S3 ไม่ได้ Auto-Reset ตอนเปิดพอร์ต
+      setTimeout(async () => {
+        if (!state.serialWriter || state.boardReady) return;
+        try {
+          await state.serialWriter.write(serialEncoder.encode('PING\n'));
+          recordSerialPacket('TX', 'PING');
+        } catch (_) { /* ignore */ }
+      }, 180);
     } catch (err) {
       console.warn('WebSerial connection cancelled or failed:', err);
       if (err && err.name !== 'NotFoundError') {
@@ -2414,12 +2489,14 @@
     state.serialSending = true;
 
     // Defense-in-Depth: ด่านสุดท้ายก่อนส่งออก USB WebSerial ต้อง Clamp ซ้ำตาม Joint Software Limits และ Hard Limits เสมอ
+    // ส่งเฉพาะ 3 ช่องฮาร์ดแวร์จริง: BASE (MG996R), GRIP_L (MG90S #1), GRIP_R (MG90S #2)
     const safePose = clampJointTargets(state.current, false);
-    const s1 = axisValueToPwm('j1', safePose.j1);
-    const s2 = axisValueToPwm('j2', safePose.j2);
-    const s3 = axisValueToPwm('j3', safePose.j3);
-    const s4 = axisValueToPwm('j4', safePose.j4);
-    const msg = `${s1},${s2},${s3},${s4}\n`;
+    const safeGripL = THREE.MathUtils.clamp(state.currentGrip.left, jointLimits.j4.min, jointLimits.j4.max);
+    const safeGripR = THREE.MathUtils.clamp(state.currentGrip.right, jointLimits.j4.min, jointLimits.j4.max);
+    const pwmBase = axisValueToPwm('j1', safePose.j1);
+    const pwmGripL = axisValueToPwm('j4', safeGripL);
+    const pwmGripR = axisValueToPwm('j4', safeGripR);
+    const msg = `${pwmBase},${pwmGripL},${pwmGripR}\n`;
     try {
       await state.serialWriter.write(serialEncoder.encode(msg));
       factoryMetrics.serial.txCount += 1;
@@ -2508,18 +2585,36 @@
       // 2. ขนาดฝ่ามือในภาพ 2 มิติ (ระยะ #0 ถึง #9) ใช้ประมาณระยะใกล้-ไกล (Reach)
       const handScale = Math.hypot(lm[9].x - lm[0].x, lm[9].y - lm[0].y);
 
-      // 3. ระยะจีบนิ้วโป้ง (#4) กับนิ้วชี้ (#8) หารด้วยขนาดมือเพื่อให้คงที่ทุกระยะ
-      const pinchDist = Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y);
-      const normPinch = pinchDist / Math.max(0.08, handScale);
-      const gripperOpenPct = THREE.MathUtils.clamp(((normPinch - 0.22) / 0.85) * 100, 0, 100);
+      // 3. ระยะจีบนิ้วโป้ง (#4) กับนิ้วชี้ (#8) และนิ้วกลาง (#12) หารด้วยขนาดมือเพื่อให้คงที่ทุกระยะ
+      const pinchIndexDist = Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y);
+      const normPinchIndex = pinchIndexDist / Math.max(0.08, handScale);
+      const leftOpenPct = THREE.MathUtils.clamp(((normPinchIndex - 0.22) / 0.85) * 100, 0, 100);
 
-      // วาดเส้นแสดงระยะจีบนิ้วบน Canvas
+      let rightOpenPct = leftOpenPct;
+      if (state.splitGripper) {
+        // โหมดแยกนิ้วซ้าย/ขวา: โป้ง (#4) + ชี้ (#8) = ก้ามซ้าย, โป้ง (#4) + กลาง (#12) = ก้ามขวา
+        const pinchMiddleDist = Math.hypot(lm[4].x - lm[12].x, lm[4].y - lm[12].y);
+        const normPinchMiddle = pinchMiddleDist / Math.max(0.08, handScale);
+        rightOpenPct = THREE.MathUtils.clamp(((normPinchMiddle - 0.22) / 0.85) * 100, 0, 100);
+      }
+      const gripperOpenPct = (leftOpenPct + rightOpenPct) * 0.5;
+
+      // วาดเส้นแสดงระยะจีบนิ้วบน Canvas (ซ้าย: โป้ง-ชี้, และขวา: โป้ง-กลาง เมื่อเปิดโหมด Split)
       trackCtx.beginPath();
       trackCtx.moveTo(lm[4].x * trackCanvas.width, lm[4].y * trackCanvas.height);
       trackCtx.lineTo(lm[8].x * trackCanvas.width, lm[8].y * trackCanvas.height);
-      trackCtx.strokeStyle = gripperOpenPct < 28 ? '#f43f5e' : '#10b981';
+      trackCtx.strokeStyle = leftOpenPct < 28 ? '#f43f5e' : '#38bdf8';
       trackCtx.lineWidth = 4;
       trackCtx.stroke();
+
+      if (state.splitGripper) {
+        trackCtx.beginPath();
+        trackCtx.moveTo(lm[4].x * trackCanvas.width, lm[4].y * trackCanvas.height);
+        trackCtx.lineTo(lm[12].x * trackCanvas.width, lm[12].y * trackCanvas.height);
+        trackCtx.strokeStyle = rightOpenPct < 28 ? '#f43f5e' : '#f59e0b';
+        trackCtx.lineWidth = 4;
+        trackCtx.stroke();
+      }
 
       // อัปเดตแถบ Pinch Meter บนหน้าเว็บ
       factoryMetrics.handDetected = true;
@@ -2528,19 +2623,31 @@
       if (ui.pinchBarTrack) {
         ui.pinchBarTrack.setAttribute('aria-valuenow', String(Math.round(gripperOpenPct)));
       }
-      ui.pinchValText.textContent =
-        gripperOpenPct < 28 ? `GRAB (${Math.round(gripperOpenPct)}%)` : `${Math.round(gripperOpenPct)}%`;
+      if (state.splitGripper) {
+        ui.pinchValText.textContent = `L:${Math.round(leftOpenPct)}% · R:${Math.round(rightOpenPct)}%`;
+      } else {
+        ui.pinchValText.textContent =
+          gripperOpenPct < 28 ? `GRAB (${Math.round(gripperOpenPct)}%)` : `${Math.round(gripperOpenPct)}%`;
+      }
 
-      // แปลงค่าจากมือเป็นองศาเป้าหมาย 4-DOF (บังคับผ่าน clampJointTargets เสมอ)
+      // แปลงค่าจากมือเป็นองศาเป้าหมาย 4-DOF + มือหนีบแยกซ้าย/ขวา (บังคับผ่าน clampJointTargets เสมอ)
       stopAutomation();
+      const clampedGripL = THREE.MathUtils.clamp(leftOpenPct, jointLimits.j4.min, jointLimits.j4.max);
+      const clampedGripR = THREE.MathUtils.clamp(rightOpenPct, jointLimits.j4.min, jointLimits.j4.max);
+      state.targetGrip.left = clampedGripL;
+      state.targetGrip.right = clampedGripR;
+      const effGripPct = (clampedGripL + clampedGripR) * 0.5;
+
       if (state.handMode === 'ik') {
         const targetY = ((0.5 - palmX) / 0.38) * 115.0;
         const targetZ = THREE.MathUtils.clamp(20.0 + (0.85 - palmY) * 230.0, 14.0, 200.0);
         const targetX = THREE.MathUtils.clamp(95.0 + ((handScale - 0.14) / 0.18) * 95.0, 80.0, 195.0);
 
         const ikSol = solveIK(targetX, targetY, targetZ);
-        const clamped = clampJointTargets({ ...state.target, j1: ikSol.j1, j2: ikSol.j2, j3: ikSol.j3, j4: gripperOpenPct }, false);
-        limitHitState.j4 = gripperOpenPct < jointLimits.j4.min - 0.05 || gripperOpenPct > jointLimits.j4.max + 0.05;
+        const clamped = clampJointTargets({ ...state.target, j1: ikSol.j1, j2: ikSol.j2, j3: ikSol.j3, j4: effGripPct }, false);
+        limitHitState.j4 =
+          leftOpenPct < jointLimits.j4.min - 0.05 || leftOpenPct > jointLimits.j4.max + 0.05 ||
+          rightOpenPct < jointLimits.j4.min - 0.05 || rightOpenPct > jointLimits.j4.max + 0.05;
         state.target = clamped;
       } else {
         // โหมดควบคุมข้อต่อโดยตรง (Direct Joint Mapping)
@@ -2549,7 +2656,7 @@
         // คำนวณมุมเอียงสันมือเทียบแนวราบด้วย |dx| เพื่อไม่ให้มุมกระโดด ±180° ไม่ว่าจะใช้มือซ้ายหรือขวา
         const tiltRad = Math.atan2(lm[17].y - lm[5].y, Math.abs(lm[17].x - lm[5].x) + 1e-5);
         const rawJ3 = ((tiltRad * 180) / Math.PI) * 1.15;
-        state.target = clampJointTargets({ ...state.target, j1: rawJ1, j2: rawJ2, j3: rawJ3, j4: gripperOpenPct }, true);
+        state.target = clampJointTargets({ ...state.target, j1: rawJ1, j2: rawJ2, j3: rawJ3, j4: effGripPct }, true);
       }
       syncSlidersFromState();
       updateLimitIndicatorsUI();
@@ -2772,6 +2879,8 @@
         state.target = clampJointTargets({ ...sol, j4: 45, wrist: 0 }, false);
         limitHitState.j4 = 45 < jointLimits.j4.min || 45 > jointLimits.j4.max;
       }
+      state.targetGrip.left = state.target.j4;
+      state.targetGrip.right = state.target.j4;
       syncSlidersFromState();
     } else if (state.demoMode === 'circle') {
       state.demoTime += dt * 1.8;
@@ -2782,6 +2891,8 @@
       const rawJ4 = 35 + 25 * Math.sin(state.demoTime * 3);
       state.target = clampJointTargets({ ...state.target, j1: sol.j1, j2: sol.j2, j3: sol.j3, j4: rawJ4 }, false);
       limitHitState.j4 = rawJ4 < jointLimits.j4.min || rawJ4 > jointLimits.j4.max;
+      state.targetGrip.left = state.target.j4;
+      state.targetGrip.right = state.target.j4;
       syncSlidersFromState();
     } else if (state.playing && state.recordedFrames.length > 0) {
       const lastFrame = state.recordedFrames[state.recordedFrames.length - 1];
@@ -2801,12 +2912,19 @@
       }
       const f = state.recordedFrames[state.playIndex];
       state.target = clampJointTargets({ j1: f.j1, j2: f.j2, j3: f.j3, j4: f.j4, wrist: f.wrist }, true);
+      state.targetGrip.left = typeof f.j4L === 'number' ? THREE.MathUtils.clamp(f.j4L, jointLimits.j4.min, jointLimits.j4.max) : state.target.j4;
+      state.targetGrip.right = typeof f.j4R === 'number' ? THREE.MathUtils.clamp(f.j4R, jointLimits.j4.min, jointLimits.j4.max) : state.target.j4;
       syncSlidersFromState();
     }
 
-    // 3. บันทึกเฟรมปัจจุบันพร้อมเวลา (ms) หากกำลังเปิดโหมด Record
+    // 3. บันทึกเฟรมปัจจุบันพร้อมเวลา (ms) หากกำลังเปิดโหมด Record (รวมค่าก้ามซ้าย/ขวา j4L, j4R)
     if (state.recording) {
-      state.recordedFrames.push({ ...state.current, t: Math.round(now - state.recordStartTime) });
+      state.recordedFrames.push({
+        ...state.current,
+        j4L: +state.currentGrip.left.toFixed(1),
+        j4R: +state.currentGrip.right.toFixed(1),
+        t: Math.round(now - state.recordStartTime)
+      });
       ui.btnRecord.textContent = `⏹️ หยุด (${state.recordedFrames.length}f)`;
     }
 
@@ -2815,6 +2933,12 @@
     ['j1', 'j2', 'j3', 'j4', 'wrist'].forEach((k) => {
       state.current[k] += (state.target[k] - state.current[k]) * alpha;
     });
+    if (!state.splitGripper) {
+      state.targetGrip.left = state.target.j4;
+      state.targetGrip.right = state.target.j4;
+    }
+    state.currentGrip.left += (state.targetGrip.left - state.currentGrip.left) * alpha;
+    state.currentGrip.right += (state.targetGrip.right - state.currentGrip.right) * alpha;
 
     // 5. ตรวจสอบขนาด Canvas เทียบกับ Viewport จริงทุกเฟรม (มาตรฐาน Three.js resizeRendererToDisplaySize)
     syncRendererToDisplaySize();
@@ -2841,11 +2965,18 @@
 
   function buildFactorySnapshot(liveFlag = true) {
     const safePose = clampJointTargets(state.current, false);
+    const safeGripL = THREE.MathUtils.clamp(state.currentGrip.left, jointLimits.j4.min, jointLimits.j4.max);
+    const safeGripR = THREE.MathUtils.clamp(state.currentGrip.right, jointLimits.j4.min, jointLimits.j4.max);
     const pwm = {
       s1: axisValueToPwm('j1', safePose.j1),
       s2: axisValueToPwm('j2', safePose.j2),
       s3: axisValueToPwm('j3', safePose.j3),
       s4: axisValueToPwm('j4', safePose.j4)
+    };
+    const hwPwm = {
+      base: pwm.s1,
+      gripL: axisValueToPwm('j4', safeGripL),
+      gripR: axisValueToPwm('j4', safeGripR)
     };
     const limitClamped = {
       j1: Boolean(factoryMetrics.prevLimitClamped.j1),
@@ -2880,9 +3011,13 @@
         j2: +state.current.j2.toFixed(1),
         j3: +state.current.j3.toFixed(1),
         j4: +state.current.j4.toFixed(1),
+        j4L: +state.currentGrip.left.toFixed(1),
+        j4R: +state.currentGrip.right.toFixed(1),
         wrist: +state.current.wrist.toFixed(1)
       },
+      gripperSplit: Boolean(state.splitGripper),
       pwm,
+      hwPwm,
       tcp: { ...factoryMetrics.tcp },
       camera: {
         running: Boolean(state.camRunning),
@@ -2899,7 +3034,7 @@
         baudRate: 115200,
         txHz: state.serialPort ? factoryMetrics.serial.txHz : 0,
         txCount: factoryMetrics.serial.txCount,
-        lastPacket: factoryMetrics.serial.lastPacket || `${pwm.s1},${pwm.s2},${pwm.s3},${pwm.s4}`,
+        lastPacket: factoryMetrics.serial.lastPacket || `${hwPwm.base},${hwPwm.gripL},${hwPwm.gripR}`,
         lastLimitCmd: factoryMetrics.serial.lastLimitCmd || buildLimitCommandString().trim(),
         lastHandshake: factoryMetrics.serial.lastHandshake,
         limitsAcked: Boolean(factoryMetrics.serial.limitsAcked),

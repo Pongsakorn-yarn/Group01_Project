@@ -64,7 +64,7 @@
 
     <text x="572" y="212" class="sans item-text">• <tspan class="item-bold">HTTP / HTTPS:</tspan> โหลดหน้าเว็บ Dashboard (Three.js &amp; MediaPipe AI)</text>
     <text x="572" y="268" class="sans item-text">• <tspan class="item-bold">Digital Twin &amp; AI:</tspan> ตรวจจับมือ 21 จุด → คำนวณ 4-Bar IK/FK &amp; กรอง EMA</text>
-    <text x="572" y="324" class="sans item-text">• <tspan class="item-bold">WebSerial (25 Hz):</tspan> ส่งแพ็กเก็ต CSV <tspan class="mono item-mono">"S1,S2,S3,S4\n"</tspan> ไปควบคุม ESP32</text>
+    <text x="572" y="324" class="sans item-text">• <tspan class="item-bold">WebSerial (25 Hz):</tspan> ส่งแพ็กเก็ต CSV <tspan class="mono item-mono">"BASE,GRIP_L,GRIP_R\n"</tspan> ไป GOOUUU S3-CAM</text>
 
     <!-- Layer 3: Transport (OSI 4) -->
     <rect x="60" y="390" width="1800" height="164" rx="16" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2.4"/>
@@ -117,7 +117,7 @@
     <line x1="530" y1="784" x2="530" y2="916" stroke="#bbf7d0" stroke-width="2.2"/>
 
     <text x="572" y="826" class="sans item-text">• <tspan class="item-bold">Wi-Fi / Ethernet &amp; USB-UART:</tspan> เชื่อมเครือข่าย &amp; สาย USB (<tspan class="mono item-mono">115200 baud, 8N1</tspan>)</text>
-    <text x="572" y="886" class="sans item-text">• <tspan class="item-bold">PWM 50 Hz → 4× Servo:</tspan> ขับ <tspan class="mono item-mono">2× MG90S + 2× SG90</tspan> (ไฟ <tspan class="mono item-mono">5V 2A+</tspan> &amp; GND ร่วม)</text>
+    <text x="572" y="886" class="sans item-text">• <tspan class="item-bold">PWM 50 Hz → 3× Servo:</tspan> ขับ <tspan class="mono item-mono">1× MG996R + 2× MG90S</tspan> (ไฟ <tspan class="mono item-mono">5V 3A–5A+</tspan> &amp; GND ร่วม)</text>
 
   </g>
 
@@ -143,7 +143,7 @@
   <line x1="1216" y1="1006" x2="1252" y2="1006" stroke="#0284c7" stroke-width="3" marker-end="url(#arr-flow)"/>
 
   <rect x="1258" y="982" width="268" height="48" rx="10" fill="#ffffff" stroke="#16a34a" stroke-width="2"/>
-  <text x="1392" y="1006" class="sans flow-txt">4. ESP32 (PWM)</text>
+  <text x="1392" y="1006" class="sans flow-txt">4. S3-CAM (3 PWM)</text>
   <line x1="1526" y1="1006" x2="1562" y2="1006" stroke="#0284c7" stroke-width="3" marker-end="url(#arr-flow)"/>
 
   <rect x="1568" y="982" width="268" height="48" rx="10" fill="#ffffff" stroke="#d97706" stroke-width="2"/>

@@ -2188,3 +2188,56 @@ body.hud-hidden .panel-edge-tab-right {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================================
+ * SECTION 06: ป้ายสถานะฮาร์ดแวร์จริง (HW) vs จำลอง 3D (SIM) และแผงแยกมือหนีบ L/R
+ * ============================================================================ */
+.hw-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  margin-left: 4px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: calc(9.5px * var(--ui-scale));
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+.hw-badge.hw-real {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.38);
+}
+
+.hw-badge.hw-sim {
+  background: rgba(148, 163, 184, 0.14);
+  color: var(--text-muted);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.split-grip-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.split-grip-panel {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.split-grip-panel[hidden] {
+  display: none;
+}
+
+.split-grip-row .control-name {
+  font-size: calc(11px * var(--ui-scale));
+}

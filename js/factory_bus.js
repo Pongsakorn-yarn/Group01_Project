@@ -20,52 +20,42 @@
   const LIVE_STALE_MS = 2600;
 
   const HARD_LIMITS = Object.freeze({
-    j1: Object.freeze({ min: -90, max: 90, pwmMin: 0, pwmMax: 180, unit: '°', label: 'DOF 1: Base Yaw (Servo 1)', shortLabel: 'S1 Base' }),
-    j2: Object.freeze({ min: -45, max: 65, pwmMin: 45, pwmMax: 155, unit: '°', label: 'DOF 2: Shoulder Pitch (Servo 2)', shortLabel: 'S2 Shoulder' }),
-    j3: Object.freeze({ min: -55, max: 55, pwmMin: 35, pwmMax: 145, unit: '°', label: 'DOF 3: Elbow Pitch (Servo 3)', shortLabel: 'S3 Elbow' }),
-    j4: Object.freeze({ min: 0, max: 100, pwmMin: 0, pwmMax: 180, hwMin: 20, hwMax: 120, unit: '%', label: 'DOF 4: Gripper Claws (Servo 4)', shortLabel: 'S4 Gripper' })
+    j1: Object.freeze({ min: -90, max: 90, pwmMin: 0, pwmMax: 180, unit: '°', label: 'DOF 1: Base Yaw (MG996R)', shortLabel: 'S1 Base (MG996R)', isHardware: true, hwTag: 'HW · GPIO 1' }),
+    j2: Object.freeze({ min: -45, max: 65, pwmMin: 45, pwmMax: 155, unit: '°', label: 'DOF 2: Shoulder Pitch (Sim 3D)', shortLabel: 'Shoulder (Sim)', isHardware: false, hwTag: 'SIM ONLY' }),
+    j3: Object.freeze({ min: -55, max: 55, pwmMin: 35, pwmMax: 145, unit: '°', label: 'DOF 3: Elbow Pitch (Sim 3D)', shortLabel: 'Elbow (Sim)', isHardware: false, hwTag: 'SIM ONLY' }),
+    j4: Object.freeze({ min: 0, max: 100, pwmMin: 0, pwmMax: 180, hwMin: 20, hwMax: 120, unit: '%', label: 'DOF 4: Gripper L/R (2×MG90S)', shortLabel: 'S2/S3 Grip L/R', isHardware: true, hwTag: 'HW · GPIO 2/41' })
   });
 
   const PINOUT_SPEC = Object.freeze([
     {
       axis: 'j1',
-      servo: 'Servo 1',
-      name: 'Base Yaw (หมุนฐาน)',
+      servo: 'Servo 1 (MG996R)',
+      name: 'Base Yaw — หมุนฐาน',
       arduinoPin: 'D3',
-      esp32Pin: 'GPIO 13',
+      esp32Pin: 'GPIO 1',
       homeCmd: '90° (0.0°)',
       hardPwm: '0°–180°',
-      note: 'หมุนฐานซ้าย-ขวา (-90° ถึง +90°)'
+      note: 'GOOUUU ESP32-S3-CAM (ADC1/IO ว่างสะอาด เลี่ยงขากล้องและ PSRAM)'
     },
     {
-      axis: 'j2',
-      servo: 'Servo 2',
-      name: 'Shoulder Pitch (ไหล่)',
+      axis: 'j4L',
+      servo: 'Servo 2 (MG90S #1)',
+      name: 'Gripper Left — ก้ามหนีบซ้าย',
       arduinoPin: 'D5',
-      esp32Pin: 'GPIO 26',
-      homeCmd: '90° (0.0°)',
-      hardPwm: '45°–155°',
-      note: 'เลี่ยง GPIO 12 Strapping Pin บน ESP32'
-    },
-    {
-      axis: 'j3',
-      servo: 'Servo 3',
-      name: 'Elbow Pitch (ศอก 4-Bar)',
-      arduinoPin: 'D6',
-      esp32Pin: 'GPIO 14',
-      homeCmd: '90° (0.0°)',
-      hardPwm: '35°–145°',
-      note: 'ขับกลไก 4-Bar Parallel Linkage (-55° ถึง +55°)'
-    },
-    {
-      axis: 'j4',
-      servo: 'Servo 4',
-      name: 'Gripper Claws (มือจับ)',
-      arduinoPin: 'D9',
-      esp32Pin: 'GPIO 27',
+      esp32Pin: 'GPIO 2',
       homeCmd: '63° (35%)',
       hardPwm: '0°–180° → HW 20°–120°',
-      note: 'บอร์ดแมปช่วง 0..180 เข้าช่วงปลอดภัย 20°..120°'
+      note: 'ควบคุมมือหนีบข้างซ้าย (รองรับทั้งโหมด Sync และแยกนิ้วอิสระ)'
+    },
+    {
+      axis: 'j4R',
+      servo: 'Servo 3 (MG90S #2)',
+      name: 'Gripper Right — ก้ามหนีบขวา',
+      arduinoPin: 'D6',
+      esp32Pin: 'GPIO 41',
+      homeCmd: '63° (35%)',
+      hardPwm: '0°–180° → HW 20°–120°',
+      note: 'ควบคุมมือหนีบข้างขวา (Invert สมมาตรในเฟิร์มแวร์ • ขาสำรอง GPIO 14)'
     }
   ]);
 
@@ -129,15 +119,11 @@
 
   function buildLimitCommandFromLimits(limits) {
     const lim = limits || readJointLimits();
-    const mn1 = axisValueToPwm('j1', lim.j1.min);
-    const mx1 = axisValueToPwm('j1', lim.j1.max);
-    const mn2 = axisValueToPwm('j2', lim.j2.min);
-    const mx2 = axisValueToPwm('j2', lim.j2.max);
-    const mn3 = axisValueToPwm('j3', lim.j3.min);
-    const mx3 = axisValueToPwm('j3', lim.j3.max);
-    const mn4 = axisValueToPwm('j4', lim.j4.min);
-    const mx4 = axisValueToPwm('j4', lim.j4.max);
-    return `LIMIT:${mn1},${mx1},${mn2},${mx2},${mn3},${mx3},${mn4},${mx4}`;
+    const mnB = axisValueToPwm('j1', lim.j1.min);
+    const mxB = axisValueToPwm('j1', lim.j1.max);
+    const mnG = axisValueToPwm('j4', lim.j4.min);
+    const mxG = axisValueToPwm('j4', lim.j4.max);
+    return `LIMIT:${mnB},${mxB},${mnG},${mxG},${mnG},${mxG}`;
   }
 
   function readDisplaySettings() {

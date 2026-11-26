@@ -119,7 +119,7 @@
     <text x="1665" y="382" class="sans step-num">5</text>
     <text x="1665" y="454" class="sans step-title">ขับแขนกลจริง</text>
     <line x1="1564" y1="484" x2="1766" y2="484" stroke="#fde68a" stroke-width="2.2"/>
-    <text x="1665" y="544" class="sans step-key">ESP32 แปลง PWM</text>
+    <text x="1665" y="544" class="sans step-key">S3-CAM แปลง 3 PWM</text>
     <text x="1665" y="604" class="sans step-sub">ขับ 4× Servo (0–180°)</text>
 
   </g>

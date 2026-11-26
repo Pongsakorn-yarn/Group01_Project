@@ -15,7 +15,7 @@
 | :---: | :--- | :--- |
 | 1 | [`README.md`](./README.md) | คู่มือเริ่มต้นใช้งาน (Quick Start), ตาราง Pinout, การควบคุม และการแก้ปัญหาเบื้องต้น |
 | 2 | [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md) | ทะเบียนไฟล์ทั้งหมด 74 ไฟล์ และเอกสารอ้างอิงเชิงเทคนิคกลาง (ไฟล์นี้) |
-| 3 | [`docs/WIRING_GUIDE.md`](./docs/WIRING_GUIDE.md) | คู่มือต่อวงจรฮาร์ดแวร์, รายการอุปกรณ์ (BOM), ขา Pin ESP32, ไฟ 5V แยก และ Common GND |
+| 3 | [`docs/WIRING_GUIDE.md`](./docs/WIRING_GUIDE.md) | คู่มือต่อวงจรฮาร์ดแวร์, BOM (GOOUUU ESP32-S3-CAM + 1×MG996R + 2×MG90S), ขา `GPIO 1, 2, 41`, ไฟ 5V 3A–5A และ Common GND |
 | 4 | [`docs/images/`](./docs/images/) *(16 ไฟล์)* | แผนภาพสถาปัตยกรรม, OSI/TCP-IP และ Data Flow 8 ชุด (`.png` + `.svg`) สำหรับเอกสารและสไลด์ |
 
 <details>
@@ -55,8 +55,8 @@
 ### หมวดที่ 4: เฟิร์มแวร์ไมโครคอนโทรลเลอร์ (IoT Firmware) — 2 ไฟล์
 | ลำดับ | ไฟล์ / โฟลเดอร์ | หน้าที่โดยสรุป |
 | :---: | :--- | :--- |
-| 15 | [`arduino_servo_bridge/arduino_servo_bridge.ino`](./arduino_servo_bridge/arduino_servo_bridge.ino) | เฟิร์มแวร์ใช้งานจริง (Arduino/ESP32) รับ CSV `S1,S2,S3,S4\n` ที่ 115200 baud แบบ Non-blocking พร้อม Safety Limits ขับ Servo 4 แกน |
-| 16 | [`servo_test_esp32/servo_test_esp32.ino`](./servo_test_esp32/servo_test_esp32.ino) | เฟิร์มแวร์ทดสอบ Servo 4 ตัว (2×MG90S + 2×SG90) บน ESP32 และตั้งค่า Home `90°` ก่อนประกอบแขนกลจริง |
+| 15 | [`arduino_servo_bridge/arduino_servo_bridge.ino`](./arduino_servo_bridge/arduino_servo_bridge.ino) | เฟิร์มแวร์ใช้งานจริง (GOOUUU ESP32-S3-CAM) รับ CSV `BASE,GRIP_L,GRIP_R\n` ที่ 115200 baud พร้อม `PING`/`LIMIT` ขับ Servo จริง 3 ตัว (`GPIO 1, 2, 41`) |
+| 16 | [`servo_test_esp32/servo_test_esp32.ino`](./servo_test_esp32/servo_test_esp32.ino) | เฟิร์มแวร์ทดสอบ Servo จริง 3 ตัว (1×MG996R + 2×MG90S ซ้าย/ขวา) บน GOOUUU ESP32-S3-CAM และตั้งค่า Home `90°` ก่อนประกอบจริง |
 
 ### หมวดที่ 5: โมเดล 3 มิติและไฟล์หุ่นยนต์ (CAD & Robotics Models) — 43 ไฟล์
 | ลำดับ | ไฟล์ / โฟลเดอร์ | หน้าที่โดยสรุป |
@@ -103,10 +103,10 @@ flowchart TB
         TRAJ["Trajectory Exporter<br/>(robotic_arm_4dof_trajectory.json)"]
     end
 
-    subgraph L3["3. Embedded IoT Hardware Layer"]
-        MCU["Arduino / ESP32<br/>(arduino_servo_bridge.ino)<br/>Non-Blocking CSV Parser + Safety Limits"]
-        SRV["4-DOF Servo Actuators<br/>S1 Base / S2 Shoulder / S3 Elbow / S4 Gripper"]
-        PSU["External 5V >= 2A Power Supply<br/>+ Common GND"]
+    subgraph L3["3. Embedded IoT Hardware Layer (GOOUUU ESP32-S3-CAM)"]
+        MCU["GOOUUU ESP32-S3-CAM<br/>(arduino_servo_bridge.ino)<br/>Non-Blocking 3-Servo Parser + Safety Limits"]
+        SRV["3 Physical Servo Actuators<br/>S1 Base (MG996R @ GPIO 1) / S2 Grip-L (MG90S @ GPIO 2) / S3 Grip-R (MG90S @ GPIO 41)"]
+        PSU["External 5V >= 3A-5A Power Supply<br/>+ 1000uF Cap + Common GND"]
     end
 
     subgraph L4["4. Offline CAD & Robotics Asset Pipeline"]
@@ -119,9 +119,9 @@ flowchart TB
     UI_IN --> EMA
     EMA --> FK --> RENDER
     FK --> TRAJ
-    EMA -- "CSV: S1,S2,S3,S4\\n" --> SERIAL
-    SERIAL -- "USB UART (TX)" --> MCU
-    MCU -. "READY:4DOF_BRIDGE (RX)" .-> SERIAL
+    EMA -- "CSV: BASE,GRIP_L,GRIP_R\\n" --> SERIAL
+    SERIAL -- "USB-C UART (TX)" --> MCU
+    MCU -. "READY:3SERVO_S3CAM (RX)" .-> SERIAL
     MCU -- "PWM 50 Hz" --> SRV
     PSU -- "+5V Power" --> SRV
     PSU -. "Common GND" .- MCU
@@ -153,12 +153,12 @@ flowchart TB
 * **การแปลงพิกัด (CAD Z-up → Three.js Y-up):** หมุนกลุ่มราก `cadRoot.rotation.x = -Math.PI / 2` เพื่อแปลงแกน `+Z` ของ SolidCraft (mm) ให้ชี้ขึ้นตาม `+Y` ของ Three.js
 * **มิติและจุดหมุนหลัก (Home Pose, mm):** `L1 = 80.0`, `L2 = 80.0`, `TCP Offset ≈ 76.6`  
   `yaw: [-28.0, 0, 29.0]` • `shoulder: [-28.0, 0, 64.0]` • `elbow: [5.809, 0, 136.505]` • `wrist: [85.371, 0, 128.142]`
-* **โปรโตคอล USB Serial:** `115200 baud`, `8N1`, สูงสุด `25 Hz` (เว้นระยะ `≥40 ms`), แพ็กเก็ต `"S1,S2,S3,S4\n"` (บอร์ดตอบกลับ `"READY:4DOF_BRIDGE"` เมื่อพร้อม)
-* **สูตรแปลงค่าควบคุม → องศา Servo (`0..180°`):**
-  * `S1 = clamp(round(90 + j1), 0, 180)` *(ช่วง `j1`: `-90°..+90°`)*
-  * `S2 = clamp(round(90 + j2), 0, 180)` *(ช่วง `j2`: `-45°..+65°`)*
-  * `S3 = clamp(round(90 + j3), 0, 180)` *(ช่วง `j3`: `-55°..+55°`)*
-  * `S4 = clamp(round((j4 / 100) * 180), 0, 180)` *(ช่วง `j4`: `0..100%`; เฟิร์มแวร์ map เข้าช่วงปลอดภัย `20°..120°`)*
+* **โปรโตคอล USB Serial (GOOUUU ESP32-S3-CAM):** `115200 baud`, `8N1`, สูงสุด `25 Hz` (เว้นระยะ `≥40 ms`), แพ็กเก็ต 3 ช่องฮาร์ดแวร์จริง `"BASE,GRIP_L,GRIP_R\n"` (เว็บส่ง `"PING\n"` → บอร์ดตอบกลับ `"READY:3SERVO_S3CAM"`, ส่ง `"LIMIT:mnB,mxB,mnGL,mxGL,mnGR,mxGR\n"` → บอร์ดตอบ `"OK:LIMITS"`)
+* **สูตรแปลงค่าควบคุม → องศา Servo จริง (`0..180°`) และแกนจำลอง 3D:**
+  * `BASE (MG996R @ GPIO 1) = clamp(round(90 + j1), 0, 180)` *(ช่วง `j1`: `-90°..+90°`)*
+  * `GRIP_L (MG90S #1 @ GPIO 2) = clamp(round((j4L / 100) * 180), 0, 180)` *(แมปเข้าช่วงปลอดภัย `20°..120°`)*
+  * `GRIP_R (MG90S #2 @ GPIO 41) = clamp(round((j4R / 100) * 180), 0, 180)` *(Invert สมมาตรและแมปเข้าช่วงปลอดภัย `20°..120°`)*
+  * `j2 (Shoulder: -45°..+65°)` และ `j3 (Elbow: -55°..+55°)` คงการทำงานแบบ **Virtual Digital Twin (Sim 3D)** บนหน้าควบคุมและ Dashboard ครบถ้วน
 
 ---
 

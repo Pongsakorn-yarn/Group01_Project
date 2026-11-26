@@ -28,7 +28,7 @@
   <rect x="60" y="28" width="1800" height="96" rx="16" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.8"/>
   <rect x="60" y="28" width="12" height="96" rx="6" fill="#1e3a5f"/>
   <text x="98" y="74" class="sans main-title">OSI MODEL (7 Layers)</text>
-  <text x="98" y="108" class="sans main-sub">สรุปสถาปัตยกรรมข้อมูลระบบ Digital Twin แขนกล 4-DOF (Hand Tracking → Web 3D → ESP32)</text>
+  <text x="98" y="108" class="sans main-sub">สรุปสถาปัตยกรรมข้อมูลระบบ Digital Twin แขนกล 4-DOF (Hand Tracking → Web 3D → GOOUUU ESP32-S3-CAM)</text>
 
   <!-- Project Pill Badge -->
   <rect x="1556" y="52" width="276" height="48" rx="24" fill="#1e3a5f"/>

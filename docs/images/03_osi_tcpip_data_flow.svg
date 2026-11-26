@@ -155,7 +155,7 @@
     <line x1="276" y1="652" x2="276" y2="726" stroke="#bbf7d0" stroke-width="1.5"/>
     <text x="292" y="668" class="sans detail-bold">เฟรมข้อมูลเครือข่าย &amp; USB-UART Framing</text>
     <text x="292" y="689" class="sans detail-text">• ฝั่งเว็บ: <tspan class="mono detail-mono">Ethernet / Wi-Fi (MAC)</tspan> และ Loopback Interface</text>
-    <text x="292" y="709" class="sans detail-text">• ฝั่ง MCU: <tspan class="mono detail-mono">USB CDC / UART Frame (115200 baud, 8N1)</tspan> ผ่าน CP210x / CH340</text>
+    <text x="292" y="709" class="sans detail-text">• ฝั่ง MCU: <tspan class="mono detail-mono">USB-C UART (115200 baud, 8N1)</tspan> ผ่าน CH343 / CP2102</text>
 
     <!-- Layer 1: Physical -->
     <rect x="40" y="740" width="695" height="102" fill="#fefce8" stroke="#ca8a04" stroke-width="1.6"/>
@@ -167,8 +167,8 @@
     <text x="156" y="804" class="sans layer-sub">ชั้นกายภาพ</text>
     <line x1="276" y1="754" x2="276" y2="828" stroke="#fde68a" stroke-width="1.5"/>
     <text x="292" y="770" class="sans detail-bold">สื่อส่งสัญญาณและอุปกรณ์ฮาร์ดแวร์จริง</text>
-    <text x="292" y="791" class="sans detail-text">• กล้องเว็บแคม, สาย <tspan class="mono detail-mono">USB Data</tspan> (PC ↔ ESP32), สัญญาณ <tspan class="mono detail-mono">PWM 50 Hz</tspan></text>
-    <text x="292" y="811" class="sans detail-text">• <tspan class="mono detail-mono">GPIO 13, 12, 14, 27</tspan> → <tspan class="detail-bold">2× MG90S + 2× SG90</tspan> (ไฟ 5V 2A+ GND ร่วม)</text>
+    <text x="292" y="791" class="sans detail-text">• กล้องเว็บแคม, สาย <tspan class="mono detail-mono">USB-C Data</tspan> (PC ↔ GOOUUU S3-CAM), <tspan class="mono detail-mono">PWM 50 Hz</tspan></text>
+    <text x="292" y="811" class="sans detail-text">• <tspan class="mono detail-mono">GPIO 1, 2, 41</tspan> → <tspan class="detail-bold">1× MG996R + 2× MG90S</tspan> (ไฟ 5V 3A–5A+ GND ร่วม)</text>
   </g>
 
   <!-- ======================================================================= -->
@@ -260,10 +260,10 @@
     <line x1="1068" y1="654" x2="1068" y2="826" stroke="#bbf7d0" stroke-width="1.6"/>
     <text x="1088" y="676" class="sans tcp-head">การเชื่อมต่อทางกายภาพ &amp; สัญญาณฮาร์ดแวร์:</text>
     <text x="1088" y="704" class="sans tcp-item">• <tspan class="detail-bold">Web Network:</tspan> Ethernet / Wi-Fi (MAC) &amp; Localhost Loopback</text>
-    <text x="1088" y="732" class="sans tcp-item">• <tspan class="detail-bold">USB-UART Bridge:</tspan> สาย USB Data (<tspan class="mono detail-mono">115200 baud, 8N1</tspan>) → ESP32</text>
-    <text x="1088" y="760" class="sans tcp-item">• <tspan class="detail-bold">PWM Control Signals:</tspan> สัญญาณ 50 Hz ออกขา <tspan class="mono detail-mono">GPIO 13, 12, 14, 27</tspan></text>
-    <text x="1088" y="788" class="sans tcp-item">• <tspan class="detail-bold">Actuators &amp; Power:</tspan> มอเตอร์ Servo <tspan class="detail-bold">2× MG90S + 2× SG90</tspan> + ไฟเลี้ยง <tspan class="detail-bold">5V 2A+</tspan></text>
-    <text x="1088" y="816" class="sans tcp-item" style="fill:#15803d; font-weight:700;">• ต่อกราวด์ร่วม (Common GND) ระหว่างแหล่งจ่ายไฟ 5V กับบอร์ด ESP32</text>
+    <text x="1088" y="732" class="sans tcp-item">• <tspan class="detail-bold">USB-C UART Bridge:</tspan> สาย USB-C Data (<tspan class="mono detail-mono">115200 baud, 8N1</tspan>) → S3-CAM</text>
+    <text x="1088" y="760" class="sans tcp-item">• <tspan class="detail-bold">PWM Control Signals:</tspan> สัญญาณ 50 Hz ออกขา <tspan class="mono detail-mono">GPIO 1, 2, 41</tspan> (3 Servo)</text>
+    <text x="1088" y="788" class="sans tcp-item">• <tspan class="detail-bold">Actuators &amp; Power:</tspan> มอเตอร์ Servo <tspan class="detail-bold">1× MG996R + 2× MG90S</tspan> + ไฟเลี้ยง <tspan class="detail-bold">5V 3A–5A+</tspan></text>
+    <text x="1088" y="816" class="sans tcp-item" style="fill:#15803d; font-weight:700;">• ต่อกราวด์ร่วม (Common GND) ระหว่างแหล่งจ่ายไฟ 5V กับ GOOUUU ESP32-S3-CAM</text>
   </g>
 
   <!-- ======================================================================= -->
@@ -297,7 +297,7 @@
 
   <!-- Step 4 -->
   <rect x="1016" y="914" width="245" height="66" rx="8" fill="#ffffff" stroke="#16a34a" stroke-width="1.5"/>
-  <text x="1138" y="939" class="sans flow-title">4. ESP32 Firmware</text>
+  <text x="1138" y="939" class="sans flow-title">4. GOOUUU S3-CAM</text>
   <text x="1138" y="961" class="sans flow-sub">arduino_servo_bridge.ino (PWM)</text>
 
   <line x1="1261" y1="947" x2="1301" y2="947" stroke="#0284c7" stroke-width="2.4" marker-end="url(#arr-slate)"/>
@@ -305,5 +305,5 @@
   <!-- Step 5 -->
   <rect x="1307" y="914" width="235" height="66" rx="8" fill="#ffffff" stroke="#ca8a04" stroke-width="1.5"/>
   <text x="1424" y="939" class="sans flow-title">5. แขนกล 4-DOF จริง</text>
-  <text x="1424" y="961" class="sans flow-sub">2× MG90S + 2× SG90 (5V 2A+)</text>
+  <text x="1424" y="961" class="sans flow-sub">1× MG996R + 2× MG90S (5V 3A–5A+)</text>
 </svg>

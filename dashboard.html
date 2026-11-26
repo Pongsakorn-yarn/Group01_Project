@@ -241,11 +241,11 @@
           <canvas id="telemetry-chart" aria-label="กราฟเส้นเรียลไทม์แสดงค่า Servo 1 ถึง 4"></canvas>
         </div>
 
-        <div class="chart-legend" aria-label="คำอธิบายเส้นกราฟ Servo 1 ถึง 4">
-          <span class="legend-item"><span class="legend-swatch" style="background:#38bdf8"></span>S1 Base: <strong id="leg-s1">90°</strong></span>
-          <span class="legend-item"><span class="legend-swatch" style="background:#10b981"></span>S2 Shoulder: <strong id="leg-s2">90°</strong></span>
-          <span class="legend-item"><span class="legend-swatch" style="background:#f59e0b"></span>S3 Elbow: <strong id="leg-s3">90°</strong></span>
-          <span class="legend-item"><span class="legend-swatch" style="background:#f43f5e"></span>S4 Gripper: <strong id="leg-s4">63°</strong></span>
+        <div class="chart-legend" aria-label="คำอธิบายเส้นกราฟ 3 Servo จริง และ 2 แกนจำลอง 3D">
+          <span class="legend-item"><span class="legend-swatch" style="background:#38bdf8"></span>S1 Base (MG996R): <strong id="leg-s1">90°</strong></span>
+          <span class="legend-item"><span class="legend-swatch" style="background:#10b981"></span>Shoulder (Sim): <strong id="leg-s2">0.0°</strong></span>
+          <span class="legend-item"><span class="legend-swatch" style="background:#f59e0b"></span>Elbow (Sim): <strong id="leg-s3">0.0°</strong></span>
+          <span class="legend-item"><span class="legend-swatch" style="background:#f43f5e"></span>S2/S3 Grip L/R (2×MG90S): <strong id="leg-s4">L:63° R:63°</strong></span>
         </div>
       </section>
 
@@ -273,7 +273,7 @@
         <div class="joint-gauge-list">
           <div class="joint-gauge-item" id="gauge-card-j1">
             <div class="joint-gauge-top">
-              <span class="joint-gauge-name">DOF 1: Base Yaw (S1)</span>
+              <span class="joint-gauge-name">DOF 1: Base Yaw <span class="hw-badge hw-real">HW · MG996R · GPIO 1</span></span>
               <span class="joint-gauge-val">
                 <span class="limit-pill" id="dash-limit-j1" hidden>LIMIT</span>
                 <span id="dash-val-j1">0.0° (PWM 90°)</span>
@@ -291,10 +291,10 @@
 
           <div class="joint-gauge-item" id="gauge-card-j2">
             <div class="joint-gauge-top">
-              <span class="joint-gauge-name">DOF 2: Shoulder Pitch (S2)</span>
+              <span class="joint-gauge-name">DOF 2: Shoulder Pitch <span class="hw-badge hw-sim">SIM</span></span>
               <span class="joint-gauge-val">
                 <span class="limit-pill" id="dash-limit-j2" hidden>LIMIT</span>
-                <span id="dash-val-j2">0.0° (PWM 90°)</span>
+                <span id="dash-val-j2">0.0° (Sim 3D)</span>
               </span>
             </div>
             <div class="gauge-track" role="progressbar" aria-label="เปอร์เซ็นต์ตำแหน่งแกน Shoulder Pitch" aria-valuemin="0" aria-valuemax="100" aria-valuenow="41" id="gauge-track-j2">
@@ -309,10 +309,10 @@
 
           <div class="joint-gauge-item" id="gauge-card-j3">
             <div class="joint-gauge-top">
-              <span class="joint-gauge-name">DOF 3: Elbow Pitch (S3)</span>
+              <span class="joint-gauge-name">DOF 3: Elbow Pitch 4-Bar <span class="hw-badge hw-sim">SIM</span></span>
               <span class="joint-gauge-val">
                 <span class="limit-pill" id="dash-limit-j3" hidden>LIMIT</span>
-                <span id="dash-val-j3">0.0° (PWM 90°)</span>
+                <span id="dash-val-j3">0.0° (Sim 3D)</span>
               </span>
             </div>
             <div class="gauge-track" role="progressbar" aria-label="เปอร์เซ็นต์ตำแหน่งแกน Elbow Pitch" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" id="gauge-track-j3">
@@ -327,10 +327,10 @@
 
           <div class="joint-gauge-item" id="gauge-card-j4">
             <div class="joint-gauge-top">
-              <span class="joint-gauge-name">DOF 4: Gripper Claws (S4)</span>
+              <span class="joint-gauge-name">DOF 4: Gripper L/R <span class="hw-badge hw-real">HW · 2×MG90S · GPIO 2/41</span></span>
               <span class="joint-gauge-val">
                 <span class="limit-pill" id="dash-limit-j4" hidden>LIMIT</span>
-                <span id="dash-val-j4">35% (PWM 63°)</span>
+                <span id="dash-val-j4">35% (L:63° R:63°)</span>
               </span>
             </div>
             <div class="gauge-track" role="progressbar" aria-label="เปอร์เซ็นต์การอ้าหัวคีบ Gripper" aria-valuemin="0" aria-valuemax="100" aria-valuenow="35" id="gauge-track-j4">

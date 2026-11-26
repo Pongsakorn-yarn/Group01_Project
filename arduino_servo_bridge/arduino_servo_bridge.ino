@@ -2,89 +2,101 @@
  * =============================================================================
  * @file        arduino_servo_bridge/arduino_servo_bridge.ino
  * @project     ISY49303 IoT — Group01_Project (4-DOF Robotic Arm Digital Twin)
- * @description เฟิร์มแวร์ตัวกลางรับคำสั่งผ่าน USB Serial เพื่อขับ Servo 4 แกน (Arduino / ESP32)
+ * @board       GOOUUU ESP32-S3-CAM (ESP32-S3-WROOM-1 N16R8)
+ * @description เฟิร์มแวร์ตัวกลางรับคำสั่งผ่าน USB WebSerial เพื่อขับ Servo จริง 3 ตัว
+ *              (1x MG996R ที่ฐาน + 2x MG90S ที่มือหนีบซ้าย/ขวาแบบแยกข้างอิสระ)
+ *              ส่วนแกน Shoulder และ Elbow คงการทำงานแบบ Virtual Digital Twin บนเว็บ
  * -----------------------------------------------------------------------------
  * @protocol
- *   - การสื่อสาร  : USB Serial (UART) ความเร็ว 115200 baud, 8N1
- *   - รูปแบบข้อมูล : ข้อความ ASCII CSV ปิดท้ายด้วยขึ้นบรรทัดใหม่ -> "S1,S2,S3,S4\n"
- *   - ช่วงค่าองศา  : จำนวนเต็ม 0..180 องศาต่อแกน (จำกัดช่วงความปลอดภัยทางกลไกในโค้ด)
- * @pinout
- *   - Servo 1 (Base Yaw / หมุนฐาน)        : Arduino D3  | ESP32 GPIO 13
- *   - Servo 2 (Shoulder Pitch / ไหล่)     : Arduino D5  | ESP32 GPIO 26 (เลี่ยง GPIO 12 Strapping Pin)
- *   - Servo 3 (Elbow Pitch / ศอก 4-Bar)   : Arduino D6  | ESP32 GPIO 14
- *   - Servo 4 (Gripper Claws / หัวคีบ)    : Arduino D9  | ESP32 GPIO 27
+ *   - การสื่อสาร    : USB Serial (UART) ความเร็ว 115200 baud, 8N1
+ *                     (แนะนำให้เสียบสาย USB-C ที่ช่อง "UART" ของบอร์ด GOOUUU ESP32-S3-CAM)
+ *   - แพ็กเก็ตหลัก  : "BASE,GRIP_L,GRIP_R\n" (จำนวนเต็ม 0..180 องศา สำหรับ 3 มอเตอร์จริง)
+ *   - ซิงก์ขอบเขต  : "LIMIT:minB,maxB,minGL,maxGL,minGR,maxGR\n" -> ตอบกลับ "OK:LIMITS"
+ *   - Handshake     : "PING\n" -> ตอบกลับ "READY:3SERVO_S3CAM" (รองรับ ESP32-S3 ที่ไม่ Auto-Reset)
+ * @pinout (GOOUUU ESP32-S3-CAM — เลี่ยงขากล้อง 4-18, PSRAM 26-37, SD 38-40, Strapping 0/3/45/46)
+ *   - Servo 1 — Base Yaw (MG996R หมุนฐาน)             : GPIO 1  (Fallback ESP32: 13 | Arduino: D3)
+ *   - Servo 2 — Gripper Left Claw (MG90S ก้ามหนีบซ้าย) : GPIO 2  (Fallback ESP32: 26 | Arduino: D5)
+ *   - Servo 3 — Gripper Right Claw (MG90S ก้ามหนีบขวา) : GPIO 41 (Fallback ESP32: 14 | Arduino: D6)
  * @wiring_note
- *   - แนะนำให้ใช้แหล่งจ่ายไฟ 5V ภายนอก (2A ขึ้นไป) เลี้ยงมอเตอร์ Servo ทั้ง 4 ตัว
- *     และต่อสายกราวด์ร่วม (Common GND) กับบอร์ด Arduino / ESP32 เพื่อป้องกันบอร์ดรีเซ็ต
+ *   - ต้องใช้แหล่งจ่ายไฟภายนอก 5V DC (กระแส 3A–5A ขึ้นไป) เลี้ยง MG996R + 2x MG90S
+ *     พร้อมตัวเก็บประจุ 1000uF คร่อมรางไฟ และต่อสายกราวด์ร่วม (Common GND) กับบอร์ดเสมอ
+ *   - Arduino IDE Settings: Board = "ESP32S3 Dev Module", Flash = "16MB (128Mb)",
+ *     PSRAM = "OPI PSRAM", Library = "ESP32Servo" (v3.0.5+)
  * @data_flow
  *   [เว็บ Digital Twin (js/app.js ส่งผ่าน WebSerial API ทุก ~40 ms / 25 Hz)]
- *     -> สาย USB Serial ("S1,S2,S3,S4\n")
- *     -> loop(): Non-blocking char buffer reader -> sscanf()
- *     -> ปรับทิศทาง/ชดเชยศูนย์/จำกัดช่วงปลอดภัย -> Servo.write() ขับมอเตอร์ Servo 4 ตัว
+ *     -> สาย USB-C UART ("BASE,GRIP_L,GRIP_R\n")
+ *     -> loop(): Non-blocking char buffer reader -> PING / LIMIT / sscanf()
+ *     -> ปรับทิศทาง (Invert) / ชดเชยศูนย์ (Offset) / จำกัดช่วงปลอดภัย -> Servo.write() 3 ช่อง
  * =============================================================================
  */
 
 // -----------------------------------------------------------------------------
-// SECTION 01: เลือกไลบรารีและขา Pin อัตโนมัติตามชนิดบอร์ด (ESP32 หรือ Arduino)
+// SECTION 01: เลือกไลบรารีและขา Pin อัตโนมัติตามชนิดบอร์ด
 // -----------------------------------------------------------------------------
-#ifdef ESP32
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+  // บอร์ดหลักของโปรเจกต์: GOOUUU ESP32-S3-CAM (ขาปลอดการชนกับกล้อง, SD, PSRAM, USB, Strapping)
   #include <ESP32Servo.h>
-  const int PIN_SERVO_1 = 13; // แกนฐาน (Base Yaw)
-  const int PIN_SERVO_2 = 26; // แกนไหล่ (Shoulder Pitch — ย้ายจาก GPIO 12 เพื่อเลี่ยง Strapping Pin)
-  const int PIN_SERVO_3 = 14; // แกนศอก (Elbow Pitch กลไก 4-Bar)
-  const int PIN_SERVO_4 = 27; // แกนหัวคีบ (Gripper Claws)
-  const int SERVO_FREQ_HZ = 50;
-  const int SERVO_MIN_US  = 500;
-  const int SERVO_MAX_US  = 2400;
+  const int PIN_SERVO_BASE   = 1;  // Servo 1: MG996R  — Base Yaw (หมุนฐาน)
+  const int PIN_SERVO_GRIP_L = 2;  // Servo 2: MG90S#1 — Gripper Left Claw (ก้ามหนีบซ้าย)
+  const int PIN_SERVO_GRIP_R = 41; // Servo 3: MG90S#2 — Gripper Right Claw (ก้ามหนีบขวา)
+  const int SERVO_FREQ_HZ    = 50;
+  const int SERVO_MIN_US     = 500;
+  const int SERVO_MAX_US     = 2400;
+#elif defined(ESP32)
+  // Fallback สำหรับ ESP32 Dev Module รุ่นเดิม
+  #include <ESP32Servo.h>
+  const int PIN_SERVO_BASE   = 13;
+  const int PIN_SERVO_GRIP_L = 26;
+  const int PIN_SERVO_GRIP_R = 14;
+  const int SERVO_FREQ_HZ    = 50;
+  const int SERVO_MIN_US     = 500;
+  const int SERVO_MAX_US     = 2400;
 #else
+  // Fallback สำหรับ Arduino UNO / Nano
   #include <Servo.h>
-  const int PIN_SERVO_1 = 3;  // แกนฐาน (Base Yaw)
-  const int PIN_SERVO_2 = 5;  // แกนไหล่ (Shoulder Pitch)
-  const int PIN_SERVO_3 = 6;  // แกนศอก (Elbow Pitch กลไก 4-Bar)
-  const int PIN_SERVO_4 = 9;  // แกนหัวคีบ (Gripper Claws)
+  const int PIN_SERVO_BASE   = 3;
+  const int PIN_SERVO_GRIP_L = 5;
+  const int PIN_SERVO_GRIP_R = 6;
 #endif
 
 // ค่าคงที่การสื่อสารและท่าเริ่มต้นมาตรฐาน (Home Pose ตรงกับ HOME_POSE ใน js/app.js)
 const unsigned long SERIAL_BAUD = 115200;
-const int HOME_CMD_1 = 90; // j1 = 0°   -> 90°
-const int HOME_CMD_2 = 90; // j2 = 0°   -> 90°
-const int HOME_CMD_3 = 90; // j3 = 0°   -> 90°
-const int HOME_CMD_4 = 63; // j4 = 35%  -> round(0.35 * 180) = 63°
+const int HOME_CMD_BASE   = 90; // j1  = 0°  -> 90°
+const int HOME_CMD_GRIP_L = 63; // j4L = 35% -> round(0.35 * 180) = 63°
+const int HOME_CMD_GRIP_R = 63; // j4R = 35% -> round(0.35 * 180) = 63°
 
 // -----------------------------------------------------------------------------
 // SECTION 02: ค่าปรับเทียบและขอบเขตความปลอดภัยทางกลไก (Calibration & Safety Limits)
-// ปรับค่า INVERT (true/false), OFFSET (องศา) และ MIN/MAX ให้เข้ากับแขนกลที่ประกอบจริง
+// ปรับ INVERT (true/false), OFFSET (องศา) และช่วง HW MIN/MAX ให้เข้ากับชุดมือหนีบจริง
 // -----------------------------------------------------------------------------
-const bool INVERT_SERVO_1 = false;
-const bool INVERT_SERVO_2 = false;
-const bool INVERT_SERVO_3 = false;
-const bool INVERT_SERVO_4 = false;
+const bool INVERT_SERVO_BASE   = false;
+const bool INVERT_SERVO_GRIP_L = false; // ก้ามหนีบซ้าย: 0% ปิด -> 100% อ้า
+const bool INVERT_SERVO_GRIP_R = true;  // ก้ามหนีบขวา: กลับทิศให้สมมาตรกับฝั่งซ้าย (ปรับ false ได้หากติดทิศเดียวกัน)
 
-const int OFFSET_SERVO_1 = 0;
-const int OFFSET_SERVO_2 = 0;
-const int OFFSET_SERVO_3 = 0;
-const int OFFSET_SERVO_4 = 0;
+const int OFFSET_SERVO_BASE   = 0;
+const int OFFSET_SERVO_GRIP_L = 0;
+const int OFFSET_SERVO_GRIP_R = 0;
 
 // ขอบเขตองศาปลอดภัยขั้นเด็ดขาดทางกลไก (Hard Mechanical Safety Limits — ห้ามเกินเด็ดขาด)
-const int HARD_MIN_SERVO_1 = 0;   const int HARD_MAX_SERVO_1 = 180; // Base Yaw (-90°..+90°)
-const int HARD_MIN_SERVO_2 = 45;  const int HARD_MAX_SERVO_2 = 155; // Shoulder (-45°..+65°)
-const int HARD_MIN_SERVO_3 = 35;  const int HARD_MAX_SERVO_3 = 145; // Elbow (-55°..+55°)
-const int HARD_MIN_SERVO_4 = 0;   const int HARD_MAX_SERVO_4 = 180; // Gripper Command (0..180)
-const int GRIPPER_HW_MIN   = 20;  const int GRIPPER_HW_MAX   = 120; // ช่วงองศาหัวคีบจริงบนฮาร์ดแวร์
+const int HARD_MIN_BASE   = 0;  const int HARD_MAX_BASE   = 180; // Base Yaw (-90°..+90°)
+const int HARD_MIN_GRIP_L = 0;  const int HARD_MAX_GRIP_L = 180; // Gripper Left Command (0..180)
+const int HARD_MIN_GRIP_R = 0;  const int HARD_MAX_GRIP_R = 180; // Gripper Right Command (0..180)
 
-// ขอบเขตความปลอดภัยแบบปรับได้จากหน้าเว็บผ่านคำสั่ง "LIMIT:min1,max1,min2,max2,min3,max3,min4,max4\n"
-int softMinServo1 = HARD_MIN_SERVO_1; int softMaxServo1 = HARD_MAX_SERVO_1;
-int softMinServo2 = HARD_MIN_SERVO_2; int softMaxServo2 = HARD_MAX_SERVO_2;
-int softMinServo3 = HARD_MIN_SERVO_3; int softMaxServo3 = HARD_MAX_SERVO_3;
-int softMinServo4 = HARD_MIN_SERVO_4; int softMaxServo4 = HARD_MAX_SERVO_4;
+// ช่วงองศาปลอดภัยบนฮาร์ดแวร์จริงของมือหนีบแต่ละข้าง (ป้องกันเฟือง MG90S ชนสุดระยะ)
+const int GRIP_L_HW_MIN = 20;  const int GRIP_L_HW_MAX = 120;
+const int GRIP_R_HW_MIN = 20;  const int GRIP_R_HW_MAX = 120;
 
-// ออบเจกต์ควบคุมมอเตอร์ Servo ทั้ง 4 แกนอิสระ (4-DOF)
-Servo servo1_BaseYaw;
-Servo servo2_Shoulder;
-Servo servo3_Elbow;
-Servo servo4_Gripper;
+// ขอบเขตความปลอดภัยแบบปรับได้จากหน้าเว็บผ่านคำสั่ง "LIMIT:minB,maxB,minGL,maxGL,minGR,maxGR\n"
+int softMinBase  = HARD_MIN_BASE;   int softMaxBase  = HARD_MAX_BASE;
+int softMinGripL = HARD_MIN_GRIP_L; int softMaxGripL = HARD_MAX_GRIP_L;
+int softMinGripR = HARD_MIN_GRIP_R; int softMaxGripR = HARD_MAX_GRIP_R;
 
-// บัฟเฟอร์รับข้อมูล Serial แบบขนาดคงที่ (64 ไบต์ รองรับทั้ง "S1,S2,S3,S4" และ "LIMIT:..." โดยไม่บล็อกลูป)
+// ออบเจกต์ควบคุมมอเตอร์ Servo จริงทั้ง 3 ตัว
+Servo servo1_BaseYaw;   // MG996R
+Servo servo2_GripLeft;  // MG90S #1
+Servo servo3_GripRight; // MG90S #2
+
+// บัฟเฟอร์รับข้อมูล Serial แบบขนาดคงที่ (64 ไบต์ รองรับ "BASE,GRIP_L,GRIP_R", "LIMIT:...", "PING")
 const size_t RX_BUF_SIZE = 64;
 char rxBuf[RX_BUF_SIZE];
 size_t rxLen = 0;
@@ -110,89 +122,90 @@ void applySoftLimitPair(int reqMin, int reqMax, int hardMin, int hardMax, int &o
 }
 
 /**
- * @brief แปลงคำสั่งองศา (0..180) ด้วยการกลับทิศ, ชดเชยศูนย์ และจำกัดช่วงปลอดภัย (Soft ∩ Hard)
+ * @brief แปลงคำสั่งองศาของแกนหมุนฐาน (0..180) พร้อมกลับทิศ ชดเชยศูนย์ และจำกัดช่วงปลอดภัย
  */
-int computeSafeAngle(int rawDeg, bool invert, int offset, int softMin, int softMax, int hardMin, int hardMax) {
-  int deg = constrain(rawDeg, softMin, softMax);
-  if (invert) {
+int computeSafeBaseAngle(int rawDeg) {
+  int deg = constrain(rawDeg, softMinBase, softMaxBase);
+  if (INVERT_SERVO_BASE) {
     deg = 180 - deg;
   }
-  deg += offset;
-  int effMin = max(hardMin, softMin);
-  int effMax = min(hardMax, softMax);
+  deg += OFFSET_SERVO_BASE;
+  int effMin = max(HARD_MIN_BASE, softMinBase);
+  int effMax = min(HARD_MAX_BASE, softMaxBase);
   return constrain(deg, effMin, effMax);
 }
 
 /**
- * @brief สั่งขับ Servo ทั้ง 4 ตัวจากค่าคำสั่งดิบ (0..180)
- *        หมายเหตุ: Servo 4 (Gripper) จะถูกจำกัดช่วงด้วย softMinServo4..softMaxServo4
- *        ก่อนแมปเข้าช่วงปลอดภัยฮาร์ดแวร์ GRIPPER_HW_MIN..GRIPPER_HW_MAX
+ * @brief แปลงคำสั่งองศามือหนีบ (0..180) เข้าช่วงปลอดภัยฮาร์ดแวร์ของ MG90S แต่ละข้าง
  */
-void writeAllServos(int s1, int s2, int s3, int s4) {
-  int a1 = computeSafeAngle(s1, INVERT_SERVO_1, OFFSET_SERVO_1, softMinServo1, softMaxServo1, HARD_MIN_SERVO_1, HARD_MAX_SERVO_1);
-  int a2 = computeSafeAngle(s2, INVERT_SERVO_2, OFFSET_SERVO_2, softMinServo2, softMaxServo2, HARD_MIN_SERVO_2, HARD_MAX_SERVO_2);
-  int a3 = computeSafeAngle(s3, INVERT_SERVO_3, OFFSET_SERVO_3, softMinServo3, softMaxServo3, HARD_MIN_SERVO_3, HARD_MAX_SERVO_3);
-
-  int s4Clamped = constrain(s4, softMinServo4, softMaxServo4);
-  s4Clamped = constrain(s4Clamped, HARD_MIN_SERVO_4, HARD_MAX_SERVO_4);
-  if (INVERT_SERVO_4) {
-    s4Clamped = 180 - s4Clamped;
+int computeSafeGripperAngle(int rawCmd, bool invert, int offset,
+                            int softMin, int softMax, int hardMin, int hardMax,
+                            int hwMin, int hwMax) {
+  int clamped = constrain(rawCmd, softMin, softMax);
+  clamped = constrain(clamped, hardMin, hardMax);
+  if (invert) {
+    clamped = 180 - clamped;
   }
-  int a4 = map(s4Clamped, 0, 180, GRIPPER_HW_MIN, GRIPPER_HW_MAX) + OFFSET_SERVO_4;
-  a4 = constrain(a4, GRIPPER_HW_MIN, GRIPPER_HW_MAX);
+  int mapped = map(clamped, 0, 180, hwMin, hwMax) + offset;
+  return constrain(mapped, hwMin, hwMax);
+}
 
-  servo1_BaseYaw.write(a1);
-  servo2_Shoulder.write(a2);
-  servo3_Elbow.write(a3);
-  servo4_Gripper.write(a4);
+/**
+ * @brief สั่งขับ Servo จริงทั้ง 3 ตัว (Base MG996R, Gripper Left MG90S, Gripper Right MG90S)
+ */
+void writeAllServos(int baseCmd, int gripLCmd, int gripRCmd) {
+  int aBase = computeSafeBaseAngle(baseCmd);
+  int aGripL = computeSafeGripperAngle(
+    gripLCmd, INVERT_SERVO_GRIP_L, OFFSET_SERVO_GRIP_L,
+    softMinGripL, softMaxGripL, HARD_MIN_GRIP_L, HARD_MAX_GRIP_L,
+    GRIP_L_HW_MIN, GRIP_L_HW_MAX
+  );
+  int aGripR = computeSafeGripperAngle(
+    gripRCmd, INVERT_SERVO_GRIP_R, OFFSET_SERVO_GRIP_R,
+    softMinGripR, softMaxGripR, HARD_MIN_GRIP_R, HARD_MAX_GRIP_R,
+    GRIP_R_HW_MIN, GRIP_R_HW_MAX
+  );
+
+  servo1_BaseYaw.write(aBase);
+  servo2_GripLeft.write(aGripL);
+  servo3_GripRight.write(aGripR);
 }
 
 // -----------------------------------------------------------------------------
 // SECTION 04: ตั้งค่าเริ่มต้นของระบบ (setup)
 // -----------------------------------------------------------------------------
 
-/**
- * @brief เปิดการสื่อสาร USB Serial, จอง PWM Timer (สำหรับ ESP32), ผูกขา PWM ของ Servo ทั้ง 4 ช่อง
- *        และเคลื่อนที่ไปยังท่าเริ่มต้น (Home Pose) อย่างปลอดภัย
- */
 void setup() {
   Serial.begin(SERIAL_BAUD);
+  delay(300); // รอพอร์ต UART / USB CDC บน ESP32-S3 พร้อมรับ-ส่งข้อมูล
 
-#ifdef ESP32
-  // จอง PWM Timer 4 ช่องและกำหนดพัลส์ 500..2400 us ที่ 50 Hz เพื่อให้หมุนได้เต็มช่วง 0..180°
+#if defined(ESP32)
+  // จอง PWM Timer 3 ช่องสำหรับขับ Servo จริง 3 ตัวที่ความถี่ 50 Hz (500..2400 us)
   ESP32PWM::allocateTimer(0);
   ESP32PWM::allocateTimer(1);
   ESP32PWM::allocateTimer(2);
-  ESP32PWM::allocateTimer(3);
 
   servo1_BaseYaw.setPeriodHertz(SERVO_FREQ_HZ);
-  servo2_Shoulder.setPeriodHertz(SERVO_FREQ_HZ);
-  servo3_Elbow.setPeriodHertz(SERVO_FREQ_HZ);
-  servo4_Gripper.setPeriodHertz(SERVO_FREQ_HZ);
+  servo2_GripLeft.setPeriodHertz(SERVO_FREQ_HZ);
+  servo3_GripRight.setPeriodHertz(SERVO_FREQ_HZ);
 
-  servo1_BaseYaw.attach(PIN_SERVO_1, SERVO_MIN_US, SERVO_MAX_US);
-  servo2_Shoulder.attach(PIN_SERVO_2, SERVO_MIN_US, SERVO_MAX_US);
-  servo3_Elbow.attach(PIN_SERVO_3, SERVO_MIN_US, SERVO_MAX_US);
-  servo4_Gripper.attach(PIN_SERVO_4, SERVO_MIN_US, SERVO_MAX_US);
+  servo1_BaseYaw.attach(PIN_SERVO_BASE, SERVO_MIN_US, SERVO_MAX_US);
+  servo2_GripLeft.attach(PIN_SERVO_GRIP_L, SERVO_MIN_US, SERVO_MAX_US);
+  servo3_GripRight.attach(PIN_SERVO_GRIP_R, SERVO_MIN_US, SERVO_MAX_US);
 #else
-  servo1_BaseYaw.attach(PIN_SERVO_1);
-  servo2_Shoulder.attach(PIN_SERVO_2);
-  servo3_Elbow.attach(PIN_SERVO_3);
-  servo4_Gripper.attach(PIN_SERVO_4);
+  servo1_BaseYaw.attach(PIN_SERVO_BASE);
+  servo2_GripLeft.attach(PIN_SERVO_GRIP_L);
+  servo3_GripRight.attach(PIN_SERVO_GRIP_R);
 #endif
 
-  writeAllServos(HOME_CMD_1, HOME_CMD_2, HOME_CMD_3, HOME_CMD_4);
-  Serial.println("READY:4DOF_BRIDGE");
+  writeAllServos(HOME_CMD_BASE, HOME_CMD_GRIP_L, HOME_CMD_GRIP_R);
+  Serial.println("READY:3SERVO_S3CAM");
 }
 
 // -----------------------------------------------------------------------------
 // SECTION 05: ลูปรับคำสั่งและขับมอเตอร์แบบ Real-Time (Non-Blocking loop)
 // -----------------------------------------------------------------------------
 
-/**
- * @brief อ่านไบต์จาก USB Serial แบบไม่บล็อกจนครบหนึ่งบรรทัด ("S1,S2,S3,S4\n")
- *        แยกตัวเลข 4 แกน ตรวจสอบความปลอดภัย และสั่งขับ Servo ทั้ง 4 ตัวทันที
- */
 void loop() {
   while (Serial.available() > 0) {
     char c = (char)Serial.read();
@@ -204,20 +217,34 @@ void loop() {
     if (c == '\n') {
       rxBuf[rxLen] = '\0';
       if (rxLen > 0) {
-        if (strncmp(rxBuf, "LIMIT:", 6) == 0) {
-          int mn1, mx1, mn2, mx2, mn3, mx3, mn4, mx4;
-          if (sscanf(rxBuf + 6, "%d,%d,%d,%d,%d,%d,%d,%d",
-                     &mn1, &mx1, &mn2, &mx2, &mn3, &mx3, &mn4, &mx4) == 8) {
-            applySoftLimitPair(mn1, mx1, HARD_MIN_SERVO_1, HARD_MAX_SERVO_1, softMinServo1, softMaxServo1);
-            applySoftLimitPair(mn2, mx2, HARD_MIN_SERVO_2, HARD_MAX_SERVO_2, softMinServo2, softMaxServo2);
-            applySoftLimitPair(mn3, mx3, HARD_MIN_SERVO_3, HARD_MAX_SERVO_3, softMinServo3, softMaxServo3);
-            applySoftLimitPair(mn4, mx4, HARD_MIN_SERVO_4, HARD_MAX_SERVO_4, softMinServo4, softMaxServo4);
+        if (strcmp(rxBuf, "PING") == 0) {
+          // ตอบกลับ Handshake ทันที (สำคัญสำหรับ ESP32-S3 ที่ไม่ Auto-Reset เมื่อเปิด WebSerial)
+          Serial.println("READY:3SERVO_S3CAM");
+        } else if (strncmp(rxBuf, "LIMIT:", 6) == 0) {
+          int mnB, mxB, mnGL, mxGL, mnGR, mxGR, unused1, unused2;
+          int parsed = sscanf(rxBuf + 6, "%d,%d,%d,%d,%d,%d,%d,%d",
+                              &mnB, &mxB, &mnGL, &mxGL, &mnGR, &mxGR, &unused1, &unused2);
+          if (parsed == 6) {
+            applySoftLimitPair(mnB, mxB, HARD_MIN_BASE, HARD_MAX_BASE, softMinBase, softMaxBase);
+            applySoftLimitPair(mnGL, mxGL, HARD_MIN_GRIP_L, HARD_MAX_GRIP_L, softMinGripL, softMaxGripL);
+            applySoftLimitPair(mnGR, mxGR, HARD_MIN_GRIP_R, HARD_MAX_GRIP_R, softMinGripR, softMaxGripR);
+            Serial.println("OK:LIMITS");
+          } else if (parsed == 8) {
+            // รองรับคำสั่ง LIMIT แบบเดิม 8 ค่า (ใช้ Base และ Gripper)
+            applySoftLimitPair(mnB, mxB, HARD_MIN_BASE, HARD_MAX_BASE, softMinBase, softMaxBase);
+            applySoftLimitPair(unused1, unused2, HARD_MIN_GRIP_L, HARD_MAX_GRIP_L, softMinGripL, softMaxGripL);
+            applySoftLimitPair(unused1, unused2, HARD_MIN_GRIP_R, HARD_MAX_GRIP_R, softMinGripR, softMaxGripR);
             Serial.println("OK:LIMITS");
           }
         } else {
-          int s1, s2, s3, s4;
-          if (sscanf(rxBuf, "%d,%d,%d,%d", &s1, &s2, &s3, &s4) == 4) {
-            writeAllServos(s1, s2, s3, s4);
+          int v1, v2, v3, v4;
+          int parsed = sscanf(rxBuf, "%d,%d,%d,%d", &v1, &v2, &v3, &v4);
+          if (parsed == 3) {
+            // โปรโตคอลมาตรฐาน 3 ช่อง: BASE, GRIP_L, GRIP_R
+            writeAllServos(v1, v2, v3);
+          } else if (parsed == 4) {
+            // รองรับแพ็กเก็ตเดิม 4 ช่อง (Base = v1, GripL/R = v4)
+            writeAllServos(v1, v4, v4);
           }
         }
       }
