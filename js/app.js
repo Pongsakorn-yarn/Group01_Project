@@ -95,6 +95,66 @@
   if (cadDotEl) cadDotEl.className = 'dot active';
   if (cadStatusEl) cadStatusEl.textContent = `CAD Mesh: ${cadData.bodies.length}/${cadData.bodies.length} Loaded`;
 
+  // เชื่อมต่อระบบบัสข้อมูลสดข้ามหน้าต่าง (BroadcastChannel + localStorage Snapshot)
+  const factoryBus = window.ArmFactoryBus ? window.ArmFactoryBus.createBus('station') : null;
+  const stationId = `station-${Math.random().toString(36).slice(2, 8)}`;
+  const stationStartMs = Date.now();
+  const factoryMetrics = {
+    fps: 60,
+    telemetryHz: 10,
+    cycleCount: 0,
+    tcp: { x: 162.0, y: 0.0, z: 129.0 },
+    handDetected: false,
+    pinchPct: 50,
+    estopMs: 0,
+    lastBusPublish: 0,
+    lastBusSampleMs: 0,
+    busRateWindowStart: performance.now(),
+    busRateCount: 0,
+    prevLimitClamped: { j1: false, j2: false, j3: false, j4: false },
+    serial: {
+      txCount: 0,
+      txHz: 0,
+      txWindowStart: performance.now(),
+      txWindowCount: 0,
+      lastPacket: '',
+      lastLimitCmd: '',
+      lastHandshake: 'Waiting',
+      limitsAcked: false,
+      recentPackets: []
+    }
+  };
+
+  function logFactoryEvent(level, category, message, detail = '') {
+    if (factoryBus) {
+      factoryBus.pushEvent(level, category, message, detail);
+    }
+  }
+
+  function recordSerialPacket(dir, text) {
+    const clean = String(text || '').trim();
+    if (!clean) return;
+    factoryMetrics.serial.recentPackets.unshift({
+      ts: Date.now(),
+      dir,
+      text: clean
+    });
+    if (factoryMetrics.serial.recentPackets.length > 36) {
+      factoryMetrics.serial.recentPackets.length = 36;
+    }
+  }
+
+  // โหลดจำนวน Cycle Count เดิมจาก Snapshot ล่าสุด (ถ้ามี) เพื่อคงยอดผลิตในเซสชัน
+  (function restorePreviousCycleCount() {
+    if (!window.ArmFactoryBus) return;
+    const prev = window.ArmFactoryBus.readSnapshot();
+    if (prev && prev.production && typeof prev.production.cycleCount === 'number' && prev.production.cycleCount >= 0) {
+      factoryMetrics.cycleCount = Math.floor(prev.production.cycleCount);
+    }
+  })();
+
+  logFactoryEvent('success', 'SYSTEM', 'สถานีควบคุม 3D Digital Twin พร้อมทำงาน', `โหลดชิ้นส่วน CAD ${cadData.bodies.length} ชิ้น`);
+
   /**
    * ถอดรหัสข้อความ Base64 เป็นอาเรย์เลขทศนิยม 32-bit (Float32Array)
    * สำหรับข้อมูลจุดยอด (Vertex), เวกเตอร์ตั้งฉาก (Normal) และเส้นขอบจาก arm_cad_data.js
@@ -919,6 +979,7 @@
     } catch {
       // ข้ามหากเบราว์เซอร์ปิดการเข้าถึง localStorage
     }
+    if (factoryBus) factoryBus.notifyThemeChanged();
   }
 
   let displaySettings = loadDisplaySettings();
@@ -1166,6 +1227,12 @@
   // นำค่าตั้งค่าการแสดงผลที่บันทึกไว้มาใช้งานทันที
   applyDisplaySettings(displaySettings, false);
 
+  if (factoryBus) {
+    factoryBus.on('theme', () => {
+      applyDisplaySettings(loadDisplaySettings(), false);
+    });
+  }
+
   /* =========================================================================
    * ระบบตั้งค่าขอบเขตความปลอดภัยมอเตอร์ Servo (Joint Software Limits: Min / Max)
    * Single Source of Truth สำหรับ Manual Slider, Hand Tracking, IK, Demo, Home & WebSerial
@@ -1305,6 +1372,17 @@
       if (ctrlGroup) ctrlGroup.classList.toggle('is-limited', active);
       const limitCard = ui.limitCards[axis];
       if (limitCard) limitCard.classList.toggle('is-limited', active);
+
+      if (active && !factoryMetrics.prevLimitClamped[axis]) {
+        const hard = JOINT_HARD_LIMITS[axis];
+        logFactoryEvent(
+          'warn',
+          'SAFETY',
+          `ชนขอบเขตความปลอดภัย ${hard.label}`,
+          `ช่วงอนุญาต ${lim.min}${hard.unit}..${lim.max}${hard.unit}`
+        );
+      }
+      factoryMetrics.prevLimitClamped[axis] = active;
     });
   }
 
@@ -1785,6 +1863,9 @@
     ui.tcpX.textContent = tcpCad.x.toFixed(1);
     ui.tcpY.textContent = tcpCad.y.toFixed(1);
     ui.tcpZ.textContent = tcpCad.z.toFixed(1);
+    factoryMetrics.tcp.x = +tcpCad.x.toFixed(1);
+    factoryMetrics.tcp.y = +tcpCad.y.toFixed(1);
+    factoryMetrics.tcp.z = +tcpCad.z.toFixed(1);
 
     // อัปเดตเส้นรอยเคลื่อนที่ (TCP Trail)
     if (trailCount < MAX_TRAIL) {
@@ -1807,12 +1888,20 @@
       if (!cubeGrabbed && distToCube < 26.0 && state.current.j4 < 28) {
         cubeGrabbed = true;
         updateCubeVisualState();
+        logFactoryEvent('info', 'PRODUCTION', 'หัวคีบจับชิ้นงาน (Cube Grabbed)', `TCP (${tcpCad.x.toFixed(0)}, ${tcpCad.y.toFixed(0)}, ${tcpCad.z.toFixed(0)}) mm`);
       } else if (cubeGrabbed && state.current.j4 > 34) {
         cubeGrabbed = false;
+        factoryMetrics.cycleCount += 1;
         updateCubeVisualState();
         // วางกล่องกลับลงบนพื้นโต๊ะ (z = 9 mm สำหรับกล่องสูง 18 mm)
         targetCube.position.z = 9.0;
         targetCube.rotation.set(0, 0, 0);
+        logFactoryEvent(
+          'success',
+          'PRODUCTION',
+          `หยิบ-วางชิ้นงานสำเร็จ (Cycle #${factoryMetrics.cycleCount})`,
+          `ตำแหน่งวาง (${targetCube.position.x.toFixed(0)}, ${targetCube.position.y.toFixed(0)}) mm`
+        );
       }
     }
 
@@ -2156,9 +2245,13 @@
     state.serialPort = null;
     state.serialSending = false;
     state.boardReady = false;
+    factoryMetrics.serial.txHz = 0;
+    factoryMetrics.serial.lastHandshake = 'Disconnected';
+    factoryMetrics.serial.limitsAcked = false;
     ui.serialDot.className = 'dot';
     ui.serialStatusText.textContent = 'IoT Serial: Disconnected';
     ui.btnSerial.textContent = '🔌 เชื่อมต่อ Arduino / ESP32 (WebSerial)';
+    logFactoryEvent('info', 'SERIAL', 'ตัดการเชื่อมต่อ USB WebSerial แล้ว');
   }
 
   /**
@@ -2184,11 +2277,18 @@
           if (trimmed.includes('READY:4DOF_BRIDGE')) {
             state.boardReady = true;
             state.pendingLimitSync = true;
+            factoryMetrics.serial.lastHandshake = 'READY:4DOF_BRIDGE';
+            recordSerialPacket('RX', trimmed);
             ui.serialDot.className = 'dot active';
             ui.serialStatusText.textContent = 'IoT Serial: 4DOF Ready';
             showToast('บอร์ดตอบกลับ READY:4DOF_BRIDGE พร้อมซิงก์ขอบเขต Servo และรับคำสั่งแล้ว', 'success', 3500);
+            logFactoryEvent('success', 'SERIAL', 'บอร์ดตอบกลับ Handshake READY:4DOF_BRIDGE');
           } else if (trimmed.includes('OK:LIMITS')) {
+            factoryMetrics.serial.limitsAcked = true;
+            factoryMetrics.serial.lastHandshake = 'OK:LIMITS';
+            recordSerialPacket('RX', trimmed);
             console.info('Board confirmed software joint limits (OK:LIMITS)');
+            logFactoryEvent('success', 'SERIAL', 'บอร์ดยืนยันขอบเขต Servo (OK:LIMITS)');
           }
         });
       }
@@ -2243,7 +2343,10 @@
       ui.serialDot.className = 'dot active';
       ui.serialStatusText.textContent = 'IoT Serial: 115200 Connected';
       ui.btnSerial.textContent = '🔌 ตัดการเชื่อมต่อ Serial';
+      factoryMetrics.serial.lastHandshake = 'Connected (Waiting READY)';
+      factoryMetrics.serial.limitsAcked = false;
       showToast('เชื่อมต่อบอร์ด Arduino / ESP32 (115200 baud) สำเร็จ', 'success', 3000);
+      logFactoryEvent('success', 'SERIAL', 'เชื่อมต่อ USB WebSerial (115200 baud) สำเร็จ');
       readSerialLoop(port);
     } catch (err) {
       console.warn('WebSerial connection cancelled or failed:', err);
@@ -2269,8 +2372,13 @@
     if (state.pendingLimitSync) {
       state.pendingLimitSync = false;
       state.serialSending = true;
+      const limitCmd = buildLimitCommandString();
       try {
-        await state.serialWriter.write(serialEncoder.encode(buildLimitCommandString()));
+        await state.serialWriter.write(serialEncoder.encode(limitCmd));
+        factoryMetrics.serial.lastLimitCmd = limitCmd.trim();
+        factoryMetrics.serial.txCount += 1;
+        recordSerialPacket('LIM', limitCmd.trim());
+        logFactoryEvent('info', 'SERIAL', 'ส่งคำสั่งซิงก์ขอบเขต Servo ไปยังบอร์ด', limitCmd.trim());
       } catch (e) {
         console.warn('Serial limit sync error, disconnecting:', e);
         await disconnectSerial();
@@ -2293,6 +2401,20 @@
     const msg = `${s1},${s2},${s3},${s4}\n`;
     try {
       await state.serialWriter.write(serialEncoder.encode(msg));
+      factoryMetrics.serial.txCount += 1;
+      factoryMetrics.serial.txWindowCount += 1;
+      factoryMetrics.serial.lastPacket = msg.trim();
+      if (now - factoryMetrics.serial.txWindowStart >= 1000) {
+        factoryMetrics.serial.txHz = +(
+          (factoryMetrics.serial.txWindowCount * 1000) /
+          Math.max(1, now - factoryMetrics.serial.txWindowStart)
+        ).toFixed(1);
+        factoryMetrics.serial.txWindowCount = 0;
+        factoryMetrics.serial.txWindowStart = now;
+      }
+      if (factoryMetrics.serial.txCount % 3 === 1) {
+        recordSerialPacket('TX', msg.trim());
+      }
     } catch (e) {
       console.warn('Serial write error, disconnecting:', e);
       await disconnectSerial();
@@ -2379,6 +2501,8 @@
       trackCtx.stroke();
 
       // อัปเดตแถบ Pinch Meter บนหน้าเว็บ
+      factoryMetrics.handDetected = true;
+      factoryMetrics.pinchPct = Math.round(gripperOpenPct);
       ui.pinchBar.style.width = `${gripperOpenPct}%`;
       if (ui.pinchBarTrack) {
         ui.pinchBarTrack.setAttribute('aria-valuenow', String(Math.round(gripperOpenPct)));
@@ -2409,6 +2533,7 @@
       syncSlidersFromState();
       updateLimitIndicatorsUI();
     } else {
+      factoryMetrics.handDetected = false;
       ui.handDetectTag.textContent = 'NO HAND';
       ui.handDetectTag.style.borderColor = 'rgba(56, 189, 248, 0.35)';
       ui.handDetectTag.style.color = '#e2e8f0';
@@ -2421,8 +2546,10 @@
    * ปิดสตรีมกล้องเว็บแคมและคืนสถานะปุ่ม/ไฟแสดงผลทั้งหมดอย่างปลอดภัย
    */
   function stopWebcam(statusText = 'Camera: Standby', dotClass = 'dot') {
+    const wasRunning = state.camRunning;
     state.camRunning = false;
     animCamActive = false;
+    factoryMetrics.handDetected = false;
     if (mediaStream) {
       mediaStream.getTracks().forEach((t) => t.stop());
       mediaStream = null;
@@ -2433,6 +2560,9 @@
     ui.camStatusText.textContent = statusText;
     btnToggleCam.textContent = '📷 เปิดกล้อง Hand Tracking';
     btnToggleCam.classList.remove('danger');
+    if (wasRunning) {
+      logFactoryEvent(dotClass === 'dot warn' ? 'warn' : 'info', 'CAMERA', 'ปิดกล้อง Hand Tracking', statusText);
+    }
   }
 
   /**
@@ -2500,6 +2630,7 @@
       ui.camStatusText.textContent = 'Camera: Live Hand Tracking';
       btnToggleCam.textContent = '⏹️ ปิดกล้อง (Stop Camera)';
       btnToggleCam.classList.add('danger');
+      logFactoryEvent('success', 'CAMERA', 'เปิดกล้อง MediaPipe Hand Tracking สำเร็จ', `โหมด ${state.handMode.toUpperCase()}`);
 
       async function processVideoFrame() {
         if (!animCamActive) return;
@@ -2562,9 +2693,14 @@
     frameCounter++;
     if (now - fpsTimer >= 500) {
       const fps = Math.round((frameCounter * 1000) / (now - fpsTimer));
+      factoryMetrics.fps = fps;
       ui.fpsBadge.textContent = `${fps} FPS`;
       frameCounter = 0;
       fpsTimer = now;
+    }
+
+    if (state.estop) {
+      factoryMetrics.estopMs += dt * 1000;
     }
 
     // 2. ประมวลผลโหมดจำลองอัตโนมัติหรือเล่นซ้ำท่าทางที่บันทึกไว้ (หยุดเมื่อเปิด E-Stop)
@@ -2662,14 +2798,138 @@
     // 5. ตรวจสอบขนาด Canvas เทียบกับ Viewport จริงทุกเฟรม (มาตรฐาน Three.js resizeRendererToDisplaySize)
     syncRendererToDisplaySize();
 
-    // 6. อัปเดต HUD, ป้าย LIMIT, จลนศาสตร์ 3 มิติ, ส่งคำสั่ง Serial และเรนเดอร์ฉาก
+    // 6. อัปเดต HUD, ป้าย LIMIT, จลนศาสตร์ 3 มิติ, ส่งคำสั่ง Serial, ส่ง Telemetry ข้ามหน้าต่าง และเรนเดอร์ฉาก
     updateJointLabels();
     updateLimitIndicatorsUI();
     updateArmKinematics();
     sendSerialTelemetry(now);
+    publishFactoryTelemetry(now, false);
 
     controls.update();
     renderer.render(scene, camera);
+  }
+
+  function getActiveControlModeLabel() {
+    if (state.estop) return 'E-STOP';
+    if (state.camRunning) return state.handMode === 'ik' ? 'Hand Tracking (3D IK)' : 'Hand Tracking (Direct)';
+    if (state.demoMode === 'pick') return 'Auto Pick & Place';
+    if (state.demoMode === 'circle') return 'Auto Circle IK';
+    if (state.playing) return 'Trajectory Playback';
+    return 'Manual / Standby';
+  }
+
+  function buildFactorySnapshot(liveFlag = true) {
+    const safePose = clampJointTargets(state.current, false);
+    const pwm = {
+      s1: axisValueToPwm('j1', safePose.j1),
+      s2: axisValueToPwm('j2', safePose.j2),
+      s3: axisValueToPwm('j3', safePose.j3),
+      s4: axisValueToPwm('j4', safePose.j4)
+    };
+    const limitClamped = {
+      j1: Boolean(factoryMetrics.prevLimitClamped.j1),
+      j2: Boolean(factoryMetrics.prevLimitClamped.j2),
+      j3: Boolean(factoryMetrics.prevLimitClamped.j3),
+      j4: Boolean(factoryMetrics.prevLimitClamped.j4)
+    };
+    const anyLimitClamped = limitClamped.j1 || limitClamped.j2 || limitClamped.j3 || limitClamped.j4;
+    const uptimeMs = Math.max(1000, Date.now() - stationStartMs);
+    const availabilityPct = +Math.max(0, Math.min(100, ((uptimeMs - factoryMetrics.estopMs) / uptimeMs) * 100)).toFixed(1);
+    const performancePct = +Math.max(0, Math.min(100, (factoryMetrics.fps / 60) * 100)).toFixed(1);
+    const qualityPct = anyLimitClamped ? 96.5 : 100.0;
+    const oeePct = +((availabilityPct / 100) * (performancePct / 100) * (qualityPct / 100) * 100).toFixed(1);
+
+    let machineState = 'STANDBY';
+    if (state.estop) {
+      machineState = 'E-STOP';
+    } else if (anyLimitClamped) {
+      machineState = 'LIMIT WARNING';
+    } else if (state.camRunning || state.demoMode || state.playing || state.serialPort) {
+      machineState = 'RUNNING';
+    }
+
+    return {
+      version: 1,
+      stationId,
+      live: Boolean(liveFlag),
+      timestamp: Date.now(),
+      machineState,
+      joints: {
+        j1: +state.current.j1.toFixed(1),
+        j2: +state.current.j2.toFixed(1),
+        j3: +state.current.j3.toFixed(1),
+        j4: +state.current.j4.toFixed(1),
+        wrist: +state.current.wrist.toFixed(1)
+      },
+      pwm,
+      tcp: { ...factoryMetrics.tcp },
+      camera: {
+        running: Boolean(state.camRunning),
+        statusText: ui.camStatusText ? ui.camStatusText.textContent : 'Camera: Standby',
+        handDetected: Boolean(factoryMetrics.handDetected),
+        handMode: state.handMode,
+        pinchPct: factoryMetrics.pinchPct
+      },
+      serial: {
+        supported: Boolean(serialSupported),
+        connected: Boolean(state.serialPort),
+        boardReady: Boolean(state.boardReady),
+        statusText: ui.serialStatusText ? ui.serialStatusText.textContent : 'IoT Serial: Disconnected',
+        baudRate: 115200,
+        txHz: state.serialPort ? factoryMetrics.serial.txHz : 0,
+        txCount: factoryMetrics.serial.txCount,
+        lastPacket: factoryMetrics.serial.lastPacket || `${pwm.s1},${pwm.s2},${pwm.s3},${pwm.s4}`,
+        lastLimitCmd: factoryMetrics.serial.lastLimitCmd || buildLimitCommandString().trim(),
+        lastHandshake: factoryMetrics.serial.lastHandshake,
+        limitsAcked: Boolean(factoryMetrics.serial.limitsAcked),
+        recentPackets: factoryMetrics.serial.recentPackets.slice(0, 24)
+      },
+      safety: {
+        estop: Boolean(state.estop),
+        limitClamped,
+        anyLimitClamped
+      },
+      production: {
+        cycleCount: factoryMetrics.cycleCount,
+        cubeGrabbed: Boolean(cubeGrabbed),
+        activeMode: getActiveControlModeLabel(),
+        fps: factoryMetrics.fps,
+        telemetryHz: factoryMetrics.telemetryHz,
+        uptimeSec: Math.floor(uptimeMs / 1000),
+        availabilityPct,
+        performancePct,
+        qualityPct,
+        oeePct
+      },
+      jointLimits: {
+        j1: { ...jointLimits.j1 },
+        j2: { ...jointLimits.j2 },
+        j3: { ...jointLimits.j3 },
+        j4: { ...jointLimits.j4 }
+      }
+    };
+  }
+
+  function publishFactoryTelemetry(now, force = false) {
+    if (!factoryBus) return;
+    if (!force && now - factoryMetrics.lastBusPublish < 100) return;
+    factoryMetrics.lastBusPublish = now;
+    factoryMetrics.busRateCount += 1;
+    if (now - factoryMetrics.busRateWindowStart >= 1000) {
+      factoryMetrics.telemetryHz = +(
+        (factoryMetrics.busRateCount * 1000) /
+        Math.max(1, now - factoryMetrics.busRateWindowStart)
+      ).toFixed(1);
+      factoryMetrics.busRateCount = 0;
+      factoryMetrics.busRateWindowStart = now;
+    }
+    factoryBus.publishTelemetry(buildFactorySnapshot(true), force);
+  }
+
+  if (factoryBus) {
+    factoryBus.on('requestSnapshot', () => {
+      publishFactoryTelemetry(performance.now(), true);
+    });
   }
 
   const topBarEl = document.getElementById('top-bar');
@@ -2759,6 +3019,9 @@
   window.addEventListener('pagehide', () => {
     if (state.camRunning) stopWebcam();
     if (state.serialPort) disconnectSerial();
+    if (factoryBus) {
+      factoryBus.publishTelemetry(buildFactorySnapshot(false), true);
+    }
   });
 
   // ระบบหยุดฉุกเฉิน (Emergency Stop / E-Stop) และคีย์ลัดมาตรฐาน
@@ -2782,8 +3045,12 @@
       state.target = { ...state.current };
       syncSlidersFromState();
       showToast('🛑 E-STOP ทำงาน: หยุดการเคลื่อนที่และหยุดส่งคำสั่ง Serial ชั่วคราว (กด Space หรือปุ่ม RELEASE เพื่อปลดล็อก)', 'error', 5500);
+      logFactoryEvent('error', 'SAFETY', 'เปิดใช้งานหยุดฉุกเฉิน E-STOP', 'หยุดการเคลื่อนที่และระงับคำสั่ง USB Serial ชั่วคราว');
+      publishFactoryTelemetry(performance.now(), true);
     } else {
       showToast('ปลดล็อก E-STOP แล้ว สามารถควบคุมแขนกลต่อได้ตามปกติ', 'success', 3000);
+      logFactoryEvent('success', 'SAFETY', 'ปลดล็อกหยุดฉุกเฉิน E-STOP แล้ว');
+      publishFactoryTelemetry(performance.now(), true);
     }
   }
 

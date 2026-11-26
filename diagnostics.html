@@ -1,0 +1,227 @@
+<!--
+  ==============================================================================
+  @file        diagnostics.html
+  @project     ISY49303 IoT — Group01_Project (4-DOF Robotic Arm Digital Twin)
+  @description หน้า IoT Hardware Diagnostics & Pinout Reference แสดง Live Serial
+               Protocol Monitor, ตาราง Joint Safety Limits เทียบ Hard Limits,
+               ผังอ้างอิงขา Pin Arduino UNO/Nano และ ESP32 และส่งออก Diagnostics JSON
+  ==============================================================================
+-->
+<!DOCTYPE html>
+<html lang="th" class="factory-page-root">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description"
+    content="IoT Hardware Diagnostics & Pinout Reference สำหรับตรวจสอบแพ็กเก็ต WebSerial, ขอบเขตความปลอดภัย Servo และผังการต่อสาย Arduino / ESP32" />
+  <meta name="theme-color" content="#090d16" />
+  <title>IoT Diagnostics &amp; Pinout — 4-DOF Robotic Arm Digital Twin</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
+  <link rel="apple-touch-icon" href="assets/icon.svg" />
+
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+
+  <!-- โหลดธีมสีและ UI Scale จาก localStorage ทันทีก่อนเรนเดอร์ (No-FOUC) -->
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('arm4dof_display_settings_v1');
+        var cfg = raw ? JSON.parse(raw) : {};
+        var themePref = (cfg.theme === 'light' || cfg.theme === 'dark' || cfg.theme === 'auto') ? cfg.theme : 'dark';
+        var resolvedTheme = themePref === 'auto'
+          ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+          : themePref;
+        var root = document.documentElement;
+        root.dataset.theme = resolvedTheme;
+        var scale = (cfg.uiScale === 'compact' || cfg.uiScale === 'normal' || cfg.uiScale === 'large') ? cfg.uiScale : 'normal';
+        root.dataset.uiScale = scale;
+        var opacity = typeof cfg.panelOpacity === 'number' ? Math.min(100, Math.max(45, cfg.panelOpacity)) : 88;
+        var alpha = +(opacity / 100).toFixed(2);
+        var alphaStrong = +Math.min(1, alpha + 0.06).toFixed(2);
+        root.style.setProperty('--panel-alpha', String(alpha));
+        root.style.setProperty('--panel-alpha-strong', String(alphaStrong));
+        if (cfg.glassBlur === false) {
+          root.classList.add('no-glass-blur');
+        }
+        var metaTheme = document.querySelector('meta[name="theme-color"]');
+        if (metaTheme) {
+          metaTheme.setAttribute('content', resolvedTheme === 'light' ? '#e8eef5' : '#090d16');
+        }
+      } catch (_) {
+        document.documentElement.dataset.theme = 'dark';
+        document.documentElement.dataset.uiScale = 'normal';
+      }
+    })();
+  </script>
+</head>
+
+<body class="factory-page">
+  <header class="top-bar page-top-bar" role="banner">
+    <div class="brand-group">
+      <span class="brand-badge">IOT DIAGNOSTICS</span>
+      <div class="brand-text">
+        <h1 class="brand-title">Hardware Diagnostics &amp; Pinout Reference</h1>
+        <span class="brand-subtitle">WebSerial 115200 8N1 • Safety Limits • Arduino UNO/Nano &amp; ESP32</span>
+      </div>
+    </div>
+
+    <nav class="page-nav" aria-label="สลับหน้าต่างระบบโรงงาน">
+      <a class="page-nav-link" href="index.html" target="_blank" rel="noopener" title="เปิดหน้าควบคุมแขนกล 3D หลัก">
+        <span aria-hidden="true">🧊</span><span>3D Control</span>
+      </a>
+      <a class="page-nav-link" href="dashboard.html" title="ไปหน้า Factory Dashboard">
+        <span aria-hidden="true">📊</span><span>Factory Dashboard</span>
+      </a>
+      <a class="page-nav-link active" href="diagnostics.html" aria-current="page" title="หน้า IoT Diagnostics ปัจจุบัน">
+        <span aria-hidden="true">🔧</span><span>IoT Diagnostics</span>
+      </a>
+    </nav>
+
+    <div class="top-bar-actions">
+      <div class="status-pills" aria-live="polite">
+        <div class="pill" title="สถานะการเชื่อมต่อกับหน้าควบคุมหลัก index.html">
+          <span class="dot warn" id="diag-live-dot" aria-hidden="true"></span>
+          <span id="diag-live-text">Standby / Waiting</span>
+        </div>
+      </div>
+      <div class="top-bar-btns">
+        <button type="button" class="btn-icon" id="btn-export-diag-json"
+          aria-label="ส่งออกรายงานตรวจสอบระบบเป็นไฟล์ JSON" title="Export Diagnostics JSON">
+          <span aria-hidden="true">💾</span>
+          <span class="btn-icon-label">Export JSON</span>
+        </button>
+        <button type="button" class="btn-icon" id="btn-cycle-theme" aria-label="สลับธีมสี Dark, Light หรือ Auto"
+          title="สลับธีมสี (ซิงก์ร่วมกันทุกหน้า)">
+          <span aria-hidden="true" id="theme-icon">🌙</span>
+          <span class="btn-icon-label" id="theme-label">Dark</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <!-- ป้ายแจ้งเตือนโหมด Standby เมื่อยังไม่ได้เปิดหน้าควบคุมหลัก -->
+    <section class="standby-banner" id="standby-banner" role="status" aria-live="polite">
+      <div class="standby-banner-text">
+        <span class="standby-badge">⏳ Standby / Waiting for Live Station</span>
+        <span id="standby-detail">กำลังรอข้อมูลสดจากหน้าควบคุมหลัก (index.html) — แสดงค่าขอบเขตและผังต่อสายที่บันทึกไว้ในเครื่อง</span>
+      </div>
+      <a class="btn primary btn-compact" href="index.html" target="_blank" rel="noopener">🧊 เปิดหน้าควบคุมหลัก (3D Control)</a>
+    </section>
+
+    <!-- Live Serial & Protocol Monitor -->
+    <section class="panel-card" aria-label="ตัวตรวจสอบโปรโตคอลและแพ็กเก็ต USB WebSerial แบบเรียลไทม์">
+      <div class="panel-card-header">
+        <h2 class="panel-card-title">📡 Live Serial &amp; Protocol Monitor (115200 baud, 8N1)</h2>
+        <div class="panel-card-actions">
+          <span class="setting-badge" id="diag-serial-status">Disconnected</span>
+          <button type="button" class="btn btn-compact" id="btn-pause-stream" aria-pressed="false">⏸️ พักสตรีม</button>
+        </div>
+      </div>
+
+      <div class="protocol-summary-grid">
+        <div class="proto-stat">
+          <div class="proto-stat-label">ความถี่ส่งข้อมูล (TX Rate)</div>
+          <div class="proto-stat-val" id="diag-tx-hz">0.0 Hz</div>
+        </div>
+        <div class="proto-stat">
+          <div class="proto-stat-label">จำนวนแพ็กเก็ตที่ส่ง (TX Count)</div>
+          <div class="proto-stat-val" id="diag-tx-count">0</div>
+        </div>
+        <div class="proto-stat">
+          <div class="proto-stat-label">สถานะ Handshake บอร์ด</div>
+          <div class="proto-stat-val" id="diag-handshake">Waiting</div>
+        </div>
+        <div class="proto-stat">
+          <div class="proto-stat-label">คำสั่ง Servo ล่าสุด (S1..S4)</div>
+          <div class="proto-stat-val selectable" id="diag-last-packet">90,90,90,63</div>
+        </div>
+        <div class="proto-stat">
+          <div class="proto-stat-label">คำสั่งซิงก์ขอบเขต (LIMIT)</div>
+          <div class="proto-stat-val selectable" id="diag-last-limit">LIMIT:0,180,45,155,35,145,0,180</div>
+        </div>
+      </div>
+
+      <div class="packet-terminal" id="packet-terminal" aria-live="off" aria-label="สตรีมแพ็กเก็ต Serial ล่าสุด">
+        <div class="packet-line">
+          <span class="packet-ts">--:--:--</span>
+          <span class="packet-dir tx">INFO</span>
+          <span>ยังไม่มีแพ็กเก็ต USB Serial — เชื่อมต่อบอร์ดบนหน้า 3D Control เพื่อดูสตรีมสด</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ตาราง Joint Safety Limits และผังการต่อสายฮาร์ดแวร์ -->
+    <div class="page-grid-equal">
+      <section class="panel-card" aria-label="ตารางตรวจสอบขอบเขตความปลอดภัย Servo ทั้ง 4 แกน">
+        <div class="panel-card-header">
+          <h2 class="panel-card-title">🛡️ Joint Safety Limits Table (Soft vs Hard)</h2>
+          <span class="setting-badge" id="diag-limits-source">Source: localStorage</span>
+        </div>
+
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">แกน Servo</th>
+                <th scope="col">Soft Limit ปัจจุบัน</th>
+                <th scope="col">Hard Mechanical Limit</th>
+                <th scope="col">PWM ปัจจุบัน</th>
+                <th scope="col">สถานะ</th>
+              </tr>
+            </thead>
+            <tbody id="limits-tbody"></tbody>
+          </table>
+        </div>
+
+        <p class="helper-text">
+          ค่า Soft Limit โหลดจาก <code>arm4dof_joint_limits_v1</code> และบังคับซ้ำบนเฟิร์มแวร์ด้วย
+          <code>applySoftLimitPair()</code> ใน <code>arduino_servo_bridge.ino</code> เพื่อไม่ให้เกิน Hard Mechanical Limits เด็ดขาด
+        </p>
+      </section>
+
+      <section class="panel-card" aria-label="ผังอ้างอิงการต่อสายฮาร์ดแวร์ Arduino UNO/Nano และ ESP32">
+        <div class="panel-card-header">
+          <h2 class="panel-card-title">🔌 Hardware Pinout &amp; Wiring Guide</h2>
+          <span class="setting-badge">arduino_servo_bridge.ino</span>
+        </div>
+
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Servo / หน้าที่</th>
+                <th scope="col">Arduino UNO/Nano</th>
+                <th scope="col">ESP32</th>
+                <th scope="col">Home / หมายเหตุ</th>
+              </tr>
+            </thead>
+            <tbody id="pinout-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="power-warning-box" role="note" aria-label="ข้อควรระวังด้านแหล่งจ่ายไฟและการต่อสายกราวด์ร่วม">
+          <strong>⚠️ ข้อควรระวังสำคัญด้านแหล่งจ่ายไฟ (Power &amp; Grounding):</strong>
+          <ul>
+            <li>ใช้แหล่งจ่ายไฟ <strong>5V ภายนอก (2A ขึ้นไป)</strong> เลี้ยงมอเตอร์ Servo ทั้ง 4 ตัวโดยตรง ห้ามดึงไฟจากขา 5V ของบอร์ดผ่านสาย USB เพราะจะทำให้บอร์ดรีเซ็ตหรือพอร์ต USB ตัดการเชื่อมต่อ</li>
+            <li>ต้องต่อสายกราวด์ร่วม (<strong>Common GND</strong>) ระหว่างแหล่งจ่ายไฟ 5V ภายนอก กับขา <code>GND</code> ของบอร์ด Arduino / ESP32 ทุกครั้ง เพื่อให้สัญญาณ PWM ทำงานถูกต้อง</li>
+            <li>สำหรับ ESP32 เฟิร์มแวร์ตั้งค่า PWM ที่ <code>50 Hz</code> (พัลส์ <code>500–2400 µs</code>) และย้าย Servo 2 ไปใช้ <code>GPIO 26</code> เพื่อเลี่ยงขา Strapping Pin (<code>GPIO 12</code>)</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+    <footer class="page-footer">
+      ISY49303 IoT — Group01_Project • Protocol Reference synchronized with arduino_servo_bridge/arduino_servo_bridge.ino
+    </footer>
+  </main>
+
+  <script src="js/factory_bus.js"></script>
+  <script src="js/diagnostics.js"></script>
+</body>
+
+</html>

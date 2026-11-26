@@ -1,0 +1,345 @@
+<!--
+  ==============================================================================
+  @file        dashboard.html
+  @project     ISY49303 IoT — Group01_Project (4-DOF Robotic Arm Digital Twin)
+  @description หน้า Factory Digital Twin & Production Dashboard แสดงสถานะโรงงาน,
+               KPI / OEE, กราฟ Real-Time 4-DOF Servo Telemetry (HTML5 Canvas ล้วน),
+               เกจข้อต่อ + พิกัด TCP และ System Event & Alarm Log พร้อมส่งออก CSV
+  ==============================================================================
+-->
+<!DOCTYPE html>
+<html lang="th" class="factory-page-root">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description"
+    content="Factory Digital Twin & Production Dashboard สำหรับติดตามสถานะแขนกล 4-DOF แบบ Real-Time, KPI, OEE, กราฟ Telemetry และ Event/Alarm Log" />
+  <meta name="theme-color" content="#090d16" />
+  <title>Factory Dashboard — 4-DOF Robotic Arm Digital Twin</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
+  <link rel="apple-touch-icon" href="assets/icon.svg" />
+
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+
+  <!-- โหลดธีมสีและ UI Scale จาก localStorage ทันทีก่อนเรนเดอร์ (No-FOUC) -->
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('arm4dof_display_settings_v1');
+        var cfg = raw ? JSON.parse(raw) : {};
+        var themePref = (cfg.theme === 'light' || cfg.theme === 'dark' || cfg.theme === 'auto') ? cfg.theme : 'dark';
+        var resolvedTheme = themePref === 'auto'
+          ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+          : themePref;
+        var root = document.documentElement;
+        root.dataset.theme = resolvedTheme;
+        var scale = (cfg.uiScale === 'compact' || cfg.uiScale === 'normal' || cfg.uiScale === 'large') ? cfg.uiScale : 'normal';
+        root.dataset.uiScale = scale;
+        var opacity = typeof cfg.panelOpacity === 'number' ? Math.min(100, Math.max(45, cfg.panelOpacity)) : 88;
+        var alpha = +(opacity / 100).toFixed(2);
+        var alphaStrong = +Math.min(1, alpha + 0.06).toFixed(2);
+        root.style.setProperty('--panel-alpha', String(alpha));
+        root.style.setProperty('--panel-alpha-strong', String(alphaStrong));
+        if (cfg.glassBlur === false) {
+          root.classList.add('no-glass-blur');
+        }
+        var metaTheme = document.querySelector('meta[name="theme-color"]');
+        if (metaTheme) {
+          metaTheme.setAttribute('content', resolvedTheme === 'light' ? '#e8eef5' : '#090d16');
+        }
+      } catch (_) {
+        document.documentElement.dataset.theme = 'dark';
+        document.documentElement.dataset.uiScale = 'normal';
+      }
+    })();
+  </script>
+</head>
+
+<body class="factory-page">
+  <header class="top-bar page-top-bar" role="banner">
+    <div class="brand-group">
+      <span class="brand-badge">FACTORY DASHBOARD</span>
+      <div class="brand-text">
+        <h1 class="brand-title">4-DOF Production Digital Twin</h1>
+        <span class="brand-subtitle">Real-Time Telemetry • OEE &amp; KPI • Event &amp; Alarm Log</span>
+      </div>
+    </div>
+
+    <nav class="page-nav" aria-label="สลับหน้าต่างระบบโรงงาน">
+      <a class="page-nav-link" href="index.html" target="_blank" rel="noopener" title="เปิดหน้าควบคุมแขนกล 3D หลัก">
+        <span aria-hidden="true">🧊</span><span>3D Control</span>
+      </a>
+      <a class="page-nav-link active" href="dashboard.html" aria-current="page" title="หน้า Factory Dashboard ปัจจุบัน">
+        <span aria-hidden="true">📊</span><span>Factory Dashboard</span>
+      </a>
+      <a class="page-nav-link" href="diagnostics.html" title="ไปหน้า IoT Diagnostics และ Pinout">
+        <span aria-hidden="true">🔧</span><span>IoT Diagnostics</span>
+      </a>
+    </nav>
+
+    <div class="top-bar-actions">
+      <div class="status-pills" aria-live="polite">
+        <div class="pill" title="สถานะการเชื่อมต่อกับหน้าควบคุมหลัก index.html">
+          <span class="dot warn" id="dash-live-dot" aria-hidden="true"></span>
+          <span id="dash-live-text">Standby / Waiting</span>
+        </div>
+      </div>
+      <div class="top-bar-btns">
+        <button type="button" class="btn-icon" id="btn-cycle-theme" aria-label="สลับธีมสี Dark, Light หรือ Auto"
+          title="สลับธีมสี (ซิงก์ร่วมกันทุกหน้า)">
+          <span aria-hidden="true" id="theme-icon">🌙</span>
+          <span class="btn-icon-label" id="theme-label">Dark</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <!-- ป้ายแจ้งเตือนโหมด Standby เมื่อยังไม่ได้เปิดหน้าควบคุมหลัก -->
+    <section class="standby-banner" id="standby-banner" role="status" aria-live="polite">
+      <div class="standby-banner-text">
+        <span class="standby-badge">⏳ Standby / Waiting for Live Station</span>
+        <span id="standby-detail">กำลังรอข้อมูลสดจากหน้าควบคุมหลัก (index.html) — แสดงข้อมูลล่าสุดที่บันทึกไว้ในเครื่อง</span>
+      </div>
+      <a class="btn primary btn-compact" href="index.html" target="_blank" rel="noopener">🧊 เปิดหน้าควบคุมหลัก (3D Control)</a>
+    </section>
+
+    <!-- แถบสถานะเครื่องจักรและโหมดการทำงาน -->
+    <section class="status-strip" aria-label="สถานะเครื่องจักรโรงงาน">
+      <div class="status-strip-left">
+        <span class="machine-state-badge state-standby" id="machine-state-badge">
+          <span class="dot" id="machine-state-dot" aria-hidden="true"></span>
+          <span id="machine-state-text">STANDBY</span>
+        </span>
+        <div class="status-meta-row">
+          <span>โหมดควบคุม: <strong id="meta-active-mode">Manual / Standby</strong></span>
+          <span>กล้อง: <strong id="meta-cam-state">Standby</strong></span>
+          <span>WebSerial: <strong id="meta-serial-state">Disconnected</strong></span>
+          <span>อัปเดตล่าสุด: <strong id="meta-last-update">-</strong></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- แถว KPI Cards -->
+    <section class="kpi-grid" aria-label="ตัวชี้วัดการผลิตและสถานะระบบ (KPI Cards)">
+      <article class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">จำนวนรอบหยิบ-วางสำเร็จ (Cycle Count)</span>
+          <span class="kpi-icon" aria-hidden="true">📦</span>
+        </div>
+        <div class="kpi-value accent-emerald" id="kpi-cycle-count">0</div>
+        <div class="kpi-sub">
+          <span id="kpi-cube-status">หัวคีบ: ว่าง (Idle)</span>
+          <span id="kpi-uptime">Uptime: 0s</span>
+        </div>
+      </article>
+
+      <article class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">อัตราเฟรมควบคุม &amp; Telemetry Rate</span>
+          <span class="kpi-icon" aria-hidden="true">⚡</span>
+        </div>
+        <div class="kpi-value accent-cyan" id="kpi-fps-rate">0 FPS</div>
+        <div class="kpi-sub">
+          <span>Bus Sync: <strong id="kpi-telemetry-hz">0.0 Hz</strong></span>
+          <span>Serial TX: <strong id="kpi-serial-hz">0.0 Hz</strong></span>
+        </div>
+      </article>
+
+      <article class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">ประสิทธิภาพเครื่องจักรจำลอง (OEE)</span>
+          <span class="kpi-icon" aria-hidden="true">🏭</span>
+        </div>
+        <div class="kpi-value accent-cyan" id="kpi-oee">0.0%</div>
+        <div class="kpi-sub">
+          <span>Availability: <strong id="kpi-availability">100.0%</strong></span>
+          <span>Quality: <strong id="kpi-quality">100.0%</strong></span>
+        </div>
+      </article>
+
+      <article class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">ความปลอดภัย &amp; ขอบเขต (Safety Guard)</span>
+          <span class="kpi-icon" aria-hidden="true">🛡️</span>
+        </div>
+        <div class="kpi-value" id="kpi-safety-status">NORMAL</div>
+        <div class="kpi-sub">
+          <span>E-Stop: <strong id="kpi-estop-state">OFF</strong></span>
+          <span>Limit Clamp: <strong id="kpi-limit-state">NONE</strong></span>
+        </div>
+      </article>
+    </section>
+
+    <!-- กราฟ Real-Time 4-DOF Servo Telemetry + การ์ดข้อต่อ & พิกัด TCP -->
+    <div class="page-grid-2">
+      <section class="panel-card" aria-label="กราฟการเคลื่อนที่ของ Servo 1 ถึง 4 แบบเรียลไทม์">
+        <div class="panel-card-header">
+          <h2 class="panel-card-title">📈 Real-Time 4-DOF Servo Telemetry</h2>
+          <div class="panel-card-actions">
+            <button type="button" class="btn btn-compact active" id="btn-chart-mode" aria-pressed="true"
+              title="สลับหน่วยกราฟระหว่าง PWM (0-180°) และองศา/เปอร์เซ็นต์">โหมด: PWM (0–180°)</button>
+            <button type="button" class="btn btn-compact" id="btn-chart-pause" aria-pressed="false">⏸️ พักกราฟ</button>
+            <button type="button" class="btn btn-compact" id="btn-chart-clear">🧹 ล้างกราฟ</button>
+          </div>
+        </div>
+
+        <div class="chart-canvas-wrap">
+          <canvas id="telemetry-chart" aria-label="กราฟเส้นเรียลไทม์แสดงค่า Servo 1 ถึง 4"></canvas>
+        </div>
+
+        <div class="chart-legend" aria-label="คำอธิบายเส้นกราฟ Servo 1 ถึง 4">
+          <span class="legend-item"><span class="legend-swatch" style="background:#38bdf8"></span>S1 Base: <strong id="leg-s1">90°</strong></span>
+          <span class="legend-item"><span class="legend-swatch" style="background:#10b981"></span>S2 Shoulder: <strong id="leg-s2">90°</strong></span>
+          <span class="legend-item"><span class="legend-swatch" style="background:#f59e0b"></span>S3 Elbow: <strong id="leg-s3">90°</strong></span>
+          <span class="legend-item"><span class="legend-swatch" style="background:#f43f5e"></span>S4 Gripper: <strong id="leg-s4">63°</strong></span>
+        </div>
+      </section>
+
+      <section class="panel-card" aria-label="สถานะข้อต่อทั้ง 4 แกนและพิกัดปลายแขน TCP">
+        <div class="panel-card-header">
+          <h2 class="panel-card-title">🦾 สถานะข้อต่อ 4-DOF &amp; พิกัด TCP</h2>
+          <span class="setting-badge" id="badge-hand-state">Hand: Standby</span>
+        </div>
+
+        <div class="tcp-grid-3" aria-label="พิกัดปลายแขนกล TCP หน่วยมิลลิเมตร">
+          <div class="tcp-box">
+            <div class="tcp-box-label">TCP X (mm)</div>
+            <div class="tcp-box-val selectable" id="dash-tcp-x">162.0</div>
+          </div>
+          <div class="tcp-box">
+            <div class="tcp-box-label">TCP Y (mm)</div>
+            <div class="tcp-box-val selectable" id="dash-tcp-y">0.0</div>
+          </div>
+          <div class="tcp-box">
+            <div class="tcp-box-label">TCP Z (mm)</div>
+            <div class="tcp-box-val selectable" id="dash-tcp-z">129.0</div>
+          </div>
+        </div>
+
+        <div class="joint-gauge-list">
+          <div class="joint-gauge-item" id="gauge-card-j1">
+            <div class="joint-gauge-top">
+              <span class="joint-gauge-name">DOF 1: Base Yaw (S1)</span>
+              <span class="joint-gauge-val">
+                <span class="limit-pill" id="dash-limit-j1" hidden>LIMIT</span>
+                <span id="dash-val-j1">0.0° (PWM 90°)</span>
+              </span>
+            </div>
+            <div class="gauge-track" role="progressbar" aria-label="เปอร์เซ็นต์ตำแหน่งแกน Base Yaw" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" id="gauge-track-j1">
+              <div class="gauge-fill" id="gauge-fill-j1" style="width:50%;background:#38bdf8;"></div>
+            </div>
+            <div class="joint-gauge-bounds">
+              <span id="dash-min-j1">Min: -90°</span>
+              <span id="dash-pct-j1">50%</span>
+              <span id="dash-max-j1">Max: +90°</span>
+            </div>
+          </div>
+
+          <div class="joint-gauge-item" id="gauge-card-j2">
+            <div class="joint-gauge-top">
+              <span class="joint-gauge-name">DOF 2: Shoulder Pitch (S2)</span>
+              <span class="joint-gauge-val">
+                <span class="limit-pill" id="dash-limit-j2" hidden>LIMIT</span>
+                <span id="dash-val-j2">0.0° (PWM 90°)</span>
+              </span>
+            </div>
+            <div class="gauge-track" role="progressbar" aria-label="เปอร์เซ็นต์ตำแหน่งแกน Shoulder Pitch" aria-valuemin="0" aria-valuemax="100" aria-valuenow="41" id="gauge-track-j2">
+              <div class="gauge-fill" id="gauge-fill-j2" style="width:41%;background:#10b981;"></div>
+            </div>
+            <div class="joint-gauge-bounds">
+              <span id="dash-min-j2">Min: -45°</span>
+              <span id="dash-pct-j2">41%</span>
+              <span id="dash-max-j2">Max: +65°</span>
+            </div>
+          </div>
+
+          <div class="joint-gauge-item" id="gauge-card-j3">
+            <div class="joint-gauge-top">
+              <span class="joint-gauge-name">DOF 3: Elbow Pitch (S3)</span>
+              <span class="joint-gauge-val">
+                <span class="limit-pill" id="dash-limit-j3" hidden>LIMIT</span>
+                <span id="dash-val-j3">0.0° (PWM 90°)</span>
+              </span>
+            </div>
+            <div class="gauge-track" role="progressbar" aria-label="เปอร์เซ็นต์ตำแหน่งแกน Elbow Pitch" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" id="gauge-track-j3">
+              <div class="gauge-fill" id="gauge-fill-j3" style="width:50%;background:#f59e0b;"></div>
+            </div>
+            <div class="joint-gauge-bounds">
+              <span id="dash-min-j3">Min: -55°</span>
+              <span id="dash-pct-j3">50%</span>
+              <span id="dash-max-j3">Max: +55°</span>
+            </div>
+          </div>
+
+          <div class="joint-gauge-item" id="gauge-card-j4">
+            <div class="joint-gauge-top">
+              <span class="joint-gauge-name">DOF 4: Gripper Claws (S4)</span>
+              <span class="joint-gauge-val">
+                <span class="limit-pill" id="dash-limit-j4" hidden>LIMIT</span>
+                <span id="dash-val-j4">35% (PWM 63°)</span>
+              </span>
+            </div>
+            <div class="gauge-track" role="progressbar" aria-label="เปอร์เซ็นต์การอ้าหัวคีบ Gripper" aria-valuemin="0" aria-valuemax="100" aria-valuenow="35" id="gauge-track-j4">
+              <div class="gauge-fill" id="gauge-fill-j4" style="width:35%;background:#f43f5e;"></div>
+            </div>
+            <div class="joint-gauge-bounds">
+              <span id="dash-min-j4">Min: 0%</span>
+              <span id="dash-pct-j4">35%</span>
+              <span id="dash-max-j4">Max: 100%</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- System Event & Alarm Log -->
+    <section class="panel-card" aria-label="บันทึกเหตุการณ์และสัญญาณเตือนของระบบ">
+      <div class="panel-card-header">
+        <h2 class="panel-card-title">📋 System Event &amp; Alarm Log (<span id="log-count">0</span>)</h2>
+        <div class="panel-card-actions">
+          <div class="log-filter-bar" role="group" aria-label="กรองประเภทเหตุการณ์">
+            <button type="button" class="filter-chip active" data-log-filter="all" aria-pressed="true">ทั้งหมด</button>
+            <button type="button" class="filter-chip" data-log-filter="alarm" aria-pressed="false">Alarm / Warn</button>
+            <button type="button" class="filter-chip" data-log-filter="production" aria-pressed="false">Production</button>
+            <button type="button" class="filter-chip" data-log-filter="hardware" aria-pressed="false">Camera / Serial</button>
+          </div>
+          <button type="button" class="btn btn-compact" id="btn-export-csv">📥 ส่งออก CSV</button>
+          <button type="button" class="btn btn-compact danger" id="btn-clear-log">🗑️ ล้าง Log</button>
+        </div>
+      </div>
+
+      <div class="table-scroll log-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">เวลา</th>
+              <th scope="col">ระดับ</th>
+              <th scope="col">หมวด</th>
+              <th scope="col">เหตุการณ์</th>
+              <th scope="col">รายละเอียด</th>
+            </tr>
+          </thead>
+          <tbody id="event-log-tbody">
+            <tr>
+              <td colspan="5" class="empty-cell">ยังไม่มีบันทึกเหตุการณ์ในระบบ</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="page-footer">
+      ISY49303 IoT — Group01_Project • 4-DOF Robotic Arm Factory Digital Twin (Offline-Ready BroadcastChannel Sync)
+    </footer>
+  </main>
+
+  <script src="js/factory_bus.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+
+</html>

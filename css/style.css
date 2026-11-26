@@ -2005,6 +2005,59 @@ body.hud-hidden .panel-edge-tab-right {
   }
 }
 
+/* แถบเมนูนำทางระหว่างหน้าต่าง (3D Control / Factory Dashboard / IoT Diagnostics) */
+.page-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.page-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.page-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 4px 9px;
+  border-radius: 7px;
+  font-size: calc(11.5px * var(--ui-scale));
+  font-weight: 600;
+  color: var(--text-label);
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.page-nav-link:hover {
+  background: var(--surface-hover);
+  color: var(--text-main);
+}
+
+.page-nav-link.active,
+.page-nav-link[aria-current="page"] {
+  background: var(--surface-active-soft);
+  border-color: var(--accent-cyan-light);
+  color: var(--accent-text);
+}
+
+.page-nav-link:focus-visible {
+  outline: 2px solid var(--accent-cyan-light);
+  outline-offset: 2px;
+}
+
 /* ลดแอนิเมชันสำหรับผู้ใช้ที่เปิด Reduced Motion ในระบบปฏิบัติการ */
 @media (prefers-reduced-motion: reduce) {
   *,

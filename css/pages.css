@@ -1,0 +1,659 @@
+/**
+ * =============================================================================
+ * @file        css/pages.css
+ * @project     ISY49303 IoT — Group01_Project (4-DOF Robotic Arm Digital Twin)
+ * @description สไตล์สำหรับหน้าเสริมของระบบโรงงาน (dashboard.html & diagnostics.html)
+ *              ใช้ตัวแปรธีมสี Dark / Light / Auto และ UI Scale ร่วมกับ css/style.css
+ *              รองรับทุกอุปกรณ์และการซูม 50%–400% ตามมาตรฐาน WCAG 2.1 AA
+ * =============================================================================
+ */
+
+html.factory-page-root,
+body.factory-page {
+  height: auto;
+  min-height: 100%;
+  min-height: 100dvh;
+  overflow-x: clip;
+  overflow-y: auto;
+  background: var(--bg-dark);
+  color: var(--text-main);
+}
+
+/* แถบนำทางส่วนบนแบบ Sticky สำหรับหน้า Dashboard และ Diagnostics */
+.page-top-bar {
+  position: sticky;
+  top: 0;
+  left: auto;
+  right: auto;
+  margin: calc(10px + var(--safe-top)) calc(14px + var(--safe-right)) 0 calc(14px + var(--safe-left));
+  z-index: 32;
+}
+
+/* โครงสร้างหลักของหน้า */
+.page-shell {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 14px calc(14px + var(--safe-right)) calc(32px + var(--safe-bottom)) calc(14px + var(--safe-left));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ป้ายแจ้งเตือนโหมด Standby เมื่อยังไม่ได้เปิดหน้าควบคุมหลัก index.html */
+.standby-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--limit-banner-bg);
+  border: 1px solid var(--limit-banner-border);
+  color: var(--text-main);
+  font-size: calc(12.5px * var(--ui-scale));
+  line-height: 1.5;
+}
+
+.standby-banner[hidden] {
+  display: none;
+}
+
+.standby-banner-text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.standby-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: calc(11px * var(--ui-scale));
+  font-weight: 700;
+  background: var(--limit-pill-bg);
+  border: 1px solid var(--limit-pill-border);
+  color: var(--limit-pill-text);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* แถบสถานะโรงงาน (Factory Machine State Strip) */
+.status-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow-soft);
+}
+
+.status-strip-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+.machine-state-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: calc(12px * var(--ui-scale));
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+.machine-state-badge.state-running {
+  background: var(--accent-active-bg);
+  border-color: var(--accent-emerald);
+  color: var(--accent-active-text);
+}
+
+.machine-state-badge.state-standby {
+  background: var(--surface-subtle);
+  border-color: var(--border-subtle);
+  color: var(--text-label);
+}
+
+.machine-state-badge.state-limit {
+  background: var(--limit-pill-bg);
+  border-color: var(--limit-pill-border);
+  color: var(--limit-pill-text);
+}
+
+.machine-state-badge.state-estop {
+  background: var(--danger-bg);
+  border-color: var(--accent-rose);
+  color: var(--danger-text);
+}
+
+.status-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: calc(12px * var(--ui-scale));
+  color: var(--text-muted);
+}
+
+.status-meta-row strong {
+  color: var(--text-main);
+  font-family: var(--font-mono);
+}
+
+/* KPI Grid (4 การ์ดบน Desktop, 2 บน Tablet, 1 บน Mobile/Zoom สูง) */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.kpi-card {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kpi-label {
+  font-size: calc(11.5px * var(--ui-scale));
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.kpi-icon {
+  font-size: calc(15px * var(--ui-scale));
+}
+
+.kpi-value {
+  font-family: var(--font-mono);
+  font-size: calc(24px * var(--ui-scale));
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.kpi-value.accent-cyan { color: var(--accent-cyan-light); }
+.kpi-value.accent-emerald { color: var(--accent-emerald); }
+.kpi-value.accent-amber { color: var(--accent-amber); }
+.kpi-value.accent-rose { color: var(--accent-rose); }
+
+.kpi-sub {
+  font-size: calc(11.5px * var(--ui-scale));
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+/* กริดหลักแบบ 2 คอลัมน์ที่ยืดหยุ่นเมื่อซูมหรือจอบีบ */
+.page-grid-2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.page-grid-equal {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+/* การ์ดเนื้อหามาตรฐานของหน้า Dashboard / Diagnostics */
+.panel-card {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.panel-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-divider);
+}
+
+.panel-card-title {
+  font-size: calc(14px * var(--ui-scale));
+  font-weight: 700;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-card-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* กราฟ Real-Time 4-DOF Servo Telemetry (HTML5 Canvas ล้วน) */
+.chart-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 290px;
+  background: var(--surface-deep);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.chart-canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.chart-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: calc(11.5px * var(--ui-scale));
+  color: var(--text-label);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+}
+
+.legend-swatch {
+  width: 12px;
+  height: 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* การ์ดเกจข้อต่อ 4 แกนและพิกัด TCP */
+.joint-gauge-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.joint-gauge-item {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-item);
+  border: 1px solid var(--border-divider);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.joint-gauge-item.is-limited {
+  border-color: var(--limit-pill-border);
+  background: var(--limit-banner-bg);
+}
+
+.joint-gauge-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.joint-gauge-name {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.joint-gauge-val {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent-cyan-light);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gauge-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--slider-track);
+  overflow: hidden;
+  border: 1px solid var(--border-divider);
+}
+
+.gauge-fill {
+  height: 100%;
+  width: 50%;
+  border-radius: 999px;
+  transition: width 0.08s linear;
+}
+
+.joint-gauge-bounds {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: calc(10.5px * var(--ui-scale));
+  color: var(--text-muted);
+}
+
+.tcp-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tcp-box {
+  background: var(--surface-item);
+  border: 1px solid var(--border-divider);
+  border-radius: 10px;
+  padding: 10px 8px;
+  text-align: center;
+}
+
+.tcp-box-label {
+  font-size: calc(10.5px * var(--ui-scale));
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.tcp-box-val {
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: calc(16px * var(--ui-scale));
+  font-weight: 700;
+  color: var(--accent-cyan-light);
+}
+
+/* System Event & Alarm Log */
+.log-filter-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filter-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
+  color: var(--text-label);
+  font-size: calc(11px * var(--ui-scale));
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filter-chip.active,
+.filter-chip[aria-pressed="true"] {
+  background: var(--surface-active-soft);
+  border-color: var(--accent-cyan-light);
+  color: var(--accent-text);
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-divider);
+  border-radius: 10px;
+  background: var(--surface-deep);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: calc(12px * var(--ui-scale));
+  text-align: left;
+}
+
+.data-table th,
+.data-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-divider);
+  vertical-align: middle;
+}
+
+.data-table th {
+  font-size: calc(11px * var(--ui-scale));
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  background: var(--surface-subtle);
+  white-space: nowrap;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table code {
+  font-family: var(--font-mono);
+  font-size: calc(11.5px * var(--ui-scale));
+  color: var(--code-text);
+  background: var(--code-bg);
+  padding: 2px 6px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+.log-table-wrap {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.level-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: calc(10.5px * var(--ui-scale));
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.level-badge.info {
+  background: var(--surface-active-soft);
+  color: var(--accent-text);
+}
+
+.level-badge.success {
+  background: var(--accent-active-bg);
+  color: var(--accent-active-text);
+}
+
+.level-badge.warn {
+  background: var(--limit-pill-bg);
+  color: var(--limit-pill-text);
+}
+
+.level-badge.error {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.empty-cell {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 22px 12px !important;
+}
+
+/* Diagnostics: Serial Monitor Stream & Safety Callout */
+.packet-terminal {
+  font-family: var(--font-mono);
+  font-size: calc(12px * var(--ui-scale));
+  line-height: 1.55;
+  background: var(--surface-deep);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px 12px;
+  max-height: 230px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.packet-line {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--text-secondary);
+}
+
+.packet-ts {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.packet-dir {
+  font-weight: 700;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: calc(10.5px * var(--ui-scale));
+}
+
+.packet-dir.tx {
+  background: var(--surface-active-soft);
+  color: var(--accent-text);
+}
+
+.packet-dir.rx {
+  background: var(--accent-active-bg);
+  color: var(--accent-active-text);
+}
+
+.packet-dir.lim {
+  background: var(--limit-pill-bg);
+  color: var(--limit-pill-text);
+}
+
+.protocol-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.proto-stat {
+  background: var(--surface-item);
+  border: 1px solid var(--border-divider);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.proto-stat-label {
+  font-size: calc(10.5px * var(--ui-scale));
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.proto-stat-val {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: calc(13px * var(--ui-scale));
+  font-weight: 700;
+  color: var(--text-main);
+  overflow-wrap: anywhere;
+}
+
+.power-warning-box {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--limit-banner-bg);
+  border: 1px solid var(--limit-banner-border);
+  font-size: calc(12px * var(--ui-scale));
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.power-warning-box ul {
+  margin: 6px 0 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mono-text {
+  font-family: var(--font-mono);
+}
+
+.page-footer {
+  text-align: center;
+  font-size: calc(11.5px * var(--ui-scale));
+  color: var(--text-muted);
+  padding-top: 4px;
+}
+
+/* Responsive Breakpoints (Tablet, Mobile & High Zoom 200%–400%) */
+@media (max-width: 1024px) {
+  .page-grid-2,
+  .page-grid-equal {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-top-bar {
+    margin: calc(6px + var(--safe-top)) calc(8px + var(--safe-right)) 0 calc(8px + var(--safe-left));
+  }
+
+  .page-shell {
+    padding: 10px calc(8px + var(--safe-right)) calc(24px + var(--safe-bottom)) calc(8px + var(--safe-left));
+    gap: 10px;
+  }
+
+  .chart-canvas-wrap {
+    height: 230px;
+  }
+
+  .tcp-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}

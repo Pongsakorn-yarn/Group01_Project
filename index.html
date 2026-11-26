@@ -99,6 +99,20 @@
       </div>
     </div>
 
+    <nav class="page-nav" aria-label="สลับหน้าต่างระบบโรงงาน (เปิดแท็บใหม่เพื่อไม่ให้กล้องและ USB หลุด)">
+      <a class="page-nav-link active" href="index.html" aria-current="page" title="หน้าควบคุมแขนกล 3D หลัก">
+        <span aria-hidden="true">🧊</span><span>3D Control</span>
+      </a>
+      <a class="page-nav-link" href="dashboard.html" target="_blank" rel="noopener"
+        title="เปิด Factory Dashboard ในแท็บใหม่ (ไม่ตัดกล้อง/USB)">
+        <span aria-hidden="true">📊</span><span>Factory Dashboard</span>
+      </a>
+      <a class="page-nav-link" href="diagnostics.html" target="_blank" rel="noopener"
+        title="เปิด IoT Diagnostics ในแท็บใหม่ (ไม่ตัดกล้อง/USB)">
+        <span aria-hidden="true">🔧</span><span>IoT Diagnostics</span>
+      </a>
+    </nav>
+
     <div class="top-bar-actions">
       <!-- ป้ายสถานะระบบทั้ง 3 (แสดงตลอดเวลาตามหลัก Visibility of System Status) -->
       <div class="status-pills" id="status-pills" aria-live="polite">
@@ -690,8 +704,9 @@
   <!-- ระบบแจ้งเตือนแบบ Non-Blocking Toast แทน alert() -->
   <div class="toast-container" id="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
 
-  <!-- SECTION 06: โหลดชุดข้อมูลเรขาคณิต CAD 39 ชิ้น และสมองประมวลผลหลัก -->
+  <!-- SECTION 06: โหลดชุดข้อมูลเรขาคณิต CAD 39 ชิ้น, บัสซิงก์หลายหน้าต่าง และสมองประมวลผลหลัก -->
   <script src="js/arm_cad_data.js"></script>
+  <script src="js/factory_bus.js"></script>
   <script src="js/app.js"></script>
 </body>
 
