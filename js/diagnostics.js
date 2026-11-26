@@ -18,6 +18,10 @@
   Bus.initNavigationDrawer({ windowName: 'arm4dof_diagnostics' });
 
   const bus = Bus.createBus('diagnostics');
+  Bus.initCloudModal(bus, {
+    roleHint: 'dash_viewer',
+    triggerIds: ['btn-cloud-mqtt']
+  });
 
   const ui = {
     liveDot: document.getElementById('diag-live-dot'),

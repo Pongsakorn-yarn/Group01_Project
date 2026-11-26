@@ -86,6 +86,11 @@
           <span class="dot warn" id="dash-live-dot" aria-hidden="true"></span>
           <span id="dash-live-text">Standby / Waiting</span>
         </div>
+        <button type="button" class="pill" id="btn-cloud-mqtt" style="cursor:pointer;"
+          title="เชื่อมต่อ EMQX Cloud Serverless เพื่อรับข้อมูล Dashboard แบบไร้สายข้ามเครื่อง">
+          <span class="dot" id="cloud-dot" aria-hidden="true"></span>
+          <span id="cloud-status-text">Cloud: Offline</span>
+        </button>
       </div>
       <div class="top-bar-btns">
         <button type="button" class="btn-icon" id="btn-cycle-theme" aria-label="สลับธีมสี Dark, Light หรือ Auto"
@@ -407,6 +412,7 @@
     </footer>
   </main>
 
+  <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
   <script src="js/factory_bus.js"></script>
   <script src="js/dashboard.js"></script>
 </body>

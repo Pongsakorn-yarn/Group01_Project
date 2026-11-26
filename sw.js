@@ -2,7 +2,7 @@
  * Service Worker สำหรับ 4-DOF Robotic Arm Digital Twin (PWA)
  * ใช้กลยุทธ์ Network-First เพื่อให้ได้อัปเดตล่าสุดเสมอ และ fallback ไปที่แคชเมื่อออฟไลน์
  */
-const CACHE_NAME = 'arm-4dof-twin-v20';
+const CACHE_NAME = 'arm-4dof-twin-v21';
 const CORE_ASSETS = [
   './',
   './home.html',

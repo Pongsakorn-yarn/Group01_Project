@@ -19,6 +19,10 @@
   Bus.initNavigationDrawer({ windowName: 'arm4dof_dashboard' });
 
   const bus = Bus.createBus('dashboard');
+  Bus.initCloudModal(bus, {
+    roleHint: 'dash_viewer',
+    triggerIds: ['btn-cloud-mqtt']
+  });
 
   const ui = {
     liveDot: document.getElementById('dash-live-dot'),

@@ -19,5 +19,9 @@ __pycache__/
 .env
 .env.local
 
+# IoT Firmware credentials & TLS secrets (NEVER commit real passwords)
+arduino_servo_bridge/secrets.h
+**/secrets.h
+
 # Exported release packages
 *.zip

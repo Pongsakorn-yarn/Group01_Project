@@ -2494,6 +2494,7 @@
     // ซิงก์คำสั่งขอบเขตความปลอดภัย LIMIT:... ไปยังบอร์ดแบบไม่ชนกับแพ็กเก็ตองศา (รองรับบอร์ดรุ่นเก่าโดยไม่ Error)
     if (state.pendingLimitSync) {
       state.pendingLimitSync = false;
+      cloudLimitPending = true;
       state.serialSending = true;
       const limitCmd = buildLimitCommandString();
       try {
@@ -2553,6 +2554,92 @@
       await disconnectSerial();
     } finally {
       state.serialSending = false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // SECTION 10B: การสื่อสารไร้สายผ่าน EMQX Cloud Serverless (MQTT over WSS)
+  // ---------------------------------------------------------------------------
+  let cloudLimitPending = false;
+  let lastCloudConnected = false;
+  let lastCloudBoardOnline = false;
+
+  if (window.ArmFactoryBus && factoryBus) {
+    window.ArmFactoryBus.initCloudModal(factoryBus, {
+      roleHint: 'arm_operator',
+      triggerIds: ['btn-cloud-mqtt', 'btn-connect-cloud'],
+      onStatusChange(st) {
+        const btnCloudCard = document.getElementById('btn-connect-cloud');
+        const connected = st.status === 'connected';
+        if (btnCloudCard) {
+          btnCloudCard.textContent = connected
+            ? (st.boardOnline ? '☁️ EMQX Cloud: S3 Online (ตั้งค่า/ตัดการเชื่อมต่อ)' : '☁️ EMQX Cloud: Connected (รอบอร์ด S3...)')
+            : '☁️ เชื่อมต่อไร้สายผ่าน EMQX Cloud (MQTT)';
+        }
+        if (connected && !lastCloudConnected) {
+          cloudLimitPending = true;
+          showToast('เชื่อมต่อ EMQX Cloud Serverless (WSS TLS) สำเร็จ', 'success', 3000);
+          logFactoryEvent('success', 'CLOUD', 'เชื่อมต่อ EMQX Cloud Serverless สำเร็จ', `${st.host}:${st.port}`);
+        } else if (!connected && lastCloudConnected && st.status === 'disconnected') {
+          logFactoryEvent('info', 'CLOUD', 'ตัดการเชื่อมต่อ EMQX Cloud แล้ว');
+        }
+        if (st.boardOnline && !lastCloudBoardOnline) {
+          cloudLimitPending = true;
+          showToast('บอร์ด GOOUUU ESP32-S3-CAM ออนไลน์ผ่าน EMQX Cloud พร้อมรับคำสั่งแล้ว', 'success', 3500);
+          logFactoryEvent('success', 'CLOUD', 'บอร์ด GOOUUU ESP32-S3-CAM ออนไลน์ผ่าน Wi-Fi/MQTT (LWT: ONLINE)');
+        } else if (!st.boardOnline && lastCloudBoardOnline && connected) {
+          showToast('บอร์ด GOOUUU ESP32-S3-CAM ออฟไลน์ (LWT: OFFLINE)', 'warn', 4000);
+          logFactoryEvent('warn', 'CLOUD', 'บอร์ด GOOUUU ESP32-S3-CAM ออฟไลน์ (LWT: OFFLINE)');
+        }
+        lastCloudConnected = connected;
+        lastCloudBoardOnline = Boolean(st.boardOnline);
+      }
+    });
+
+    factoryBus.on('remoteEstop', (isStop) => {
+      if (typeof isStop === 'boolean' && isStop !== state.estop) {
+        toggleEstop(isStop, true);
+      }
+    });
+  }
+
+  /**
+   * ส่งคำสั่งแขนกลออกทาง EMQX Cloud (MQTT over WSS) แบบ Rate-Limited (~6.6 Hz + Deadband)
+   * เพื่อให้สอดคล้องกับโควตาฟรี EMQX Cloud Serverless (<= 10 msg/s) โดยไม่กระทบ 60 FPS 3D Render
+   */
+  function sendCloudTelemetry() {
+    if (!factoryBus || !factoryBus.isCloudConnected()) return;
+
+    if (cloudLimitPending || (state.pendingLimitSync && !state.serialWriter)) {
+      cloudLimitPending = false;
+      if (!state.serialWriter) state.pendingLimitSync = false;
+      const limitCmd = buildLimitCommandString().trim();
+      if (factoryBus.publishCloudLimit(limitCmd)) {
+        factoryMetrics.serial.lastLimitCmd = limitCmd;
+        recordSerialPacket('LIM', `[CLOUD] ${limitCmd}`);
+        logFactoryEvent('info', 'CLOUD', 'ซิงก์ขอบเขต Servo ขึ้น EMQX Cloud (QoS 1, Retain)', limitCmd);
+      }
+      return;
+    }
+
+    if (state.estop) return;
+
+    const safePose = clampJointTargets(state.current, false);
+    const safeGripL = THREE.MathUtils.clamp(state.currentGrip.left, jointLimits.j4.min, jointLimits.j4.max);
+    const safeGripR = THREE.MathUtils.clamp(state.currentGrip.right, jointLimits.j4.min, jointLimits.j4.max);
+    const pwmBase = axisValueToPwm('j1', safePose.j1);
+    const pwmGripL = axisValueToPwm('j4', safeGripL);
+    const pwmGripR = axisValueToPwm('j4', safeGripR);
+
+    if (factoryBus.publishCloudArmCmd(pwmBase, pwmGripL, pwmGripR)) {
+      const pkt = `${pwmBase},${pwmGripL},${pwmGripR}`;
+      if (!state.serialPort) {
+        factoryMetrics.serial.lastPacket = pkt;
+        factoryMetrics.serial.txCount += 1;
+        if (factoryMetrics.serial.txCount % 2 === 1) {
+          recordSerialPacket('TX', `[CLOUD] ${pkt}`);
+        }
+      }
     }
   }
 
@@ -2978,11 +3065,12 @@
     // 5. ตรวจสอบขนาด Canvas เทียบกับ Viewport จริงทุกเฟรม (มาตรฐาน Three.js resizeRendererToDisplaySize)
     syncRendererToDisplaySize();
 
-    // 6. อัปเดต HUD, ป้าย LIMIT, จลนศาสตร์ 3 มิติ, ส่งคำสั่ง Serial, ส่ง Telemetry ข้ามหน้าต่าง และเรนเดอร์ฉาก
+    // 6. อัปเดต HUD, ป้าย LIMIT, จลนศาสตร์ 3 มิติ, ส่งคำสั่ง Serial/Cloud, ส่ง Telemetry ข้ามหน้าต่าง และเรนเดอร์ฉาก
     updateJointLabels();
     updateLimitIndicatorsUI();
     updateArmKinematics();
     sendSerialTelemetry(now);
+    sendCloudTelemetry();
     publishFactoryTelemetry(now, false);
 
     controls.update();
@@ -3026,12 +3114,15 @@
     const qualityPct = anyLimitClamped ? 96.5 : 100.0;
     const oeePct = +((availabilityPct / 100) * (performancePct / 100) * (qualityPct / 100) * 100).toFixed(1);
 
+    const cloudSt = factoryBus && typeof factoryBus.getCloudState === 'function' ? factoryBus.getCloudState() : null;
+    const cloudConnected = Boolean(cloudSt && cloudSt.status === 'connected');
+
     let machineState = 'STANDBY';
     if (state.estop) {
       machineState = 'E-STOP';
     } else if (anyLimitClamped) {
       machineState = 'LIMIT WARNING';
-    } else if (state.camRunning || state.demoMode || state.playing || state.serialPort) {
+    } else if (state.camRunning || state.demoMode || state.playing || state.serialPort || (cloudConnected && cloudSt.boardOnline)) {
       machineState = 'RUNNING';
     }
 
@@ -3062,17 +3153,25 @@
         pinchPct: factoryMetrics.pinchPct
       },
       serial: {
-        supported: Boolean(serialSupported),
-        connected: Boolean(state.serialPort),
-        boardReady: Boolean(state.boardReady),
-        statusText: ui.serialStatusText ? ui.serialStatusText.textContent : 'IoT Serial: Disconnected',
-        baudRate: 115200,
-        txHz: state.serialPort ? factoryMetrics.serial.txHz : 0,
+        supported: Boolean(serialSupported || cloudConnected),
+        connected: Boolean(state.serialPort || cloudConnected),
+        boardReady: Boolean(state.boardReady || (cloudConnected && cloudSt.boardOnline)),
+        statusText: state.serialPort
+          ? (ui.serialStatusText ? ui.serialStatusText.textContent : 'IoT Serial: Connected')
+          : cloudConnected
+            ? (cloudSt.boardOnline ? 'EMQX Cloud: S3-CAM Online (WSS)' : 'EMQX Cloud: Connected (Board Offline)')
+            : (ui.serialStatusText ? ui.serialStatusText.textContent : 'IoT Serial: Disconnected'),
+        baudRate: state.serialPort ? 115200 : cloudConnected ? 8084 : 115200,
+        txHz: state.serialPort ? factoryMetrics.serial.txHz : cloudConnected ? cloudSt.txHz : 0,
         txCount: factoryMetrics.serial.txCount,
         lastPacket: factoryMetrics.serial.lastPacket || `${hwPwm.base},${hwPwm.gripL},${hwPwm.gripR}`,
         lastLimitCmd: factoryMetrics.serial.lastLimitCmd || buildLimitCommandString().trim(),
-        lastHandshake: factoryMetrics.serial.lastHandshake,
-        limitsAcked: Boolean(factoryMetrics.serial.limitsAcked),
+        lastHandshake: state.serialPort
+          ? factoryMetrics.serial.lastHandshake
+          : cloudConnected
+            ? (cloudSt.boardOnline ? `EMQX LWT: ONLINE (${cloudSt.boardState ? cloudSt.boardState.rssi + ' dBm' : 'Wi-Fi'})` : 'EMQX Connected (Waiting LWT)')
+            : factoryMetrics.serial.lastHandshake,
+        limitsAcked: Boolean(factoryMetrics.serial.limitsAcked || (cloudConnected && cloudSt.lastLimitCmd)),
         recentPackets: factoryMetrics.serial.recentPackets.slice(0, 24)
       },
       safety: {
@@ -3217,9 +3316,12 @@
   });
 
   // ระบบหยุดฉุกเฉิน (Emergency Stop / E-Stop) และคีย์ลัดมาตรฐาน
-  function toggleEstop(forceState) {
+  function toggleEstop(forceState, fromRemoteCloud = false) {
     const next = typeof forceState === 'boolean' ? forceState : !state.estop;
     state.estop = next;
+    if (!fromRemoteCloud && factoryBus && factoryBus.isCloudConnected()) {
+      factoryBus.publishCloudEstop(state.estop);
+    }
     if (ui.btnEstop) {
       ui.btnEstop.setAttribute('aria-pressed', String(state.estop));
       const labelEl = ui.btnEstop.querySelector('.btn-estop-label');

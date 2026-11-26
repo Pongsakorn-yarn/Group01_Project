@@ -16,8 +16,21 @@
   const EVENTS_KEY = 'arm4dof_factory_events_v1';
   const DISPLAY_STORAGE_KEY = 'arm4dof_display_settings_v1';
   const JOINT_LIMITS_STORAGE_KEY = 'arm4dof_joint_limits_v1';
+  const CLOUD_CONFIG_KEY = 'arm4dof_cloud_mqtt_cfg_v1';
+  const CLOUD_PWD_SESSION_KEY = 'arm4dof_cloud_mqtt_pwd_v1';
   const MAX_EVENTS = 200;
   const LIVE_STALE_MS = 2600;
+
+  const CLOUD_DEFAULTS = Object.freeze({
+    host: 'h0ace9f7.ala.asia-southeast1.emqxsl.com',
+    port: 8084,
+    path: '/mqtt',
+    topicPrefix: 'kmutt/isy49303/group01/arm01',
+    username: '',
+    password: '',
+    rememberPassword: false,
+    autoConnect: false
+  });
 
   const HARD_LIMITS = Object.freeze({
     j1: Object.freeze({ min: -90, max: 90, pwmMin: 0, pwmMax: 180, unit: '°', label: 'DOF 1: Base Yaw (MG996R)', shortLabel: 'S1 Base (MG996R)', isHardware: true, hwTag: 'HW · GPIO 1' }),
@@ -223,6 +236,73 @@
     }
   }
 
+  function readCloudConfig() {
+    const out = { ...CLOUD_DEFAULTS };
+    try {
+      const raw = localStorage.getItem(CLOUD_CONFIG_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          if (typeof parsed.host === 'string' && parsed.host.trim()) out.host = parsed.host.trim();
+          const p = Number(parsed.port);
+          if (Number.isFinite(p) && p > 0 && p <= 65535) out.port = Math.round(p);
+          if (typeof parsed.path === 'string' && parsed.path.trim()) out.path = parsed.path.trim();
+          if (typeof parsed.topicPrefix === 'string' && parsed.topicPrefix.trim()) {
+            out.topicPrefix = parsed.topicPrefix.trim().replace(/\/+$/, '');
+          }
+          if (typeof parsed.username === 'string') out.username = parsed.username.trim();
+          out.rememberPassword = Boolean(parsed.rememberPassword);
+          out.autoConnect = Boolean(parsed.autoConnect);
+          if (out.rememberPassword && typeof parsed.password === 'string') {
+            out.password = parsed.password;
+          }
+        }
+      }
+      if (!out.password) {
+        const sessionPwd = sessionStorage.getItem(CLOUD_PWD_SESSION_KEY);
+        if (typeof sessionPwd === 'string' && sessionPwd.length > 0) {
+          out.password = sessionPwd;
+        }
+      }
+    } catch (_) { /* ignore */ }
+    return out;
+  }
+
+  function saveCloudConfig(cfgInput) {
+    const cur = readCloudConfig();
+    const next = {
+      host: String(cfgInput.host || cur.host || CLOUD_DEFAULTS.host).trim(),
+      port: Number(cfgInput.port) || cur.port || CLOUD_DEFAULTS.port,
+      path: String(cfgInput.path || cur.path || CLOUD_DEFAULTS.path).trim() || '/mqtt',
+      topicPrefix: String(cfgInput.topicPrefix || cur.topicPrefix || CLOUD_DEFAULTS.topicPrefix).trim().replace(/\/+$/, ''),
+      username: String(cfgInput.username ?? cur.username ?? '').trim(),
+      password: String(cfgInput.password ?? cur.password ?? ''),
+      rememberPassword: Boolean(cfgInput.rememberPassword),
+      autoConnect: Boolean(cfgInput.autoConnect)
+    };
+    try {
+      const toLocal = {
+        host: next.host,
+        port: next.port,
+        path: next.path,
+        topicPrefix: next.topicPrefix,
+        username: next.username,
+        rememberPassword: next.rememberPassword,
+        autoConnect: next.autoConnect
+      };
+      if (next.rememberPassword) {
+        toLocal.password = next.password;
+      }
+      localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify(toLocal));
+      if (next.password) {
+        sessionStorage.setItem(CLOUD_PWD_SESSION_KEY, next.password);
+      } else {
+        sessionStorage.removeItem(CLOUD_PWD_SESSION_KEY);
+      }
+    } catch (_) { /* ignore */ }
+    return next;
+  }
+
   function createBus(role = 'listener') {
     let channel = null;
     try {
@@ -238,7 +318,10 @@
       event: new Set(),
       eventsCleared: new Set(),
       theme: new Set(),
-      requestSnapshot: new Set()
+      requestSnapshot: new Set(),
+      cloudStatus: new Set(),
+      boardState: new Set(),
+      remoteEstop: new Set()
     };
 
     function emit(kind, payload) {
@@ -250,6 +333,260 @@
           console.warn('FactoryBus listener error:', err);
         }
       });
+    }
+
+    // -------------------------------------------------------------------------
+    // EMQX Cloud Serverless MQTT over WSS (:8084) Transport Layer
+    // จำกัดอัตราการส่งให้เหมาะกับ EMQX Serverless (<= 10 msg/s per client)
+    // -------------------------------------------------------------------------
+    let mqttClient = null;
+    let activeCloudCfg = readCloudConfig();
+    let lastCloudTelemetryAt = 0;
+    let lastCloudCmdAt = 0;
+    let lastCloudCmdPayload = '';
+    let cloudTxWindowStart = performance.now();
+    let cloudTxWindowCount = 0;
+
+    const cloudState = {
+      status: 'disconnected', // 'disconnected' | 'connecting' | 'connected' | 'error'
+      error: '',
+      host: activeCloudCfg.host,
+      port: activeCloudCfg.port,
+      username: activeCloudCfg.username,
+      topicPrefix: activeCloudCfg.topicPrefix,
+      boardOnline: false,
+      boardStatusText: 'OFFLINE',
+      boardState: null,
+      txCount: 0,
+      txHz: 0,
+      lastCmd: '',
+      lastLimitCmd: ''
+    };
+
+    function getCloudSnapshot() {
+      return {
+        ...cloudState,
+        boardState: cloudState.boardState ? { ...cloudState.boardState } : null
+      };
+    }
+
+    function notifyCloudStatus() {
+      emit('cloudStatus', getCloudSnapshot());
+    }
+
+    function disconnectCloud(reason = '') {
+      if (mqttClient) {
+        try {
+          mqttClient.end(true);
+        } catch (_) { /* ignore */ }
+        mqttClient = null;
+      }
+      cloudState.status = 'disconnected';
+      cloudState.error = reason || '';
+      cloudState.txHz = 0;
+      cloudTxWindowCount = 0;
+      notifyCloudStatus();
+    }
+
+    function connectCloud(cfgInput) {
+      if (typeof global.mqtt === 'undefined' || typeof global.mqtt.connect !== 'function') {
+        cloudState.status = 'error';
+        cloudState.error = 'ไม่พบไลบรารี MQTT.js (กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต)';
+        notifyCloudStatus();
+        return false;
+      }
+
+      const cfg = cfgInput ? saveCloudConfig(cfgInput) : readCloudConfig();
+      activeCloudCfg = cfg;
+
+      if (!cfg.host || !cfg.username || !cfg.password) {
+        cloudState.status = 'error';
+        cloudState.error = 'กรุณากรอก Host, Username และ Password ของ EMQX Cloud ให้ครบ';
+        notifyCloudStatus();
+        return false;
+      }
+
+      if (mqttClient) {
+        try {
+          mqttClient.end(true);
+        } catch (_) { /* ignore */ }
+        mqttClient = null;
+      }
+
+      const cleanPath = cfg.path.startsWith('/') ? cfg.path : `/${cfg.path}`;
+      const brokerUrl = `wss://${cfg.host}:${cfg.port}${cleanPath}`;
+      const clientId = `group01-${role}-${Math.random().toString(16).slice(2, 8)}`;
+      const prefix = cfg.topicPrefix;
+
+      cloudState.status = 'connecting';
+      cloudState.error = '';
+      cloudState.host = cfg.host;
+      cloudState.port = cfg.port;
+      cloudState.username = cfg.username;
+      cloudState.topicPrefix = prefix;
+      notifyCloudStatus();
+
+      try {
+        mqttClient = global.mqtt.connect(brokerUrl, {
+          clientId,
+          username: cfg.username,
+          password: cfg.password,
+          clean: true,
+          connectTimeout: 10000,
+          reconnectPeriod: 4000,
+          keepalive: 30
+        });
+      } catch (err) {
+        cloudState.status = 'error';
+        cloudState.error = err && err.message ? err.message : 'ไม่สามารถสร้างการเชื่อมต่อ WSS ได้';
+        notifyCloudStatus();
+        return false;
+      }
+
+      mqttClient.on('connect', () => {
+        cloudState.status = 'connected';
+        cloudState.error = '';
+        notifyCloudStatus();
+
+        const subs = [`${prefix}/status`, `${prefix}/state`];
+        if (role !== 'station') {
+          subs.push(`${prefix}/telemetry`, `${prefix}/events`);
+        } else {
+          subs.push(`${prefix}/estop`);
+        }
+        mqttClient.subscribe(subs, { qos: 0 }, (err) => {
+          if (err) {
+            console.warn('EMQX Cloud subscribe warning:', err);
+          }
+        });
+      });
+
+      mqttClient.on('reconnect', () => {
+        cloudState.status = 'connecting';
+        notifyCloudStatus();
+      });
+
+      mqttClient.on('close', () => {
+        if (mqttClient) {
+          cloudState.status = 'disconnected';
+          cloudState.txHz = 0;
+          notifyCloudStatus();
+        }
+      });
+
+      mqttClient.on('error', (err) => {
+        cloudState.status = 'error';
+        cloudState.error = err && err.message ? err.message : 'การเชื่อมต่อ EMQX Cloud ล้มเหลว (ตรวจสอบ Username/Password หรือ ACL)';
+        notifyCloudStatus();
+      });
+
+      mqttClient.on('message', (topic, payloadBuf) => {
+        const text = payloadBuf ? payloadBuf.toString() : '';
+        if (topic === `${prefix}/status`) {
+          const upper = text.trim().toUpperCase();
+          cloudState.boardOnline = upper === 'ONLINE';
+          cloudState.boardStatusText = upper || 'OFFLINE';
+          notifyCloudStatus();
+          return;
+        }
+        if (topic === `${prefix}/state`) {
+          try {
+            const parsed = JSON.parse(text);
+            cloudState.boardState = { ...parsed, receivedAt: Date.now() };
+            cloudState.boardOnline = true;
+            cloudState.boardStatusText = 'ONLINE';
+            emit('boardState', cloudState.boardState);
+            notifyCloudStatus();
+          } catch (_) { /* ignore malformed */ }
+          return;
+        }
+        if (topic === `${prefix}/estop` && role === 'station') {
+          try {
+            const parsed = JSON.parse(text);
+            if (typeof parsed.estop === 'boolean') {
+              emit('remoteEstop', parsed.estop);
+            }
+          } catch (_) {
+            const isStop = text.trim() === '1' || text.trim().toLowerCase() === 'true';
+            emit('remoteEstop', isStop);
+          }
+          return;
+        }
+        if (topic === `${prefix}/telemetry` && role !== 'station') {
+          try {
+            const snap = JSON.parse(text);
+            if (snap && typeof snap === 'object') {
+              snap._transport = 'cloud_mqtt';
+              emit('telemetry', snap);
+            }
+          } catch (_) { /* ignore */ }
+          return;
+        }
+        if (topic === `${prefix}/events` && role !== 'station') {
+          try {
+            const ev = JSON.parse(text);
+            if (ev && typeof ev === 'object') {
+              emit('event', ev);
+            }
+          } catch (_) { /* ignore */ }
+        }
+      });
+
+      return true;
+    }
+
+    function publishCloudArmCmd(base, gripL, gripR, forceNow = false) {
+      if (!mqttClient || !mqttClient.connected) return false;
+      const now = performance.now();
+      const payload = `${base},${gripL},${gripR}`;
+      const unchanged = payload === lastCloudCmdPayload;
+      // จำกัดสูงสุด ~6.6 Hz (>=150 ms) + Deadband เพื่อไม่ให้ชนลิมิต 10 msg/s ของ EMQX Serverless
+      if (!forceNow) {
+        if (now - lastCloudCmdAt < 150) return false;
+        if (unchanged && now - lastCloudCmdAt < 1800) return false;
+      }
+      lastCloudCmdAt = now;
+      lastCloudCmdPayload = payload;
+      try {
+        mqttClient.publish(`${activeCloudCfg.topicPrefix}/cmd`, payload, { qos: 0, retain: false });
+        cloudState.txCount += 1;
+        cloudState.lastCmd = payload;
+        cloudTxWindowCount += 1;
+        if (now - cloudTxWindowStart >= 1000) {
+          cloudState.txHz = +((cloudTxWindowCount * 1000) / Math.max(1, now - cloudTxWindowStart)).toFixed(1);
+          cloudTxWindowCount = 0;
+          cloudTxWindowStart = now;
+        }
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function publishCloudLimit(limitCmd) {
+      if (!mqttClient || !mqttClient.connected) return false;
+      const clean = String(limitCmd || '').trim();
+      if (!clean) return false;
+      try {
+        mqttClient.publish(`${activeCloudCfg.topicPrefix}/limit`, clean, { qos: 1, retain: true });
+        cloudState.lastLimitCmd = clean;
+        cloudState.txCount += 1;
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function publishCloudEstop(isEstop) {
+      if (!mqttClient || !mqttClient.connected) return false;
+      try {
+        const payload = JSON.stringify({ estop: Boolean(isEstop), ts: Date.now() });
+        mqttClient.publish(`${activeCloudCfg.topicPrefix}/estop`, payload, { qos: 1, retain: false });
+        cloudState.txCount += 1;
+        return true;
+      } catch (_) {
+        return false;
+      }
     }
 
     if (channel) {
@@ -333,6 +670,31 @@
           lastPersistAt = now;
           writeSnapshot(snapshot);
         }
+        // ส่ง Telemetry ขึ้น EMQX Cloud (~2.2 Hz) เพื่อประหยัดโควตาและไม่ชนลิมิต 10 msg/s ของ EMQX Serverless
+        if (role === 'station' && mqttClient && mqttClient.connected) {
+          const minGap = forcePersist ? 180 : 450;
+          if (now - lastCloudTelemetryAt >= minGap) {
+            lastCloudTelemetryAt = now;
+            try {
+              const slim = {
+                ...snapshot,
+                cloud: getCloudSnapshot(),
+                serial: snapshot.serial
+                  ? {
+                      ...snapshot.serial,
+                      recentPackets: Array.isArray(snapshot.serial.recentPackets)
+                        ? snapshot.serial.recentPackets.slice(0, 10)
+                        : []
+                    }
+                  : undefined
+              };
+              mqttClient.publish(`${activeCloudCfg.topicPrefix}/telemetry`, JSON.stringify(slim), {
+                qos: 0,
+                retain: false
+              });
+            } catch (_) { /* ignore */ }
+          }
+        }
       },
       pushEvent(level, category, message, detail = '') {
         const ev = {
@@ -350,6 +712,14 @@
         if (channel) {
           try {
             channel.postMessage({ type: 'event', payload: ev });
+          } catch (_) { /* ignore */ }
+        }
+        if (role === 'station' && mqttClient && mqttClient.connected) {
+          try {
+            mqttClient.publish(`${activeCloudCfg.topicPrefix}/events`, JSON.stringify(ev), {
+              qos: 0,
+              retain: false
+            });
           } catch (_) { /* ignore */ }
         }
         emit('event', ev);
@@ -378,7 +748,17 @@
           } catch (_) { /* ignore */ }
         }
       },
+      connectCloud,
+      disconnectCloud,
+      getCloudState: getCloudSnapshot,
+      isCloudConnected() {
+        return Boolean(mqttClient && mqttClient.connected);
+      },
+      publishCloudArmCmd,
+      publishCloudLimit,
+      publishCloudEstop,
       close() {
+        disconnectCloud();
         if (channel) {
           try {
             channel.close();
@@ -524,12 +904,259 @@
     });
   }
 
+  /**
+   * สร้างและผูกหน้าต่างตั้งค่าการเชื่อมต่อ EMQX Cloud Serverless (MQTT over WSS :8084)
+   * ใช้ร่วมกันได้ทุกหน้า (index.html, dashboard.html, diagnostics.html) โดยไม่ฝังรหัสผ่านลงโค้ด
+   */
+  function initCloudModal(bus, options = {}) {
+    if (!bus) return null;
+    const roleHint = options.roleHint || 'dash_viewer';
+    const triggerIds = Array.isArray(options.triggerIds) ? options.triggerIds : ['btn-cloud-mqtt'];
+    const dotEl = document.getElementById(options.dotId || 'cloud-dot');
+    const textEl = document.getElementById(options.textId || 'cloud-status-text');
+    const onStatusChange = typeof options.onStatusChange === 'function' ? options.onStatusChange : null;
+
+    let backdrop = document.getElementById('cloud-mqtt-backdrop');
+    if (!backdrop) {
+      backdrop = document.createElement('div');
+      backdrop.className = 'settings-backdrop';
+      backdrop.id = 'cloud-mqtt-backdrop';
+      backdrop.hidden = true;
+      backdrop.innerHTML = `
+        <div class="settings-dialog" id="cloud-mqtt-modal" role="dialog" aria-modal="true"
+          aria-labelledby="cloud-mqtt-title" tabindex="-1" style="max-width:480px;">
+          <div class="settings-header">
+            <h2 class="settings-title" id="cloud-mqtt-title">☁️ EMQX Cloud Serverless (MQTT WSS)</h2>
+            <button type="button" class="btn-modal-close" id="btn-close-cloud-modal" aria-label="ปิดหน้าต่าง" title="ปิด (Esc)">✕</button>
+          </div>
+          <div class="settings-body">
+            <div class="setting-group" style="margin-bottom:10px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                <span class="setting-label" style="margin:0;">สถานะการเชื่อมต่อ Cloud</span>
+                <span class="setting-badge" id="cloud-modal-badge">Disconnected</span>
+              </div>
+              <p class="helper-text" id="cloud-modal-board-info" style="margin:6px 0 0;">
+                บอร์ด GOOUUU ESP32-S3-CAM: <strong>OFFLINE</strong>
+              </p>
+              <p class="helper-text" id="cloud-modal-error" style="margin:4px 0 0;color:#fb7185;" hidden></p>
+            </div>
+
+            <div class="setting-group">
+              <label class="setting-label" for="cloud-input-host">EMQX Cloud Broker Host (WSS)</label>
+              <input type="text" class="limit-num-input" id="cloud-input-host" style="width:100%;text-align:left;"
+                placeholder="h0ace9f7.ala.asia-southeast1.emqxsl.com" autocomplete="off" />
+            </div>
+
+            <div class="limit-input-pair" style="margin-bottom:10px;">
+              <div class="limit-field">
+                <label class="limit-field-label" for="cloud-input-port">WSS Port</label>
+                <input type="number" class="limit-num-input" id="cloud-input-port" min="1" max="65535" value="8084" />
+              </div>
+              <div class="limit-field">
+                <label class="limit-field-label" for="cloud-input-path">WS Path</label>
+                <input type="text" class="limit-num-input" id="cloud-input-path" style="text-align:left;" value="/mqtt" />
+              </div>
+            </div>
+
+            <div class="setting-group">
+              <label class="setting-label" for="cloud-input-prefix">Topic Prefix (ISA-95 / UNS)</label>
+              <input type="text" class="limit-num-input" id="cloud-input-prefix" style="width:100%;text-align:left;"
+                placeholder="kmutt/isy49303/group01/arm01" autocomplete="off" />
+            </div>
+
+            <div class="limit-input-pair" style="margin-bottom:10px;">
+              <div class="limit-field">
+                <label class="limit-field-label" for="cloud-input-user">Username (แนะนำ: ${roleHint})</label>
+                <input type="text" class="limit-num-input" id="cloud-input-user" style="text-align:left;"
+                  placeholder="${roleHint}" autocomplete="username" />
+              </div>
+              <div class="limit-field">
+                <label class="limit-field-label" for="cloud-input-pass">Password</label>
+                <input type="password" class="limit-num-input" id="cloud-input-pass" style="text-align:left;"
+                  placeholder="••••••••" autocomplete="current-password" />
+              </div>
+            </div>
+
+            <div class="reset-options-box" style="margin-top:8px;">
+              <label class="reset-check-row">
+                <input type="checkbox" id="cloud-chk-remember" />
+                <span>จำรหัสผ่านบนเบราว์เซอร์เครื่องนี้ (ไม่ส่งขึ้น GitHub)</span>
+              </label>
+              <label class="reset-check-row">
+                <input type="checkbox" id="cloud-chk-autoconnect" />
+                <span>เชื่อมต่อ EMQX Cloud อัตโนมัติเมื่อเปิดหน้าเว็บ</span>
+              </label>
+            </div>
+          </div>
+          <div class="settings-footer">
+            <button type="button" class="btn danger" id="btn-cloud-disconnect" hidden>ตัดการเชื่อมต่อ</button>
+            <button type="button" class="btn primary" id="btn-cloud-connect">☁️ เชื่อมต่อ EMQX Cloud</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(backdrop);
+    }
+
+    const modalEl = document.getElementById('cloud-mqtt-modal');
+    const btnClose = document.getElementById('btn-close-cloud-modal');
+    const btnConnect = document.getElementById('btn-cloud-connect');
+    const btnDisconnect = document.getElementById('btn-cloud-disconnect');
+    const badgeEl = document.getElementById('cloud-modal-badge');
+    const boardInfoEl = document.getElementById('cloud-modal-board-info');
+    const errEl = document.getElementById('cloud-modal-error');
+    const inpHost = document.getElementById('cloud-input-host');
+    const inpPort = document.getElementById('cloud-input-port');
+    const inpPath = document.getElementById('cloud-input-path');
+    const inpPrefix = document.getElementById('cloud-input-prefix');
+    const inpUser = document.getElementById('cloud-input-user');
+    const inpPass = document.getElementById('cloud-input-pass');
+    const chkRemember = document.getElementById('cloud-chk-remember');
+    const chkAuto = document.getElementById('cloud-chk-autoconnect');
+
+    function populateForm() {
+      const cfg = readCloudConfig();
+      if (inpHost) inpHost.value = cfg.host;
+      if (inpPort) inpPort.value = String(cfg.port);
+      if (inpPath) inpPath.value = cfg.path;
+      if (inpPrefix) inpPrefix.value = cfg.topicPrefix;
+      if (inpUser) inpUser.value = cfg.username;
+      if (inpPass) inpPass.value = cfg.password;
+      if (chkRemember) chkRemember.checked = cfg.rememberPassword;
+      if (chkAuto) chkAuto.checked = cfg.autoConnect;
+    }
+
+    function openModal() {
+      populateForm();
+      backdrop.hidden = false;
+      requestAnimationFrame(() => {
+        if (inpUser && !inpUser.value) inpUser.focus();
+        else if (inpPass && !inpPass.value) inpPass.focus();
+        else if (modalEl) modalEl.focus();
+      });
+    }
+
+    function closeModal() {
+      backdrop.hidden = true;
+    }
+
+    function renderCloudStatus(st) {
+      if (!st) return;
+      const connected = st.status === 'connected';
+      const connecting = st.status === 'connecting';
+
+      if (dotEl) {
+        if (connected && st.boardOnline) dotEl.className = 'dot active';
+        else if (connected || connecting) dotEl.className = 'dot warn';
+        else dotEl.className = 'dot';
+      }
+      if (textEl) {
+        if (connected && st.boardOnline) {
+          const rssiTxt = st.boardState && typeof st.boardState.rssi === 'number' ? ` (${st.boardState.rssi} dBm)` : '';
+          textEl.textContent = `Cloud: S3 Online${rssiTxt}`;
+        } else if (connected) {
+          textEl.textContent = 'Cloud: Connected (Board Offline)';
+        } else if (connecting) {
+          textEl.textContent = 'Cloud: Connecting...';
+        } else if (st.status === 'error') {
+          textEl.textContent = 'Cloud: Error';
+        } else {
+          textEl.textContent = 'Cloud: Offline';
+        }
+      }
+
+      if (badgeEl) {
+        badgeEl.textContent = connected ? 'Connected (WSS TLS)' : connecting ? 'Connecting...' : st.status === 'error' ? 'Error' : 'Disconnected';
+      }
+      if (boardInfoEl) {
+        if (st.boardOnline && st.boardState) {
+          boardInfoEl.innerHTML =
+            `บอร์ด GOOUUU ESP32-S3-CAM: <strong style="color:#10b981;">ONLINE</strong> • ` +
+            `HW: Base <code>${st.boardState.b}°</code> / L <code>${st.boardState.gl}°</code> / R <code>${st.boardState.gr}°</code> • ` +
+            `Wi-Fi <code>${st.boardState.rssi} dBm</code>`;
+        } else if (st.boardOnline) {
+          boardInfoEl.innerHTML = 'บอร์ด GOOUUU ESP32-S3-CAM: <strong style="color:#10b981;">ONLINE</strong>';
+        } else {
+          boardInfoEl.innerHTML = 'บอร์ด GOOUUU ESP32-S3-CAM: <strong>OFFLINE</strong>';
+        }
+      }
+      if (errEl) {
+        if (st.error) {
+          errEl.textContent = `⚠️ ${st.error}`;
+          errEl.hidden = false;
+        } else {
+          errEl.hidden = true;
+        }
+      }
+      if (btnDisconnect) btnDisconnect.hidden = !(connected || connecting);
+      if (btnConnect) btnConnect.textContent = connected ? '🔄 เชื่อมต่อใหม่' : '☁️ เชื่อมต่อ EMQX Cloud';
+
+      if (onStatusChange) onStatusChange(st);
+    }
+
+    triggerIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('click', openModal);
+    });
+
+    if (btnClose) btnClose.addEventListener('click', closeModal);
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) closeModal();
+    });
+    window.addEventListener('keydown', (e) => {
+      if (!backdrop.hidden && e.key === 'Escape') {
+        e.preventDefault();
+        closeModal();
+      }
+    });
+
+    if (btnConnect) {
+      btnConnect.addEventListener('click', () => {
+        const ok = bus.connectCloud({
+          host: inpHost ? inpHost.value : CLOUD_DEFAULTS.host,
+          port: inpPort ? Number(inpPort.value) : CLOUD_DEFAULTS.port,
+          path: inpPath ? inpPath.value : CLOUD_DEFAULTS.path,
+          topicPrefix: inpPrefix ? inpPrefix.value : CLOUD_DEFAULTS.topicPrefix,
+          username: inpUser ? inpUser.value : '',
+          password: inpPass ? inpPass.value : '',
+          rememberPassword: Boolean(chkRemember && chkRemember.checked),
+          autoConnect: Boolean(chkAuto && chkAuto.checked)
+        });
+        if (ok) {
+          closeModal();
+        }
+      });
+    }
+
+    if (btnDisconnect) {
+      btnDisconnect.addEventListener('click', () => {
+        bus.disconnectCloud();
+      });
+    }
+
+    bus.on('cloudStatus', renderCloudStatus);
+    renderCloudStatus(bus.getCloudState());
+
+    // Auto-connect ถ้าผู้ใช้เปิดไว้และมี Username/Password พร้อมแล้ว
+    const saved = readCloudConfig();
+    if (saved.autoConnect && saved.host && saved.username && saved.password) {
+      setTimeout(() => {
+        if (!bus.isCloudConnected()) {
+          bus.connectCloud(saved);
+        }
+      }, 300);
+    }
+
+    return { openModal, closeModal, renderCloudStatus };
+  }
+
   global.ArmFactoryBus = Object.freeze({
     CHANNEL_NAME,
     SNAPSHOT_KEY,
     EVENTS_KEY,
     DISPLAY_STORAGE_KEY,
     JOINT_LIMITS_STORAGE_KEY,
+    CLOUD_CONFIG_KEY,
+    CLOUD_DEFAULTS,
     LIVE_STALE_MS,
     HARD_LIMITS,
     PINOUT_SPEC,
@@ -540,6 +1167,8 @@
     readDisplaySettings,
     applySharedDisplaySettings,
     updateThemePreference,
+    readCloudConfig,
+    saveCloudConfig,
     readSnapshot,
     writeSnapshot,
     readEvents,
@@ -547,6 +1176,7 @@
     formatTime,
     formatDateTime,
     createBus,
+    initCloudModal,
     registerServiceWorker,
     openNamedWindow,
     initNavigationDrawer
